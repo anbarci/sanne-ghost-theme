@@ -1,0 +1,138 @@
+<nav class="site-navigation" role="navigation" aria-label="Main navigation">
+    <div class="nav-container">
+        <div class="nav-left">
+            {{#if @site.logo}}
+            <a href="{{@site.url}}" class="site-logo" aria-label="{{@site.title}} homepage">
+                <img src="{{img_url @site.logo}}" alt="{{@site.title}}" class="logo-image">
+            </a>
+            {{else}}
+            <a href="{{@site.url}}" class="site-title-link" aria-label="{{@site.title}} homepage">
+                <h1 class="nav-site-title">{{@site.title}}</h1>
+            </a>
+            {{/if}}
+        </div>
+        
+        <div class="nav-right">
+            {{#if @site.navigation}}
+            <ul class="nav-menu" role="menubar">
+                {{#foreach @site.navigation}}
+                <li class="nav-item" role="none">
+                    <a href="{{url absolute="true"}}" 
+                       class="nav-link {{#if current}}nav-current{{/if}}"
+                       role="menuitem"
+                       {{#unless (match url "^/|^#")}}target="_blank" rel="noopener noreferrer"{{/unless}}>
+                        {{label}}
+                    </a>
+                </li>
+                {{/foreach}}
+            </ul>
+            {{/if}}
+            
+            {{#if @site.members_enabled}}
+            <div class="nav-auth">
+                <a href="#/portal/signin" 
+                   class="nav-signin" 
+                   data-portal="signin"
+                   aria-label="Sign in">
+                    Sign in
+                </a>
+                
+                <a href="#/portal/signup" 
+                   class="nav-signup" 
+                   data-portal="signup"
+                   aria-label="Subscribe">
+                    Subscribe
+                </a>
+            </div>
+            {{/if}}
+            
+            <button class="nav-toggle" 
+                    aria-label="Toggle navigation menu" 
+                    aria-expanded="false"
+                    aria-controls="mobile-menu">
+                <span class="nav-toggle-line"></span>
+                <span class="nav-toggle-line"></span>
+                <span class="nav-toggle-line"></span>
+            </button>
+        </div>
+    </div>
+    
+    {{#if @site.navigation}}
+    <div class="mobile-menu" id="mobile-menu" aria-hidden="true">
+        <ul class="mobile-nav-menu" role="menu">
+            {{#foreach @site.navigation}}
+            <li class="mobile-nav-item" role="none">
+                <a href="{{url absolute="true"}}" 
+                   class="mobile-nav-link {{#if current}}nav-current{{/if}}"
+                   role="menuitem"
+                   {{#unless (match url "^/|^#")}}target="_blank" rel="noopener noreferrer"{{/unless}}>
+                    {{label}}
+                </a>
+            </li>
+            {{/foreach}}
+            
+            {{#if @site.members_enabled}}
+            <li class="mobile-nav-item mobile-auth" role="none">
+                <a href="#/portal/signin" 
+                   class="mobile-nav-link" 
+                   data-portal="signin"
+                   role="menuitem">
+                    Sign in
+                </a>
+            </li>
+            <li class="mobile-nav-item mobile-auth" role="none">
+                <a href="#/portal/signup" 
+                   class="mobile-nav-link" 
+                   data-portal="signup"
+                   role="menuitem">
+                    Subscribe
+                </a>
+            </li>
+            {{/if}}
+        </ul>
+    </div>
+    {{/if}}
+</nav>
+
+<script>
+// Mobile navigation toggle
+(function() {
+    const navToggle = document.querySelector('.nav-toggle');
+    const mobileMenu = document.querySelector('.mobile-menu');
+    
+    if (navToggle && mobileMenu) {
+        navToggle.addEventListener('click', function() {
+            const isExpanded = navToggle.getAttribute('aria-expanded') === 'true';
+            
+            navToggle.setAttribute('aria-expanded', !isExpanded);
+            mobileMenu.setAttribute('aria-hidden', isExpanded);
+            
+            navToggle.classList.toggle('nav-toggle-active');
+            mobileMenu.classList.toggle('mobile-menu-active');
+            document.body.classList.toggle('nav-open');
+        });
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!navToggle.contains(e.target) && !mobileMenu.contains(e.target)) {
+                navToggle.setAttribute('aria-expanded', 'false');
+                mobileMenu.setAttribute('aria-hidden', 'true');
+                navToggle.classList.remove('nav-toggle-active');
+                mobileMenu.classList.remove('mobile-menu-active');
+                document.body.classList.remove('nav-open');
+            }
+        });
+        
+        // Close mobile menu on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                navToggle.setAttribute('aria-expanded', 'false');
+                mobileMenu.setAttribute('aria-hidden', 'true');
+                navToggle.classList.remove('nav-toggle-active');
+                mobileMenu.classList.remove('mobile-menu-active');
+                document.body.classList.remove('nav-open');
+            }
+        });
+    }
+})();
+</script>
