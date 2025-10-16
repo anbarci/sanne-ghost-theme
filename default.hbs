@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{@site.locale}}" {{#match @custom.color_scheme "Dark theme"}}data-theme="dark"{{/match}}>
+<html lang="{{@site.locale}}" {{#match @custom.color_scheme "Dark"}}data-theme="dark"{{/match}}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,47 +12,91 @@
     <meta property="og:type" content="{{#is "post"}}article{{else}}website{{/is}}">
     <meta property="og:url" content="{{url absolute="true"}}">
     <meta property="og:title" content="{{meta_title}}">
-    <meta property="og:description" content="{{excerpt}}">
-    {{#if feature_image}}
-    <meta property="og:image" content="{{img_url feature_image size="l"}}">
-    {{/if}}
     <meta property="og:site_name" content="{{@site.title}}">
+    
+    {{#is "post"}}
+        {{#post}}
+            <meta property="og:description" content="{{excerpt}}">
+            {{#if feature_image}}
+            <meta property="og:image" content="{{img_url feature_image size="l"}}">
+            {{/if}}
+        {{/post}}
+    {{else}}
+        <meta property="og:description" content="{{@site.description}}">
+        {{#if @site.cover_image}}
+        <meta property="og:image" content="{{img_url @site.cover_image size="l"}}">
+        {{/if}}
+    {{/is}}
     
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="{{url absolute="true"}}">
     <meta name="twitter:title" content="{{meta_title}}">
-    <meta name="twitter:description" content="{{excerpt}}">
-    {{#if feature_image}}
-    <meta name="twitter:image" content="{{img_url feature_image size="l"}}">
+    
+    {{#is "post"}}
+        {{#post}}
+            <meta name="twitter:description" content="{{excerpt}}">
+            {{#if feature_image}}
+            <meta name="twitter:image" content="{{img_url feature_image size="l"}}">
+            {{/if}}
+        {{/post}}
+    {{else}}
+        <meta name="twitter:description" content="{{@site.description}}">
+        {{#if @site.cover_image}}
+        <meta name="twitter:image" content="{{img_url @site.cover_image size="l"}}">
+        {{/if}}
+    {{/is}}
+    
+    {{#if @site.twitter}}
+    <meta name="twitter:site" content="{{@site.twitter}}">
     {{/if}}
     
     <!-- Structured Data -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "{{#is "post"}}BlogPosting{{else}}{{#is "page"}}WebPage{{else}}Blog{{/is}}{{/is}}",
+        {{#is "post"}}
+        "@type": "BlogPosting",
+        {{#post}}
+        "headline": "{{title}}",
         "url": "{{url absolute="true"}}",
-        "name": "{{meta_title}}",
+        "datePublished": "{{date format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        "dateModified": "{{date format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        {{#if excerpt}}
         "description": "{{excerpt}}",
+        {{/if}}
         {{#if feature_image}}
         "image": "{{img_url feature_image size="l"}}",
         {{/if}}
-        {{#is "post"}}
-        "datePublished": "{{date format="YYYY-MM-DDTHH:mm:ssZ"}}",
-        "dateModified": "{{date published_at format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        {{#primary_author}}
         "author": {
             "@type": "Person",
-            "name": "{{primary_author.name}}",
-            "url": "{{primary_author.url absolute="true"}}"
+            "name": "{{name}}",
+            "url": "{{url absolute="true"}}"
         },
+        {{/primary_author}}
+        {{/post}}
+        {{else}}
+        {{#is "page"}}
+        "@type": "WebPage",
+        {{else}}
+        "@type": "WebSite",
+        {{/is}}
+        "url": "{{url absolute="true"}}",
+        "name": "{{meta_title}}",
+        "description": "{{@site.description}}",
+        {{/is}}
         "publisher": {
             "@type": "Organization",
             "name": "{{@site.title}}",
             "url": "{{@site.url}}"
-            {{#if @site.logo}},"logo": "{{img_url @site.logo}}"{{/if}}
+            {{#if @site.logo}}
+            ,"logo": {
+                "@type": "ImageObject",
+                "url": "{{img_url @site.logo}}"
+            }
+            {{/if}}
         },
-        {{/is}}
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "{{url absolute="true"}}"
@@ -61,36 +105,43 @@
     </script>
     
     <!-- Theme CSS -->
-    <link rel="stylesheet" type="text/css" href="{{asset "built/app.css"}}">
+    <link rel="stylesheet" type="text/css" href="{{asset "built/screen.css"}}">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    {{#match @custom.typography_style "Modern sans-serif"}}
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    {{/match}}
-    {{#match @custom.typography_style "Elegant serif"}}
-    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-    {{/match}}
-    {{#match @custom.typography_style "Mixed styles"}}
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-    {{/match}}
     
+    <!-- Ghost Head -->
     {{ghost_head}}
 </head>
 
-<body class="{{body_class}} {{#match @custom.typography_style}}typography-{{slugify @custom.typography_style}}{{/match}} {{#match @custom.navigation_layout}}nav-{{slugify @custom.navigation_layout}}{{/match}}">
+<body class="{{body_class}}">
     <div class="site-wrapper">
+        
         {{#is "post"}}
-            {{#if @custom.enable_reading_progress}}
-            <div class="reading-progress">
-                <div class="reading-progress-fill"></div>
-            </div>
-            {{/if}}
+        <div class="reading-progress" aria-hidden="true">
+            <div class="reading-progress-fill"></div>
+        </div>
         {{/is}}
         
         <header class="site-header" role="banner">
-            {{> "navigation"}}
+            <nav class="site-nav">
+                <div class="site-nav-container container">
+                    <div class="site-nav-left">
+                        {{#if @site.logo}}
+                        <a class="site-nav-logo" href="{{@site.url}}">
+                            <img src="{{@site.logo}}" alt="{{@site.title}}">
+                        </a>
+                        {{else}}
+                        <a class="site-nav-logo" href="{{@site.url}}">{{@site.title}}</a>
+                        {{/if}}
+                    </div>
+                    <div class="site-nav-right">
+                        {{navigation}}
+                    </div>
+                </div>
+            </nav>
         </header>
         
         <main class="site-main" role="main">
@@ -98,28 +149,67 @@
         </main>
         
         <footer class="site-footer" role="contentinfo">
-            {{> "footer"}}
+            <div class="site-footer-container container">
+                <div class="site-footer-content">
+                    <div class="site-footer-section">
+                        <div class="copyright">
+                            &copy; {{date format="YYYY"}} {{@site.title}}
+                        </div>
+                    </div>
+                    <div class="site-footer-section">
+                        <nav class="site-footer-nav">
+                            <a href="{{@site.url}}/rss/">RSS</a>
+                            {{#if @site.facebook}}
+                            <a href="{{facebook_url @site.facebook}}" target="_blank" rel="noopener">Facebook</a>
+                            {{/if}}
+                            {{#if @site.twitter}}
+                            <a href="{{twitter_url @site.twitter}}" target="_blank" rel="noopener">Twitter</a>
+                            {{/if}}
+                            <a href="https://ghost.org" target="_blank" rel="noopener">Ghost</a>
+                        </nav>
+                    </div>
+                </div>
+            </div>
         </footer>
+        
     </div>
     
+    <!-- Scripts -->
     {{#is "post"}}
-        {{#if @custom.enable_reading_progress}}
-        <script>
-            // Reading progress bar
-            window.addEventListener('scroll', function() {
-                const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                const scrolled = (winScroll / height) * 100;
-                const progressBar = document.querySelector('.reading-progress-fill');
-                if (progressBar) {
+    <script>
+        // Reading progress bar
+        (function() {
+            var progressBar = document.querySelector('.reading-progress-fill');
+            if (progressBar) {
+                function updateProgress() {
+                    var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+                    var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    var scrolled = (winScroll / height) * 100;
                     progressBar.style.width = scrolled + '%';
                 }
-            });
-        </script>
-        {{/if}}
+                window.addEventListener('scroll', updateProgress);
+                updateProgress();
+            }
+        })();
+    </script>
     {{/is}}
     
-    <script src="{{asset "built/app.js"}}"></script>
+    <script>
+        // Basic theme functionality
+        (function() {
+            // Mobile menu toggle
+            var menuToggle = document.querySelector('.menu-toggle');
+            var siteNav = document.querySelector('.site-nav');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function() {
+                    siteNav.classList.toggle('nav-open');
+                });
+            }
+        })();
+    </script>
+    
+    <!-- Ghost Foot -->
     {{ghost_foot}}
 </body>
 </html>
