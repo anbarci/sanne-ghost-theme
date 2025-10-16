@@ -1,0 +1,96 @@
+{
+    "name": "sanne-theme",
+    "description": "A premium Ghost theme inspired by Sanne de Vries' design with semantic SEO structure and social sharing",
+    "version": "1.0.0",
+    "private": true,
+    "engines": {
+        "ghost": ">=5.0.0"
+    },
+    "license": "MIT",
+    "author": {
+        "name": "Sanne Theme",
+        "email": "hello@sannetheme.com",
+        "url": "https://sannetheme.com"
+    },
+    "keywords": [
+        "ghost",
+        "theme",
+        "ghost-theme",
+        "minimal",
+        "typography",
+        "seo",
+        "semantic"
+    ],
+    "config": {
+        "posts_per_page": 8,
+        "image_sizes": {
+            "xs": {
+                "width": 150
+            },
+            "s": {
+                "width": 400
+            },
+            "m": {
+                "width": 750
+            },
+            "l": {
+                "width": 1200
+            },
+            "xl": {
+                "width": 1600
+            },
+            "xxl": {
+                "width": 2400
+            }
+        },
+        "card_assets": true,
+        "custom": {
+            "navigation_layout": {
+                "type": "select",
+                "options": ["Clean minimal", "Logo centered", "Full navigation"],
+                "default": "Clean minimal"
+            },
+            "typography_style": {
+                "type": "select",
+                "options": ["Modern sans-serif", "Elegant serif", "Mixed styles"],
+                "default": "Modern sans-serif"
+            },
+            "color_scheme": {
+                "type": "select",
+                "options": ["Light theme", "Dark theme", "Auto"],
+                "default": "Light theme"
+            },
+            "show_social_share": {
+                "type": "boolean",
+                "default": true
+            },
+            "enable_reading_progress": {
+                "type": "boolean",
+                "default": true
+            }
+        }
+    },
+    "scripts": {
+        "dev": "gulp",
+        "build": "gulp build",
+        "test": "gscan .",
+        "zip": "gulp zip"
+    },
+    "devDependencies": {
+        "@tryghost/shared-theme-assets": "2.5.0",
+        "autoprefixer": "10.4.21",
+        "beeper": "2.1.0",
+        "cssnano": "7.1.1",
+        "gscan": "5.1.0",
+        "gulp": "5.0.1",
+        "gulp-concat": "2.6.1",
+        "gulp-livereload": "4.0.2",
+        "gulp-postcss": "10.0.0",
+        "gulp-uglify": "3.0.2",
+        "gulp-zip": "5.1.0",
+        "ordered-read-streams": "2.0.0",
+        "postcss": "8.5.6",
+        "postcss-easy-import": "4.0.0",
+        "pump": "3.0.3"
+    }
+}
