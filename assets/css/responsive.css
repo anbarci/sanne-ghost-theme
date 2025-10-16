@@ -1,0 +1,387 @@
+/* Responsive design and mobile optimizations */
+
+/* Mobile-first breakpoints */
+@media (max-width: 480px) {
+    /* Typography scaling for very small screens */
+    :root {
+        --text-4xl: clamp(1.875rem, 4vw, 2.25rem);
+        --text-5xl: clamp(2.25rem, 5vw, 3rem);
+    }
+    
+    /* Reduce spacing on mobile */
+    .container,
+    .container-narrow,
+    .container-wide {
+        padding: 0 var(--space-3);
+    }
+    
+    /* Post content adjustments */
+    .post-container,
+    .page-container {
+        padding: 0 var(--space-3);
+    }
+    
+    /* Smaller feature images on mobile */
+    .post-feature-image img,
+    .page-feature-image img {
+        aspect-ratio: 4/3;
+    }
+    
+    /* Stack post meta vertically */
+    .post-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+    
+    /* Simplify navigation */
+    .nav-container {
+        padding: 0 var(--space-3);
+    }
+    
+    /* Make cards full width */
+    .posts-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+    }
+    
+    .post-card-content {
+        padding: var(--space-4);
+    }
+    
+    /* Reduce hero section padding */
+    .hero,
+    .home-hero {
+        padding: var(--space-12) 0 var(--space-8) 0;
+    }
+    
+    /* Footer adjustments */
+    .footer-content {
+        padding: var(--space-8) var(--space-3) var(--space-4) var(--space-3);
+    }
+}
+
+/* Tablet adjustments */
+@media (max-width: 768px) {
+    /* Adjust grid layouts */
+    .posts-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-6);
+    }
+    
+    /* Navigation improvements */
+    .site-navigation {
+        padding: var(--space-3) 0;
+    }
+    
+    /* Author profile stacking */
+    .author-profile {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--space-4);
+    }
+    
+    .author-avatar-large {
+        align-self: center;
+    }
+    
+    /* Share buttons stack on tablet */
+    .share-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* Form layouts */
+    .form-group,
+    .footer-form-group {
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+    
+    /* Typography adjustments */
+    .post-title,
+    .page-title {
+        font-size: var(--text-3xl);
+    }
+    
+    .post-excerpt,
+    .page-excerpt {
+        font-size: var(--text-base);
+    }
+}
+
+/* Desktop enhancements */
+@media (min-width: 1024px) {
+    /* Wider containers on large screens */
+    .container {
+        max-width: 1400px;
+    }
+    
+    /* Enhanced grid layouts */
+    .posts-grid {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    }
+    
+    /* Better typography scaling */
+    .post-title,
+    .page-title {
+        font-size: var(--text-5xl);
+    }
+    
+    /* Enhanced hover effects */
+    .post-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+    }
+    
+    /* Sticky navigation */
+    .site-header {
+        position: sticky;
+        top: 0;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+    }
+}
+
+/* Ultra-wide screen optimizations */
+@media (min-width: 1400px) {
+    .container-wide {
+        max-width: 1600px;
+    }
+    
+    .posts-grid {
+        grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    }
+    
+    /* Larger feature images */
+    .post-feature-image img,
+    .page-feature-image img {
+        aspect-ratio: 21/9;
+    }
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+    /* Crisp borders */
+    .post-card,
+    .newsletter-signup,
+    .post-share {
+        border-width: 0.5px;
+    }
+}
+
+/* Print optimizations */
+@media print {
+    /* Hide interactive elements */
+    .site-header,
+    .site-footer,
+    .post-share,
+    .newsletter-signup,
+    .pagination,
+    .nav-toggle,
+    .mobile-menu {
+        display: none !important;
+    }
+    
+    /* Optimize typography for print */
+    body {
+        font-size: 12pt;
+        line-height: 1.5;
+        color: black;
+        background: white;
+    }
+    
+    /* Ensure good page breaks */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+        page-break-inside: avoid;
+    }
+    
+    .post-container,
+    .page-container {
+        padding: 0;
+        max-width: none;
+    }
+    
+    /* Show URLs for links */
+    a[href^="http"]:after {
+        content: " (" attr(href) ")";
+        font-size: 10pt;
+        color: #666;
+    }
+    
+    /* Optimize images */
+    img {
+        max-width: 100% !important;
+        height: auto !important;
+        page-break-inside: avoid;
+    }
+}
+
+/* Dark mode preferences */
+@media (prefers-color-scheme: dark) {
+    [data-theme="auto"] {
+        --color-text: var(--gray-100);
+        --color-text-light: var(--gray-300);
+        --color-text-muted: var(--gray-400);
+        --color-background: var(--gray-900);
+        --color-surface: var(--gray-800);
+        --color-border: var(--gray-700);
+        --color-border-light: var(--gray-800);
+        --color-link: var(--gray-100);
+        --color-link-hover: var(--brand-accent);
+        --brand-accent: #3b82f6;
+    }
+}
+
+/* Motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    .post-card,
+    .share-button,
+    .nav-link,
+    .button {
+        transition: none;
+    }
+    
+    .post-card:hover {
+        transform: none;
+    }
+    
+    .reading-progress-fill {
+        transition: none;
+    }
+    
+    .mobile-menu {
+        transition: none;
+    }
+}
+
+/* Contrast preferences */
+@media (prefers-contrast: high) {
+    :root {
+        --color-border: var(--gray-600);
+        --color-border-light: var(--gray-500);
+        --color-text-light: var(--gray-800);
+        --color-text-muted: var(--gray-700);
+    }
+    
+    .post-card {
+        border-width: 2px;
+    }
+    
+    .nav-link:focus,
+    .button:focus,
+    input:focus,
+    textarea:focus {
+        outline-width: 3px;
+        outline-offset: 3px;
+    }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+    .hero,
+    .home-hero {
+        padding: var(--space-8) 0 var(--space-6) 0;
+    }
+    
+    .author-header,
+    .tag-header {
+        padding: var(--space-12) 0;
+    }
+    
+    .site-title {
+        font-size: var(--text-3xl);
+    }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    .nav-link,
+    .post-card-title a,
+    .tag-link,
+    .share-button {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .post-card:hover {
+        transform: none;
+        box-shadow: var(--shadow-base);
+    }
+    
+    /* Simplify interactions */
+    .nav-link:hover,
+    .button:hover {
+        transform: none;
+    }
+}
+
+/* Keyboard navigation enhancements */
+@media (hover: hover) and (pointer: fine) {
+    .nav-link:hover {
+        background: var(--color-surface);
+    }
+    
+    .post-card:hover .post-card-image img {
+        transform: scale(1.02);
+    }
+    
+    .share-button:hover {
+        transform: translateY(-1px);
+    }
+}
+
+/* Accessibility: Focus indicators */
+.js-focus-visible .focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+    /* Fix iOS Safari viewport units */
+    .site-wrapper {
+        min-height: -webkit-fill-available;
+    }
+    
+    /* Improve iOS form styling */
+    input,
+    textarea,
+    select {
+        -webkit-appearance: none;
+        border-radius: var(--radius-md);
+    }
+}
+
+/* Firefox specific optimizations */
+@-moz-document url-prefix() {
+    /* Firefox-specific scroll behavior */
+    html {
+        scroll-behavior: smooth;
+    }
+    
+    /* Firefox focus outline */
+    button::-moz-focus-inner {
+        border: 0;
+    }
+}
+
+/* Loading performance optimizations */
+@media (max-width: 768px) {
+    /* Reduce image sizes on mobile */
+    .post-card-image img {
+        height: 180px;
+    }
+    
+    /* Simplify shadows on lower-end devices */
+    .post-card {
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .post-card:hover {
+        box-shadow: var(--shadow-base);
+    }
+}
