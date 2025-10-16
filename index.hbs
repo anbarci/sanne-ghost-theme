@@ -1,0 +1,116 @@
+{{!< default}}
+
+<section class="home-hero">
+    {{#if @site.cover_image}}
+    <figure class="hero-image">
+        <img src="{{img_url @site.cover_image size="xxl"}}" alt="{{@site.title}}">
+    </figure>
+    {{/if}}
+    
+    <div class="hero-content">
+        <h1 class="site-title">{{@site.title}}</h1>
+        {{#if @site.description}}
+        <p class="site-description">{{@site.description}}</p>
+        {{/if}}
+    </div>
+</section>
+
+<section class="posts-feed" role="main" aria-label="Recent articles">
+    {{#foreach posts}}
+    <article class="post-card" itemscope itemtype="http://schema.org/BlogPosting">
+        {{#if feature_image}}
+        <figure class="post-card-image">
+            <a href="{{url}}" aria-label="Read {{title}}">
+                <img src="{{img_url feature_image size="m"}}" 
+                     alt="{{#if feature_image_alt}}{{feature_image_alt}}{{else}}{{title}}{{/if}}"
+                     itemprop="image"
+                     loading="lazy">
+            </a>
+        </figure>
+        {{/if}}
+        
+        <div class="post-card-content">
+            <header class="post-card-header">
+                {{#if primary_tag}}
+                <span class="post-card-tag" itemprop="articleSection">
+                    <a href="{{primary_tag.url}}" rel="tag">{{primary_tag.name}}</a>
+                </span>
+                {{/if}}
+                
+                <h2 class="post-card-title" itemprop="headline">
+                    <a href="{{url}}">{{title}}</a>
+                </h2>
+                
+                {{#if excerpt}}
+                <div class="post-card-excerpt" itemprop="description">
+                    <p>{{excerpt}}</p>
+                </div>
+                {{/if}}
+            </header>
+            
+            <footer class="post-card-meta">
+                <div class="author-info">
+                    {{#primary_author}}
+                    <div class="author-card-small" itemscope itemtype="http://schema.org/Person">
+                        {{#if profile_image}}
+                        <img src="{{img_url profile_image size="xs"}}" 
+                             alt="{{name}}"
+                             class="author-avatar-small"
+                             itemprop="image">
+                        {{/if}}
+                        <span class="author-name-small" itemprop="name">{{name}}</span>
+                    </div>
+                    {{/primary_author}}
+                </div>
+                
+                <div class="post-meta-info">
+                    <time class="post-card-date" 
+                          datetime="{{date format="YYYY-MM-DD"}}" 
+                          itemprop="datePublished">
+                        {{date format="MMM D, YYYY"}}
+                    </time>
+                    
+                    <span class="post-card-reading-time">{{reading_time}}</span>
+                </div>
+            </footer>
+        </div>
+    </article>
+    {{/foreach}}
+</section>
+
+{{pagination}}
+
+{{#if @site.members_enabled}}
+<section class="newsletter-signup" aria-labelledby="newsletter-title">
+    <div class="newsletter-content">
+        <h2 id="newsletter-title">Stay Updated</h2>
+        <p>Get the latest posts delivered right to your inbox.</p>
+        
+        <form class="newsletter-form" 
+              data-members-form="subscribe"
+              role="form"
+              aria-label="Newsletter subscription">
+            <div class="form-group">
+                <input type="email" 
+                       name="email" 
+                       placeholder="Enter your email"
+                       required
+                       aria-label="Email address"
+                       class="newsletter-email">
+                <button type="submit" class="newsletter-button">
+                    <span class="button-text">Subscribe</span>
+                    <span class="button-loading" aria-hidden="true">Subscribing...</span>
+                </button>
+            </div>
+            
+            <div class="form-message-success" role="alert" aria-live="polite">
+                Great! Check your inbox and click the link to confirm your subscription.
+            </div>
+            
+            <div class="form-message-error" role="alert" aria-live="assertive">
+                Please enter a valid email address!
+            </div>
+        </form>
+    </div>
+</section>
+{{/if}}
