@@ -2,7 +2,7 @@
 
 <header class="author-header">
     <div class="container-narrow">
-        {{#author}}
+        {{#primary_author}}
         <div class="author-profile" itemscope itemtype="http://schema.org/Person">
             {{#if profile_image}}
             <img src="{{img_url profile_image size="l"}}" 
@@ -35,13 +35,13 @@
                 </div>
             </div>
         </div>
-        {{/author}}
+        {{/primary_author}}
     </div>
 </header>
 
 <section class="author-posts">
     <div class="container">
-        <h2 class="section-title">Posts by {{author.name}}</h2>
+        <h2 class="section-title">Posts by {{primary_author.name}}</h2>
         
         <div class="posts-grid">
             {{#foreach posts}}
