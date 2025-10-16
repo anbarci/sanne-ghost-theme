@@ -6,15 +6,13 @@
     <title>{{meta_title}}</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="{{meta_description}}">
-    <meta name="generator" content="Ghost {{@version}}">
     <link rel="canonical" href="{{url absolute="true"}}">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="{{#is "post"}}article{{else}}website{{/is}}">
     <meta property="og:url" content="{{url absolute="true"}}">
     <meta property="og:title" content="{{meta_title}}">
-    <meta property="og:description" content="{{meta_description}}">
+    <meta property="og:description" content="{{excerpt}}">
     {{#if feature_image}}
     <meta property="og:image" content="{{img_url feature_image size="l"}}">
     {{/if}}
@@ -24,7 +22,7 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="{{url absolute="true"}}">
     <meta name="twitter:title" content="{{meta_title}}">
-    <meta name="twitter:description" content="{{meta_description}}">
+    <meta name="twitter:description" content="{{excerpt}}">
     {{#if feature_image}}
     <meta name="twitter:image" content="{{img_url feature_image size="l"}}">
     {{/if}}
@@ -36,13 +34,13 @@
         "@type": "{{#is "post"}}BlogPosting{{else}}{{#is "page"}}WebPage{{else}}Blog{{/is}}{{/is}}",
         "url": "{{url absolute="true"}}",
         "name": "{{meta_title}}",
-        "description": "{{meta_description}}",
+        "description": "{{excerpt}}",
         {{#if feature_image}}
         "image": "{{img_url feature_image size="l"}}",
         {{/if}}
         {{#is "post"}}
         "datePublished": "{{date format="YYYY-MM-DDTHH:mm:ssZ"}}",
-        "dateModified": "{{updated_at format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        "dateModified": "{{date published_at format="YYYY-MM-DDTHH:mm:ssZ"}}",
         "author": {
             "@type": "Person",
             "name": "{{primary_author.name}}",
