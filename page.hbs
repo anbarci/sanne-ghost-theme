@@ -2,6 +2,7 @@
 
 <article class="page-container" itemscope itemtype="http://schema.org/WebPage">
     {{#page}}
+    {{#unless @page.show_title_and_feature_image}}
     <header class="page-header">
         {{#if feature_image}}
         <figure class="page-feature-image">
@@ -22,6 +23,7 @@
             {{/if}}
         </div>
     </header>
+    {{/unless}}
     
     <div class="page-content container-narrow" itemprop="mainContentOfPage">
         {{content}}
