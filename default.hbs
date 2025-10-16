@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="{{@site.locale}}" {{#match @custom.color_scheme "Dark theme"}}data-theme="dark"{{/match}}>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{meta_title}}</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="{{meta_description}}">
+    <meta name="generator" content="Ghost {{@version}}">
+    <link rel="canonical" href="{{url absolute="true"}}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="{{#is "post"}}article{{else}}website{{/is}}">
+    <meta property="og:url" content="{{url absolute="true"}}">
+    <meta property="og:title" content="{{meta_title}}">
+    <meta property="og:description" content="{{meta_description}}">
+    {{#if feature_image}}
+    <meta property="og:image" content="{{img_url feature_image size="l"}}">
+    {{/if}}
+    <meta property="og:site_name" content="{{@site.title}}">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="{{url absolute="true"}}">
+    <meta name="twitter:title" content="{{meta_title}}">
+    <meta name="twitter:description" content="{{meta_description}}">
+    {{#if feature_image}}
+    <meta name="twitter:image" content="{{img_url feature_image size="l"}}">
+    {{/if}}
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "{{#is "post"}}BlogPosting{{else}}{{#is "page"}}WebPage{{else}}Blog{{/is}}{{/is}}",
+        "url": "{{url absolute="true"}}",
+        "name": "{{meta_title}}",
+        "description": "{{meta_description}}",
+        {{#if feature_image}}
+        "image": "{{img_url feature_image size="l"}}",
+        {{/if}}
+        {{#is "post"}}
+        "datePublished": "{{date format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        "dateModified": "{{updated_at format="YYYY-MM-DDTHH:mm:ssZ"}}",
+        "author": {
+            "@type": "Person",
+            "name": "{{primary_author.name}}",
+            "url": "{{primary_author.url absolute="true"}}"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "{{@site.title}}",
+            "url": "{{@site.url}}"
+            {{#if @site.logo}},"logo": "{{img_url @site.logo}}"{{/if}}
+        },
+        {{/is}}
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "{{url absolute="true"}}"
+        }
+    }
+    </script>
+    
+    <!-- Theme CSS -->
+    <link rel="stylesheet" type="text/css" href="{{asset "built/app.css"}}">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {{#match @custom.typography_style "Modern sans-serif"}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {{/match}}
+    {{#match @custom.typography_style "Elegant serif"}}
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    {{/match}}
+    {{#match @custom.typography_style "Mixed styles"}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    {{/match}}
+    
+    {{ghost_head}}
+</head>
+
+<body class="{{body_class}} {{#match @custom.typography_style}}typography-{{slugify @custom.typography_style}}{{/match}} {{#match @custom.navigation_layout}}nav-{{slugify @custom.navigation_layout}}{{/match}}">
+    <div class="site-wrapper">
+        {{#is "post"}}
+            {{#if @custom.enable_reading_progress}}
+            <div class="reading-progress">
+                <div class="reading-progress-fill"></div>
+            </div>
+            {{/if}}
+        {{/is}}
+        
+        <header class="site-header" role="banner">
+            {{> "navigation"}}
+        </header>
+        
+        <main class="site-main" role="main">
+            {{{body}}}
+        </main>
+        
+        <footer class="site-footer" role="contentinfo">
+            {{> "footer"}}
+        </footer>
+    </div>
+    
+    {{#is "post"}}
+        {{#if @custom.enable_reading_progress}}
+        <script>
+            // Reading progress bar
+            window.addEventListener('scroll', function() {
+                const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+                const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (winScroll / height) * 100;
+                const progressBar = document.querySelector('.reading-progress-fill');
+                if (progressBar) {
+                    progressBar.style.width = scrolled + '%';
+                }
+            });
+        </script>
+        {{/if}}
+    {{/is}}
+    
+    <script src="{{asset "built/app.js"}}"></script>
+    {{ghost_foot}}
+</body>
+</html>
