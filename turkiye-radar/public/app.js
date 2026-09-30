@@ -439,7 +439,7 @@ async function renderMemory() {
     <h3 class="more">Ölçülmüş isabet</h3>
     ${m.olcum.length ? `<ul class="list small">${m.olcum.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul>` : '<p class="empty">Ölçüm için en az 3 sonuçlanmış tahmin gerekiyor.</p>'}
     <h3 class="more">Kendi çıkardığı dersler</h3>
-    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span>${m.yonetici ? `<button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button>` : ''}</li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}
+    ${m.dersler.length ? `<ul class="list small">${[...m.dersler].sort((a, b) => (b.sayi || 1) - (a.sayi || 1) || b.at - a.at).map(d => `<li><span>${(d.sayi || 1) >= 3 ? '<span class="tag acc" title="3 kez doğrulandı; otomatik silinmez">kararlı</span> ' : ''}${esc(d.text)} <span class="muted">${esc(fmtDT(d.son || d.at))}${(d.sayi || 1) > 1 ? ` · ${d.sayi} kez` : ''}</span></span>${m.yonetici ? `<button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button>` : ''}</li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}
     <details class="digest"><summary class="small">Hafıza ağacı (${m.arsiv} analiz arşivde)</summary><pre>${esc(m.agac || 'Arşiv boş.')}</pre></details>`;
 }
 

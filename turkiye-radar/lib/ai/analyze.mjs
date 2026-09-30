@@ -155,7 +155,7 @@ export function buildDigest(s, prev) {
   // KULLANICI NOTLARI, HAFIZA ve ÖNCEKİ ANALİZLER hep en sonda: "veri değişti mi?" kontrolüne (hash) girmezler.
   const notes = ownerNoteLines();
   if (notes.length) L.push('KULLANICI NOTLARI (eylem ve korunma önerilerini buna göre kişiselleştir):', ...notes.map(x => `- ${x}`));
-  const mem = memoryLines();
+  const mem = memoryLines(L.join('\n')); // bağlam: bu özetin kendisi (varlıklar, haberler, gündem)
   if (mem.length) L.push('HAFIZA (ölçülmüş isabet ve kendi derslerin):', ...mem.map(x => `- ${x}`));
   if (prev?.length) {
     L.push('ÖNCEKİ ANALİZLER (yeniden eskiye):');
@@ -274,7 +274,7 @@ export async function analyze(snap, settings, { force = false } = {}) {
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
   const result = normalizeResult(parseJSON(r.text));
   result.dogrulanamayan = verifyNumbers(result, digest);
-  if (result.ders) addLesson(result.ders);
+  if (result.ders) result.dersDurum = addLesson(result.ders); // 'yeni' ya da 'pekisti'
   const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result, provenance: provenance(snap, digest) };
   writeJSON('analyses.json', [entry, ...hist].slice(0, 60));
   archive(entry, snap); // kalıcı arşiv: 60 sınırı yok, hafıza ağacı buradan kurulur

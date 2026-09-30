@@ -55,7 +55,7 @@ export function buildContext(a, snap, hist = readJSON('analyses.json', []), uid 
   if (snap) L.push('', `ŞU ANKİ GERÇEK VERİ (${when(snap.at)}):`, buildDigest(snap).replace(TAIL, ''));
   const notes = noteLines(uid);
   if (notes.length) L.push('', 'KULLANICI NOTLARI:', ...notes.map(x => `- ${x}`));
-  const mem = memoryLines();
+  const mem = memoryLines(analysisText(a) + (snap ? ` ${(snap.news || []).slice(0, 10).map(n => n.title).join(' ')}` : ''));
   if (mem.length) L.push('', 'HAFIZA:', ...mem.map(x => `- ${x}`));
   const tree = toc();
   if (tree) L.push('', tree);

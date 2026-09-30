@@ -408,8 +408,9 @@ test('Hafıza: ölçülmüş isabet, kalibrasyon, yön yanlılığı; tekrar ede
   assert.ok(L.some(x => /USDTRY: 3 tahminin 1'i tuttu \(tutmayanların çoğu "asagi"/.test(x)), L.join('\n'));
   assert.ok(L.some(x => /%65 ve üstü güvenle verdiğin 5 tahminin %0'i tuttu: güvenini düşür/.test(x)), L.join('\n'));
   assert.ok(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim.'));
-  assert.equal(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim!'), false);
+  assert.equal(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim!'), 'pekisti');
   assert.equal(loadMemory().dersler.length, 1);
+  assert.equal(loadMemory().dersler[0].sayi, 2);
 });
 
 test('Sohbet verisi: sorudaki hisse, varlık ve konu kelimeleri ilgili veriyi getirir', async () => {
@@ -503,4 +504,28 @@ test('Model çıktısı normalizasyonu: DeepSeek tarzı kaymış alan adları d�
   assert.equal(r.kotumser.olasilik, 30);
   const m = normalizeResult({ varliklar: { USDTRY: { yon: 'yukari', olasilik: 60 }, GRAM_ALTIN: 'yukari' } });
   assert.deepEqual(m.varliklar.map(v => v.kod), ['USDTRY', 'GRAM_ALTIN']);
+});
+
+test('Ders hafızası (PSSA kuralları): pekişen ders kararlı olur, kapasitede korunur, okuma sınırlı ve bağlama göre', async () => {
+  const { addLesson, loadMemory, pickLessons, memoryLines, CAPACITY } = await import('../lib/ai/memory.mjs');
+  const { writeJSON } = await import('../lib/store.mjs');
+  writeJSON('memory.json', { dersler: [], notlar: [] });
+  const t0 = Date.UTC(2026, 8, 1);
+  const stable = 'Petrol yükselirken havayolu hisselerinde iyimser tahmin vermemeliyim';
+  for (let i = 0; i < 3; i++) addLesson(stable + '.'.repeat(i), t0 + i);
+  // Kapasiteyi alakasız, birbirine benzemeyen derslerle doldur: kararlı ders silinmemeli.
+  const words = ['altın', 'bitcoin', 'euro', 'tahvil', 'enflasyon', 'bütçe', 'ihracat', 'turizm', 'konut', 'otomotiv', 'çelik', 'savunma', 'banka', 'teknoloji', 'gıda', 'tekstil', 'kimya', 'enerji', 'sigorta', 'perakende', 'lojistik', 'madencilik', 'telekom', 'havacılık', 'inşaat', 'kağıt', 'cam', 'tarım', 'sağlık', 'eğitim', 'medya', 'spor', 'oyun', 'yazılım', 'donanım'];
+  const n = words.length;
+  words.forEach((w, i) => addLesson(`${w} ${words[(i + 7) % n]} ${words[(i + 19) % n]} ${1000 + i * 37}`, t0 + 100 + i));
+  const d = loadMemory().dersler;
+  assert.equal(d.length, CAPACITY);
+  assert.ok(d.some(x => x.text.startsWith('Petrol') && x.sayi === 3), 'kararlı ders korunmalı');
+  const { stable: st, rest } = pickLessons('Brent petrol sert yükseldi, THYAO havayolu baskı altında', t0 + 1000, d);
+  assert.equal(st.length, 1);
+  assert.ok(rest.length <= 4, 'okuma sınırlı');
+  assert.ok(!d.some(x => x.text.startsWith('altın ')), 'en eski kararsız ders kapasitede çıkmalı');
+  const lines = memoryLines('donanım fiyatı rekor', []);
+  assert.match(lines[0], /^ilke \(3 kez doğrulandı\): Petrol/);
+  assert.ok(lines.some(l => /ders: donanım /.test(l)), 'bağlama en ilgili ders seçilmeli');
+  assert.ok(lines.length <= 1 + 4);
 });
