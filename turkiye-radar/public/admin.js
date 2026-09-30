@@ -4,7 +4,6 @@ initTheme($('#btn-theme'));
 let S = null;
 const SECRETS = [
   ['EVDS_API_KEY', 'TCMB EVDS3 anahtarı', 'evds3.tcmb.gov.tr → Profilim → API Key'],
-  ['FRED_API_KEY', 'FRED (ABD Fed) anahtarı', 'fred.stlouisfed.org, ücretsiz'],
   ['FIRMS_MAP_KEY', 'NASA FIRMS anahtarı', 'firms.modaps.eosdis.nasa.gov/api, ücretsiz'],
   ['EPIAS_USER', 'EPİAŞ kullanıcı adı', 'Şeffaflık Platformu üyeliği'],
   ['EPIAS_PASS', 'EPİAŞ şifresi', ''],
@@ -64,7 +63,7 @@ $('#providers').addEventListener('click', async e => {
   if (b.dataset.act === 'use') { await api('/api/admin/provider/active', { id }); toast('Aktif sağlayıcı değişti'); return refresh(); }
   if (b.dataset.act === 'del') { await api('/api/admin/provider/delete', { id }); toast('Silindi'); return refresh(); }
   if (b.dataset.act === 'edit') {
-    $('#p-id').value = p.id; $('#p-name').value = p.name; $('#p-kind').value = p.kind; $('#p-url').value = p.baseUrl; $('#p-model').value = p.model; $('#p-effort').value = p.effort || 'medium'; $('#p-max').value = p.maxTokens || 6000;
+    $('#p-id').value = p.id; $('#p-name').value = p.name; $('#p-kind').value = p.kind; $('#p-url').value = p.baseUrl; $('#p-model').value = p.model; $('#p-effort').value = p.effort || 'medium'; $('#p-think').value = p.thinking || 'off'; $('#p-max').value = p.maxTokens || 6000;
     $('#p-name').focus(); return;
   }
   if (b.dataset.act === 'test') {
@@ -78,7 +77,7 @@ $('#providers').addEventListener('click', async e => {
 $('#prov-form').addEventListener('submit', async e => {
   e.preventDefault();
   try {
-    await api('/api/admin/provider', { id: $('#p-id').value || undefined, name: $('#p-name').value, kind: $('#p-kind').value, baseUrl: $('#p-url').value, model: $('#p-model').value, key: $('#p-key').value, effort: $('#p-effort').value, maxTokens: +$('#p-max').value });
+    await api('/api/admin/provider', { id: $('#p-id').value || undefined, name: $('#p-name').value, kind: $('#p-kind').value, baseUrl: $('#p-url').value, model: $('#p-model').value, key: $('#p-key').value, effort: $('#p-effort').value, thinking: $('#p-think').value, maxTokens: +$('#p-max').value });
     e.target.reset(); $('#p-id').value = ''; toast('Kaydedildi'); refresh();
   } catch (err) { toast(err.message); }
 });
@@ -97,7 +96,14 @@ $('#secrets').addEventListener('click', async e => {
   await api('/api/admin/secret', { name: k, value }); toast('Güncellendi'); refresh();
 });
 
+const VIA = { jsonld: 'JSON-LD', readability: 'Readability', paragraf: 'paragraf', meta: 'sadece meta özet', 'js-sayfa': 'JS ile yüklenen sayfa', boş: 'boş sayfa', ağ: 'ağ hatası' };
+function renderArtStats() {
+  const st = Object.entries(S.articleStats || {}).sort((a, b) => b[1] - a[1]);
+  $('#art-stats').textContent = st.length ? 'Haber tam metni: ' + st.map(([k, n]) => `${VIA[k] || k.replace('http-', 'HTTP ')} ${n}`).join(' · ') : '';
+}
+
 function renderSources() {
+  renderArtStats();
   $('#sources').innerHTML = '<thead><tr><th>Açık</th><th>Kaynak</th><th>Durum</th><th class="n">Süre</th></tr></thead><tbody>' + S.sources.map(s => `<tr>
     <td><input type="checkbox" data-src="${esc(s.id)}" ${s.enabled ? 'checked' : ''} aria-label="${esc(s.name)}"></td>
     <td>${esc(s.name)}<div class="small muted">${esc(s.group)}${s.needs.length ? ' · anahtar: ' + s.needs.map(esc).join(', ') : ''}</div></td>
@@ -115,7 +121,7 @@ $('#btn-sweep').addEventListener('click', async () => { await api('/api/sweep', 
 
 function renderSettings() {
   const s = S.settings;
-  $('#s-int').value = s.intervalMin; $('#s-aiint').value = s.aiIntervalMin; $('#s-aimin').value = s.aiMinDelta; $('#s-art').value = s.fetchArticles;
+  $('#s-int').value = s.intervalMin; $('#s-aiint').value = s.aiIntervalMin; $('#s-aimin').value = s.aiMinDelta; $('#s-art').value = s.fetchArticles; $('#s-usd').value = s.aiDailyUSD; $('#s-tok').value = s.aiDailyTokens;
   $('#s-watch').value = s.watchlist.join(', '); $('#s-evds').value = s.evdsSeries.join(', ');
   $('#weights').innerHTML = Object.entries(s.weights).map(([k, v]) => `<label>${W_LABEL[k] || k} <input type="number" step="0.05" min="0" max="1" data-w="${k}" value="${v}"></label>`).join('');
   $('#tg-on').checked = s.telegram.enabled; $('#tg-ai').checked = !!s.telegram.sendAnalysis; $('#tg-chat').value = s.telegram.chatId || '';
@@ -125,7 +131,7 @@ $('#set-form').addEventListener('submit', async e => {
   const weights = {};
   document.querySelectorAll('[data-w]').forEach(i => { weights[i.dataset.w] = +i.value; });
   const list = v => v.split(',').map(x => x.trim()).filter(Boolean);
-  await api('/api/admin/settings', { intervalMin: +$('#s-int').value, aiIntervalMin: +$('#s-aiint').value, aiMinDelta: +$('#s-aimin').value, fetchArticles: +$('#s-art').value, watchlist: list($('#s-watch').value), evdsSeries: list($('#s-evds').value), weights });
+  await api('/api/admin/settings', { intervalMin: +$('#s-int').value, aiIntervalMin: +$('#s-aiint').value, aiMinDelta: +$('#s-aimin').value, fetchArticles: +$('#s-art').value, aiDailyUSD: +$('#s-usd').value, aiDailyTokens: +$('#s-tok').value, watchlist: list($('#s-watch').value), evdsSeries: list($('#s-evds').value), weights });
   toast('Kaydedildi'); refresh();
 });
 $('#tg-form').addEventListener('submit', async e => {

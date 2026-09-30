@@ -7,12 +7,13 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 ## Ne yapar
 
 - **Türkiye Etki Skoru (0-100).** Her haber altı kanalda puanlanır: jeopolitik, enerji, ticaret, finans, turizm, doğrudan. Piyasa gerçekten tepki verdiyse skor yükselir. Örneğin Brent %5 yükseldiyse enerji haberleri öne çıkar. Ağırlıkları yönetim panelinden değiştirebilirsin.
-- **Haberin tam metni.** RSS'teki başlıkla yetinmez, en önemli 40 haberin sayfasını açıp asıl metni çıkarır. Başlık içerikle örtüşmüyorsa ya da başlıktaki rakam metinde yoksa "başlık yanıltıcı olabilir" uyarısı gösterir. Örnek: "ŞOK! Emeklilere 50 bin lira" başlığının altında ihale haberi var.
+- **Haberin tam metni.** RSS'teki başlıkla yetinmez, en önemli 40 haberin sayfasını açıp asıl metni çıkarır. Sıra: sayfadaki JSON-LD `articleBody`, sonra Mozilla Readability (Firefox okuma modunun kütüphanesi), sonra paragraf taraması, en son meta açıklama. Çıkamayanların nedeni (JS ile yüklenen sayfa, HTTP 403 vb.) yönetim panelinde listelenir. Başlık içerikle örtüşmüyorsa ya da başlıktaki rakam metinde yoksa "başlık yanıltıcı olabilir" uyarısı gösterir. Örnek: "ŞOK! Emeklilere 50 bin lira" başlığının altında ihale haberi var.
 - **Aynı olay tek satır.** On site aynı haberi yazdıysa bir kez gösterilir, yanında "+9 kaynak" yazar.
 - **Yayın çizgisi dengesi.** Kaynaklar etiketli: resmi, iktidara yakın, muhalif, bağımsız, ana akım, uluslararası, yabancı devlet. Yapay zekaya giden özet bu çizgilerden sırayla seçilir. Böylece analiz, hangi tarafın haberi çoksa ona kaymaz.
 - **Üç bakış açısı.** Aynı veriden kötümser, iyimser ve tarafsız yorum üretir. Her yorum özetteki somut bir rakama ya da habere dayanmak zorunda. Bunlara ek olarak varlık beklentileri (dolar, euro, gram altın, BIST, Brent, BTC) ve kişisel işlem fikirleri gelir.
 - **Tahmin karnesi.** Yapay zekanın "USD/TRY 7 günde yükselir, %65" gibi her tahmini kaydedilir. Vade dolunca gerçek fiyatla karşılaştırılır ve Brier skoru hesaplanır. Hangi modelin gerçekten işe yaradığını veriyle görürsün. Dil modellerinin piyasa tahmininde genelde yazı-turadan çok iyi olmadığını unutma: karne bunu açıkça gösterecek.
 - **Olağandışı hareket tespiti.** Her varlığın kendi normal günlük oynaklığına göre alarm verir: 1,5 × son bir aydaki ortalama mutlak getiri. Fikir PanWatch'taki ATR% yaklaşımından geliyor. Böylece BTC'nin sıradan %3'lük hareketi alarm üretmez, dolar/TL'nin %1,5'lik hareketi üretir.
+- **Günlük bütçe.** Günlük dolar ve token sınırı var (varsayılan 1 $ ve 300 bin token). Dolunca analiz durur, elle tetiklense bile.
 - **Uyarılar.** Deprem (M4,5 ve üstü), olağandışı piyasa hareketi ve yüksek etkili haber Telegram'a gider.
 
 ## Kurulum
@@ -43,7 +44,8 @@ Yönetim panelinde "Hazır ayar" listesinden seçip anahtarı girmen yeterli. Ü
 | Tür | Kapsadığı |
 |---|---|
 | `anthropic` | Claude (resmi SDK). Önbellek ve reddetme yedeği otomatik. |
-| `openai` uyumlu | OpenAI, OpenRouter, DeepSeek, Groq, Mistral, xAI, Together, **Ollama**, **LM Studio** |
+| **DeepSeek** | `deepseek-flash` (varsayılan) ve `deepseek-v4-pro`. Düşünme modu ayrı bir ayar; kapalıyken en ucuzu ve JSON çıktısı daha kararlı. Önbellek isabetleri (`prompt_cache_hit_tokens`) ayrı sayılır. |
+| `openai` uyumlu | OpenAI, OpenRouter, Groq, Mistral, xAI, Together, **Ollama**, **LM Studio** |
 | `gemini` | Google Gemini |
 
 Tamamen gizli çalışmak istersen Ollama veya LM Studio seç. Bu durumda veri makinenden hiç çıkmaz.
@@ -56,7 +58,12 @@ Tamamen gizli çalışmak istersen Ollama veya LM Studio seç. Bu durumda veri m
 4. **Gereksiz çağrı yok.** Veri değişmediyse ya da değişim puanı eşiğin altındaysa çağrı yapılmıyor. Varsayılan en sık saatte bir.
 5. **Maliyet görünür.** Her analizin token sayısı ve dolar maliyeti panelde listeleniyor.
 
-Kaba hesap: Claude Opus 5.5 ile analiz başına yaklaşık 3 bin token girdi ve 1,5 bin token çıktı. Bu da analiz başına 4 sent civarı eder. Günde 12 analiz yaklaşık 0,5 dolar tutar. Modelin düşünme token'ları çıktıya eklenir; gerçek rakamı panel gösterir. Daha ucuza indirmek için efor ayarını "low" yap ya da daha küçük bir model seç.
+Kaba hesap (fiyatlar `data/pricing.json` içinde, panelden görülen rakam esastır):
+
+- **DeepSeek `deepseek-flash`, düşünme kapalı:** analiz başına yaklaşık 0,2 sent. Sabit talimat metni önbellekten okunduğu için girdinin çoğu 1M token başına 0,006 $'dan faturalanır. Sakin saatlerde fiyat yarıya iner. Günde 12 analiz yaklaşık 2-3 sent.
+- **Claude Opus 5.5:**  analiz başına yaklaşık 3 bin token girdi ve 1,5 bin token çıktı. Bu da analiz başına 4 sent civarı eder. Günde 12 analiz yaklaşık 0,5 dolar tutar. Modelin düşünme token'ları çıktıya eklenir; gerçek rakamı panel gösterir. Claude'da maliyeti efor ayarı "low" ya da daha küçük bir model düşürür.
+
+DeepSeek'in `deepseek-chat` ve `deepseek-reasoner` adları 24 Temmuz 2026'da kaldırıldı. Eski entegrasyonlarda (ör. WPContentBot'un fiyat tablosu) bu adlar hâlâ geçiyorsa güncellenmeli.
 
 ## Veri kaynakları
 
@@ -66,17 +73,21 @@ Anahtar gerekmeyenler ilk açılışta çalışır. "Durum" sütunu şunu göste
 
 | Kaynak | Veri | Anahtar | Durum |
 |---|---|---|---|
-| Yahoo Finance | Dolar, euro, altın, Brent, BIST 100/30/Banka, VIX, DXY, izleme listesi (gecikmeli) | yok | ~ |
+| Yahoo Finance | Dolar, euro, altın, Brent, BIST 100/30/Banka, VIX, DXY, izleme listesi (gecikmeli). Yedek: Stooq | yok | ~ |
 | BtcTurk | BTC/TL, USDT/TL (USDT makası buradan hesaplanır) | yok | ~ |
 | TCMB `today.xml` | Gösterge kurlar | yok | ~ |
 | TCMB EVDS3 | İstediğin seri: kur, TÜFE, rezerv… | ücretsiz | ✓ (anahtar HTTP başlığında) |
 | EPİAŞ Şeffaflık 2.0 | Elektrik piyasa takas fiyatı (PTF) | ücretsiz üyelik | ✓ (TGT girişi) |
 | Resmi Gazete | Günün mevzuat başlıkları | yok | ~ |
-| AFAD → Kandilli → EMSC → USGS | Depremler, kurumlar arası birleştirilmiş | yok | ✓ AFAD |
+| AFAD → Kandilli → EMSC → USGS | Depremler, kurumlar arası birleştirilmiş. AFAD'da sitenin kendi kullandığı `EventData/GetEventsByFilter` (POST), yedekte eski `apiv2`. Kandilli'de `son24saat.xml`, yedekte metin sayfası. | yok | ✓ biçim açık kaynak kodla doğrulandı |
 | 44 RSS akışı | Yerli + dünya basını, yayın çizgisi etiketli | yok | ~ |
 | GDELT | Dünya basınında Türkiye haberleri ve ton | yok | ~ |
 | Dünya Bankası + IMF | Enflasyon, büyüme, cari denge, işsizlik ve IMF tahminleri | yok | ~ |
-| FRED | Fed faizi, ABD 10 yıllık, dolar endeksi, yüksek getiri spreadi | ücretsiz | ~ |
+| FRED (grafik CSV) | Fed faizi, ABD 10 yıllık, dolar endeksi, yüksek getiri spreadi | **yok** | ~ |
+| ECB | EUR/TRY referans kuru (TCMB'den bağımsız ikinci kaynak) | yok | ~ |
+| Forex Factory | Ekonomik takvim: Fed, ECB, ABD TÜFE, Çin GSYH… (beklenti ve önceki değer) | yok | ~ |
+| Stooq | Yahoo düşerse dolar, euro, altın, gümüş yedeği | yok | ~ |
+| Binance | BtcTurk düşerse USDT/TRY ve BTC/TRY yedeği | yok | ~ |
 | NASA FIRMS | Türkiye'deki aktif yangınlar | ücretsiz | ~ |
 | Open-Meteo | 8 ilde hava ve fırtına/aşırı sıcak uyarısı | yok | ~ |
 
@@ -107,6 +118,9 @@ Yerelde erişilemeyen kaynaklar için kullanılan küresel alternatifler:
 - Başlık-içerik uyumu kelime örtüşmesine dayanır. Çok kısa ya da yalnızca meta açıklaması olan haberlerde ölçüm yapılmaz.
 - Google News linkleri yönlendirme sayfası olduğu için bu haberlerin tam metni çoğu zaman çıkmaz; RSS özeti kullanılır.
 - Yayın çizgisi etiketleri bir başlangıç önerisidir. Kendi değerlendirmene göre panelden değiştir.
+- AFAD'ın POST uç noktası resmi olarak belgelenmiş bir API değil, sitenin kendi kullandığı adres; değişirse eski `apiv2` yedeğine düşülür.
+- DeepSeek'in yoğun/sakin saat pencereleri resmi dokümandan doğrulanamadı. `data/pricing.json` içindeki `offPeakUTC` değerini kontrol et.
+- Forex Factory takviminde TL olayları (TCMB PPK, TÜİK enflasyon) yok. Bunlar haber akışından ve EVDS'ten izleniyor.
 - İşlem fikirleri model çıktısıdır, yatırım tavsiyesi değildir.
 
 ## Geliştirme
@@ -123,16 +137,23 @@ Claude Code skill'leri `.claude/skills/` altında:
 |---|---|
 | `radar-kaynak-ekle` | Yeni kaynak ekleme kuralları ve test yöntemi |
 | `radar-denetim` | Güvenlik, gizlilik, token maliyeti ve tasarım kontrol listesi |
-| `hallmark` | Arayüzün "yapay zeka yapmış" gibi görünmemesi için tasarım kuralları ([nutlope/hallmark](https://github.com/nutlope/hallmark), MIT, olduğu gibi eklendi) |
 
-Denetlenip repoya eklenmeyenler:
+Aşağıdakiler **geliştirme sırasında kullanıldı, repoya eklenmedi**:
 
-- **[anidoodle](https://github.com/alexgreensh/anidoodle)** (Apache 2.0): 348 betik ve 6,7 MB. Radarın çalışmasıyla ilgisi yok. Logo veya tanıtım animasyonu istersen kullanıcı düzeyinde kur.
-- **[token-optimizer](https://github.com/alexgreensh/token-optimizer)** (PolyForm Noncommercial; kişisel kullanım serbest): Claude Code'a hook kurar ve `~/.claude` altındaki tüm oturum kayıtlarını okur. Gizlilik politikası "sıfır ağ çağrısı" der, ama kendi panosu Google Fonts'tan dosya çekiyor. Bu uygulamanın çalışma zamanı token'larına etkisi yoktur, geliştirme sırasında Claude Code'un harcamasını azaltır. Kurmak istersen kendi README'sine göre kullanıcı düzeyinde kur.
+| Araç | Nasıl kullanıldı |
+|---|---|
+| [token-optimizer](https://github.com/alexgreensh/token-optimizer) | Oturumun bağlam yükü ölçüldü (başlangıç yükü %1,3). Dosyalar hedefli okundu, büyük çıktılar basılmadı. Uygulamanın kendisi için aynı ilke: AI'a ham veri değil sıkıştırılmış özet gider. |
+| [hallmark](https://github.com/nutlope/hallmark), [anti-slop](https://github.com/miqdadbadjuber/anti-slop) | Arayüz ve kod bu kurallarla denetlendi: renk ve font sadece token üzerinden, italik başlık yok, süslü ayırıcı yorum yok, sol renkli şerit ve büyük harfli etiket kaldırıldı, sayılar `tabular-nums`. |
+| [OpenTerminal](https://github.com/ErTasselli/OpenTerminal) | Anahtarsız veri uçları (FRED CSV, ECB, Stooq, Binance, Forex Factory) ve fiyat değişince flaş fikri buradan alındı. |
+| WPContentBot | Tam metin çıkarmada "kanıtlanmış kütüphane birincil, kendi çıkarıcı yedek" düzeni, `Retry-After` ile geri çekilme, günlük token limiti ve neden etiketli tanı kayıtları buradan alındı. WPContentBot'taki SSL hatasında sertifika doğrulamasını kapatıp yeniden deneme davranışı bilerek alınmadı. |
+| [anidoodle](https://github.com/alexgreensh/anidoodle) | İncelendi. Ürün verisiyle ilgisi olmayan dekoratif çizim, anti-slop'un "ürünle bağı olmayan illüstrasyon" kuralına takıldığı için panoya eklenmedi. |
 
 ## Teşekkür
 
 - RSS listesinin çıkış noktası: [bakinazik/rss](https://github.com/bakinazik/rss). Oradaki adresler kullanıldı; tasarım kodu kopyalanmadı, çünkü repoda lisans yok.
 - Fikir: [Crucix](https://github.com/calesthio/Crucix)
 - Olağandışı hareket eşiği fikri: [PanWatch](https://github.com/TNT-Likely/PanWatch)
+- Anahtarsız piyasa uçları: [OpenTerminal](https://github.com/ErTasselli/OpenTerminal)
+- AFAD ve Kandilli'nin güncel biçimi: [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
+- Tam metin: [Mozilla Readability](https://github.com/mozilla/readability) (Apache 2.0), [linkedom](https://github.com/WebReflection/linkedom) (ISC)
 - Harita verisi: Natural Earth, [world-atlas](https://github.com/topojson/world-atlas) paketi üzerinden

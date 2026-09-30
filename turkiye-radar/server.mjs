@@ -52,7 +52,6 @@ function broadcast(msg) {
   for (const c of clients) c.write(s);
 }
 
-// ---- Tarama + analiz döngüsü ----
 async function cycle({ force = false, forceAI = false } = {}) {
   if (status.sweeping) return;
   status.sweeping = true; broadcast({ type: 'status', status });
@@ -83,14 +82,13 @@ function schedule() {
   timer = setInterval(() => cycle(), Math.max(5, loadSettings().intervalMin) * 60e3);
 }
 
-// ---- Admin işlemleri ----
-const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'sources', 'telegram'];
+const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'sources', 'telegram'];
 
 async function admin(req, res, path, body) {
   const s = loadSettings();
   switch (`${req.method} ${path}`) {
     case 'GET /api/admin/settings':
-      return send(res, 200, { settings: publicSettings(s), presets: PRESETS, sources: sourceList(s), feeds: loadFeeds(), status });
+      return send(res, 200, { settings: publicSettings(s), presets: PRESETS, sources: sourceList(s), feeds: loadFeeds(), status, articleStats: readJSON('latest.json', {})?.articleStats || {} });
     case 'POST /api/admin/settings': {
       for (const k of SETTABLE) if (k in body) s[k] = body[k];
       s.intervalMin = Math.max(5, +s.intervalMin || 15);
@@ -104,7 +102,7 @@ async function admin(req, res, path, body) {
       return send(res, 200, { ok: true });
     }
     case 'POST /api/admin/provider': {
-      const p = { id: body.id || randomUUID().slice(0, 8), name: String(body.name || 'Sağlayıcı').slice(0, 60), kind: ['anthropic', 'openai', 'gemini'].includes(body.kind) ? body.kind : 'openai', baseUrl: String(body.baseUrl || ''), model: String(body.model || '').trim(), effort: body.effort || 'medium', maxTokens: Math.min(32000, Math.max(1000, +body.maxTokens || 6000)) };
+      const p = { id: body.id || randomUUID().slice(0, 8), name: String(body.name || 'Sağlayıcı').slice(0, 60), kind: ['anthropic', 'openai', 'gemini'].includes(body.kind) ? body.kind : 'openai', baseUrl: String(body.baseUrl || ''), model: String(body.model || '').trim(), effort: ['low', 'medium', 'high', 'xhigh'].includes(body.effort) ? body.effort : 'medium', thinking: body.thinking === 'on' ? 'on' : 'off', maxTokens: Math.min(32000, Math.max(1000, +body.maxTokens || 6000)) };
       if (!p.model) return send(res, 400, { error: 'Model adı gerekli' });
       s.providers = [...s.providers.filter(x => x.id !== p.id), p];
       if (body.key) setSecret(s, `AI_KEY_${p.id}`, body.key);
@@ -147,7 +145,6 @@ async function admin(req, res, path, body) {
 
 const isSecure = req => req.headers['x-forwarded-proto'] === 'https';
 
-// ---- İstek yönlendirme ----
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const path = url.pathname;

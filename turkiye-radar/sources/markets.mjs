@@ -10,21 +10,37 @@ export const CORE = {
 };
 
 async function chart(sym) {
-  const j = await fetchx(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`, { ttl: 60_000 });
-  const r = j?.chart?.result?.[0];
-  if (!r) throw new Error('boş yanıt');
-  const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
-  const price = r.meta.regularMarketPrice ?? closes.at(-1);
-  const prev = closes.length > 1 ? closes.at(-2) : r.meta.chartPreviousClose;
+  try {
+    const j = await fetchx(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`, { ttl: 60_000 });
+    const r = j?.chart?.result?.[0];
+    if (!r) throw new Error('boş yanıt');
+    const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
+    return stats(sym, closes, r.meta.regularMarketPrice ?? closes.at(-1), (r.meta.regularMarketTime || 0) * 1000, 'yahoo');
+  } catch (e) {
+    if (!STOOQ[sym]) throw e;
+    return stooq(sym);
+  }
+}
+
+// Yahoo düşerse kur ve emtia için Stooq'un günlük CSV'si (anahtarsız).
+const STOOQ = { 'USDTRY=X': 'usdtry', 'EURTRY=X': 'eurtry', 'GC=F': 'xauusd', 'SI=F': 'xagusd' };
+async function stooq(sym) {
+  const csv = await fetchx(`https://stooq.com/q/d/l/?s=${STOOQ[sym]}&i=d`, { as: 'text', ttl: 300_000, maxBytes: 4_000_000 });
+  const rows = csv.trim().split('\n');
+  if (!rows[0]?.startsWith('Date')) throw new Error('stooq boş');
+  const closes = rows.slice(-23).map(l => +l.split(',')[4]).filter(Number.isFinite);
+  return stats(sym, closes, closes.at(-1), Date.parse(rows.at(-1).split(',')[0]), 'stooq');
+}
+
+// Sembolün kendi "normal" günlük oynaklığı (ortalama mutlak getiri). PanWatch'taki ATR% fikrinin sade hali.
+export function stats(sym, closes, price, time, src) {
+  const prev = closes.length > 1 ? closes.at(-2) : null;
   const chg = prev ? (price / prev - 1) * 100 : 0;
-  // Sembolün kendi "normal" günlük oynaklığı (ortalama mutlak getiri). PanWatch'taki ATR% fikrinin sade hali.
   const rets = closes.slice(1).map((c, i) => Math.abs(c / closes[i] - 1) * 100);
   const vol = rets.length ? rets.reduce((a, b) => a + b, 0) / rets.length : 0;
-  const threshold = Math.max(1, 1.5 * vol);
   return {
     sym, price: round(price), chg: round(chg, 2), vol: round(vol, 2),
-    anomaly: Math.abs(chg) > threshold, spark: closes.slice(-22).map(x => round(x)),
-    time: (r.meta.regularMarketTime || 0) * 1000, currency: r.meta.currency,
+    anomaly: Math.abs(chg) > Math.max(1, 1.5 * vol), spark: closes.slice(-22).map(x => round(x)), time, src,
   };
 }
 
@@ -47,12 +63,18 @@ export const markets = {
 };
 
 export const crypto = {
-  id: 'btcturk', name: 'BtcTurk (TRY kripto)', group: 'piyasa', ttlMin: 5,
+  id: 'btcturk', name: 'Kripto TRY (BtcTurk, yedek Binance)', group: 'piyasa', ttlMin: 5,
   async run() {
-    const j = await fetchx('https://api.btcturk.com/api/v2/ticker', { ttl: 60_000 });
-    const want = new Set(['BTCTRY', 'ETHTRY', 'USDTTRY']);
+    const want = ['BTCTRY', 'ETHTRY', 'USDTTRY'];
     const out = {};
-    for (const t of j.data || []) if (want.has(t.pair)) out[t.pair] = { price: +t.last, chg: +t.dailyPercent };
+    try {
+      const j = await fetchx('https://api.btcturk.com/api/v2/ticker', { ttl: 60_000 });
+      for (const t of j.data || []) if (want.includes(t.pair)) out[t.pair] = { price: +t.last, chg: +t.dailyPercent, src: 'btcturk' };
+    } catch {}
+    if (!out.USDTTRY) {
+      const rows = await fetchx(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(want))}`, { as: 'json' });
+      for (const r of rows) out[r.symbol] = { price: +r.lastPrice, chg: +r.priceChangePercent, src: 'binance' };
+    }
     return out;
   },
 };

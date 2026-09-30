@@ -1,30 +1,35 @@
 // Haber sayfasından asıl metni çıkarır ve başlığın içerikle uyuşup uyuşmadığını ölçer.
-// Sıra: JSON-LD articleBody -> <article> içindeki <p>'ler -> en yoğun <p> kümesi -> og:description.
+// Sıra (en ucuzdan pahalıya): JSON-LD articleBody, Mozilla Readability, <p> taraması, meta açıklama.
+import { parseHTML } from 'linkedom';
+import { Readability } from '@mozilla/readability';
 import { stripTags, decodeEntities, fold } from './rss.mjs';
 
+// { text, via } döner. via, panelde hangi yöntemin işe yaradığını göstermek için tutulur.
 export function extractArticle(html) {
-  const clean = html.replace(/<(script|style|noscript|svg|iframe|form|nav|footer|aside|header)(?![^>]*application\/ld\+json)[\s\S]*?<\/\1>/gi, ' ');
-
-  // 1) JSON-LD (Türk haber sitelerinin çoğu NewsArticle şeması basıyor)
+  // Türk haber sitelerinin çoğu NewsArticle şeması basıyor; DOM kurmadan en hızlı yol.
   for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
     try {
       const body = findKey(JSON.parse(m[1].trim()), 'articleBody');
-      if (body && body.length > 200) return tidy(stripTags(body));
+      if (body && body.length > 200) return { text: tidy(stripTags(body)), via: 'jsonld' };
     } catch {}
   }
 
-  // 2) <article> etiketi
+  try {
+    const { document } = parseHTML(html);
+    const r = new Readability(document, { charThreshold: 200 }).parse();
+    const text = r?.textContent ? tidy(r.textContent.replace(/\n\s*\n+/g, '\n')) : '';
+    if (text.length > 200) return { text, via: 'readability' };
+  } catch {}
+
+  const clean = html.replace(/<(script|style|noscript|svg|iframe|form|nav|footer|aside|header)[\s\S]*?<\/\1>/gi, ' ');
   const art = /<article[\s>][\s\S]*?<\/article>/i.exec(clean)?.[0];
-  const fromArticle = art ? paragraphs(art) : '';
-  if (fromArticle.length > 150) return tidy(fromArticle);
+  const p = (art && paragraphs(art).length > 150 ? paragraphs(art) : '') || paragraphs(clean);
+  if (p.length > 150) return { text: tidy(p), via: 'paragraf' };
 
-  // 3) Sayfadaki en uzun paragraf dizisi
-  const all = paragraphs(clean);
-  if (all.length > 200) return tidy(all);
-
-  // 4) Son çare: meta açıklama
   const og = /<meta[^>]+(?:property|name)=["'](?:og:description|description)["'][^>]+content=["']([^"']+)/i.exec(html)?.[1];
-  return og ? tidy(decodeEntities(og)) : '';
+  if (og) return { text: tidy(decodeEntities(og)), via: 'meta' };
+  // Gövde boş ama sayfa betik dolu: içerik tarayıcıda JS ile yükleniyor.
+  return { text: '', via: (html.match(/<script/gi) || []).length > 15 ? 'js-sayfa' : 'boş' };
 }
 
 function findKey(o, k, depth = 0) {
@@ -46,7 +51,6 @@ function paragraphs(html) {
 
 const tidy = s => s.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 6000);
 
-// ---- Başlık-içerik uyumu ----
 const STOP = new Set('ve veya ile ama fakat için gibi daha çok bir bu şu o da de ki mi mı mu mü ne ya en son yeni flaş son dakika the a an of to in on for and is are was'.split(' '));
 // JS'de \b Türkçe harfleri tanımaz; bu yüzden \p{L} ile sınır kontrolü.
 const BAIT = /(?<!\p{L})(şok|flaş|bomba|olay|herkes|bakın|inanamayacaksınız|merak edilen|ortaya çıktı|işte o|son dakika|çılgın|ne oldu|neden|nasıl)(?!\p{L})|[!?]$|\.{3}$/iu;

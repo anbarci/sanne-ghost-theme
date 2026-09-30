@@ -3,12 +3,16 @@
 //  - openai    : OpenAI uyumlu /chat/completions (OpenAI, OpenRouter, DeepSeek, Groq, Mistral, xAI, Together, Ollama, LM Studio...)
 //  - gemini    : Google Generative Language API
 import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ROOT } from '../store.mjs';
 
+// deepseek-chat / deepseek-reasoner takma adları 2026-07-24'te kaldırıldı.
 export const PRESETS = [
+  { kind: 'openai', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', models: ['deepseek-flash', 'deepseek-v4-pro'] },
   { kind: 'anthropic', name: 'Anthropic Claude', baseUrl: '', model: 'claude-opus-5-5', models: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5', 'claude-fable-5-1'] },
   { kind: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
   { kind: 'openai', name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1' },
-  { kind: 'openai', name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1' },
   { kind: 'openai', name: 'Groq', baseUrl: 'https://api.groq.com/openai/v1' },
   { kind: 'openai', name: 'Mistral', baseUrl: 'https://api.mistral.ai/v1' },
   { kind: 'openai', name: 'xAI Grok', baseUrl: 'https://api.x.ai/v1' },
@@ -18,9 +22,24 @@ export const PRESETS = [
   { kind: 'gemini', name: 'Google Gemini', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
 ];
 
-// Anthropic birinci taraf fiyatları ($/1M token, girdi/çıktı). Diğer sağlayıcılarda sadece token sayısı gösterilir.
-const PRICE = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-4-5': [1, 5], 'claude-fable-5-1': [10, 50] };
-export const costUSD = (model, u) => (PRICE[model] ? (u.in * PRICE[model][0] + u.out * PRICE[model][1] + (u.cacheRead || 0) * PRICE[model][0] * 0.1 + (u.cacheWrite || 0) * PRICE[model][0] * 2) / 1e6 : null);
+const PRICING = JSON.parse(readFileSync(join(ROOT, 'data/pricing.json'), 'utf8'));
+const PRICE_KEYS = Object.keys(PRICING.models).sort((a, b) => b.length - a.length);
+const mins = hm => { const [h, m] = hm.split(':'); return +h * 60 + +m; };
+
+export function isOffPeak(at, [from, to] = PRICING.offPeakUTC) {
+  const d = new Date(at), now = d.getUTCHours() * 60 + d.getUTCMinutes(), a = mins(from), b = mins(to);
+  return a < b ? now >= a && now < b : now >= a || now < b; // gece yarısını aşan pencere
+}
+
+// u.in önbelleksiz girdi, u.cacheRead önbellekten okunan, u.cacheWrite (Anthropic 1 saatlik) yazılan token.
+// Bilinmeyen modelde null döner; panel sadece token sayısını gösterir.
+export function costUSD(model, u, at = Date.now()) {
+  const key = PRICE_KEYS.find(k => String(model).includes(k));
+  if (!key) return null;
+  const base = PRICING.models[key];
+  const p = base.offPeak && isOffPeak(at) ? { ...base, ...base.offPeak } : base;
+  return (u.in * p.in + u.out * p.out + (u.cacheRead || 0) * (p.cacheRead ?? p.in * 0.1) + (u.cacheWrite || 0) * p.in * 2) / 1e6;
+}
 
 // Reddedilen isteği başka modelde yeniden deneyen sunucu tarafı yedek; bu modellerde varsayılan açık.
 const FALLBACK_MODELS = /^claude-(opus-5|sonnet-5-5|fable-5-1)/;
@@ -51,22 +70,56 @@ async function anthropic(p, key, system, user, schema) {
   return { text, model: r.model, usage: { in: r.usage.input_tokens, out: r.usage.output_tokens, cacheRead: r.usage.cache_read_input_tokens || 0, cacheWrite: r.usage.cache_creation_input_tokens || 0 } };
 }
 
-async function openaiCompat(p, key, system, user) {
+export const isDeepSeek = p => /deepseek\.com/i.test(p.baseUrl || '');
+
+export function openaiBody(p, system, user) {
   const body = {
-    model: p.model, max_tokens: p.maxTokens || 6000, temperature: 0.3,
+    model: p.model, max_tokens: p.maxTokens || 6000,
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     response_format: { type: 'json_object' },
   };
+  if (isDeepSeek(p)) {
+    // Düşünme kapalıyken hem ucuz hem JSON çıktısı daha kararlı; açılırsa temperature desteklenmiyor.
+    if (p.thinking === 'on') { body.thinking = { type: 'enabled' }; body.reasoning_effort = p.effort === 'low' ? 'low' : p.effort === 'medium' ? 'medium' : 'high'; }
+    else { body.thinking = { type: 'disabled' }; body.temperature = 0.3; }
+  } else body.temperature = 0.3;
+  return body;
+}
+
+async function post(url, headers, body) {
+  for (let i = 0; ; i++) {
+    const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(240_000) });
+    if ((r.status === 429 || r.status >= 500) && i < 2) {
+      const ra = Number(r.headers.get('retry-after'));
+      await new Promise(res => setTimeout(res, (Number.isFinite(ra) && ra > 0 ? Math.min(ra, 20) : 2 ** i * 2) * 1000));
+      continue;
+    }
+    return r;
+  }
+}
+
+async function openaiCompat(p, key, system, user) {
+  const body = openaiBody(p, system, user);
   const headers = { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) };
   const url = p.baseUrl.replace(/\/$/, '') + '/chat/completions';
-  let r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(180_000) });
-  if (r.status === 400) { // bazı sağlayıcılar response_format desteklemiyor: onsuz tekrar dene
-    delete body.response_format;
-    r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(180_000) });
+  let r = await post(url, headers, body);
+  if (r.status === 400) { // bazı sağlayıcılar response_format / thinking tanımıyor: onlarsız tekrar dene
+    delete body.response_format; delete body.thinking; delete body.reasoning_effort;
+    r = await post(url, headers, body);
   }
   if (!r.ok) throw new Error(`${p.name || 'sağlayıcı'} HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const j = await r.json();
-  return { text: j.choices?.[0]?.message?.content || '', model: j.model || p.model, usage: { in: j.usage?.prompt_tokens || 0, out: j.usage?.completion_tokens || 0, cacheRead: j.usage?.prompt_tokens_details?.cached_tokens || 0 } };
+  const c = j.choices?.[0];
+  if (c?.finish_reason === 'length') throw new Error('Çıktı max_tokens sınırında kesildi; admin panelinden artırın');
+  if (!c?.message?.content && c?.message?.reasoning_content) throw new Error('Model sadece düşünme metni döndürdü; düşünmeyi kapatın veya max_tokens artırın');
+  return { text: c?.message?.content || '', model: j.model || p.model, usage: openaiUsage(j.usage) };
+}
+
+// DeepSeek önbellek isabetini prompt_cache_hit_tokens, OpenAI prompt_tokens_details.cached_tokens ile bildirir.
+// İkisinde de prompt_tokens önbellekten okunanları içerir; maliyet için ayrılır.
+export function openaiUsage(u = {}) {
+  const hit = u.prompt_cache_hit_tokens ?? u.prompt_tokens_details?.cached_tokens ?? 0;
+  return { in: Math.max(0, (u.prompt_tokens || 0) - hit), out: u.completion_tokens || 0, cacheRead: hit, reasoning: u.completion_tokens_details?.reasoning_tokens || 0 };
 }
 
 async function gemini(p, key, system, user) {
@@ -82,7 +135,7 @@ async function gemini(p, key, system, user) {
   });
   if (!r.ok) throw new Error(`Gemini HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const j = await r.json();
-  return { text: j.candidates?.[0]?.content?.parts?.map(x => x.text).join('') || '', model: p.model, usage: { in: j.usageMetadata?.promptTokenCount || 0, out: j.usageMetadata?.candidatesTokenCount || 0, cacheRead: j.usageMetadata?.cachedContentTokenCount || 0 } };
+  return { text: j.candidates?.[0]?.content?.parts?.map(x => x.text).join('') || '', model: p.model, usage: { in: Math.max(0, (j.usageMetadata?.promptTokenCount || 0) - (j.usageMetadata?.cachedContentTokenCount || 0)), out: (j.usageMetadata?.candidatesTokenCount || 0) + (j.usageMetadata?.thoughtsTokenCount || 0), cacheRead: j.usageMetadata?.cachedContentTokenCount || 0 } };
 }
 
 // Modeller bazen JSON'u ``` içine sarar ya da başına açıklama ekler: ilk { ... son } aralığını al.

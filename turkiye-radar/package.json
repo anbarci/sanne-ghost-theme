@@ -15,7 +15,9 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.129.0"
+    "@anthropic-ai/sdk": "^0.129.0",
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.13"
   },
   "devDependencies": {
     "topojson-client": "^3.1.0",

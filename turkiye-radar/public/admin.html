@@ -47,12 +47,13 @@
         <label>API anahtarı<input id="p-key" type="password" autocomplete="off" placeholder="değişmeyecekse boş bırak"></label>
       </div>
       <div class="row">
-        <label>Efor (sadece Claude)<select id="p-effort"><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option></select></label>
+        <label>Efor (Claude; DeepSeek düşünme açıkken)<select id="p-effort"><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option></select></label>
+        <label>Düşünme (DeepSeek)<select id="p-think"><option value="off" selected>kapalı (ucuz, kararlı JSON)</option><option value="on">açık</option></select></label>
         <label>Azami çıktı token<input id="p-max" type="number" min="1000" max="32000" value="6000"></label>
         <input type="hidden" id="p-id">
         <div class="inline"><button class="btn primary" type="submit">Kaydet</button><button class="btn ghost" type="reset" id="p-reset">Temizle</button></div>
       </div>
-      <p class="small muted">Yerel ve tamamen gizli çalışmak için Ollama veya LM Studio seçin: veri makinenizden çıkmaz. Maliyeti düşürmek için efor "low" ya da daha küçük bir model seçebilirsiniz.</p>
+      <p class="small muted">Yerel ve tamamen gizli çalışmak için Ollama veya LM Studio seçin: veri makinenizden çıkmaz. En ucuz seçenek DeepSeek deepseek-flash, düşünme kapalı; sakin saatlerde fiyat yarıya iner. Claude'da efor "low" maliyeti düşürür.</p>
     </form>
   </section>
 
@@ -64,6 +65,7 @@
   <section class="panel">
     <header><h2>Veri kaynakları</h2><button class="btn" id="btn-sweep" type="button">Şimdi tara</button></header>
     <div class="scroll-x"><table id="sources"></table></div>
+    <p class="small muted more" id="art-stats"></p>
   </section>
 
   <section class="panel">
@@ -74,6 +76,10 @@
         <label>AI en sık (dk)<input type="number" id="s-aiint" min="10" max="1440"></label>
         <label>AI tetik eşiği (değişim puanı)<input type="number" id="s-aimin" min="0" max="100"></label>
         <label>Tam metni çekilecek haber<input type="number" id="s-art" min="0" max="150"></label>
+      </div>
+      <div class="row">
+        <label>Günlük AI bütçesi $ (0 = sınırsız)<input type="number" id="s-usd" min="0" step="0.1"></label>
+        <label>Günlük token sınırı (0 = sınırsız)<input type="number" id="s-tok" min="0" step="10000"></label>
       </div>
       <label>İzleme listesi (Yahoo sembolleri, virgülle; BIST için .IS)<input id="s-watch"></label>
       <label>EVDS serileri (virgülle)<input id="s-evds"></label>

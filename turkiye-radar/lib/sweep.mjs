@@ -33,27 +33,30 @@ async function runSource(src, settings, force) {
   }
 }
 
-// ---- Haber işleme ----
-const articles = readJSON('articles.json', {}); // id -> { body, check, t }
+const articles = readJSON('articles.json', {}); // id -> { body, via, t }
 
 async function enrichNews(items, settings, moves) {
   for (const it of items) it.impact = impact(`${it.title} ${it.summary}`, settings.weights, moves);
   let list = dedupe(items);
   // Tam metni yalnızca en önemli N haber için çek; geri kalanı başlık+özetle kalır (hız ve bant genişliği).
-  const need = list.filter(i => !articles[i.id]).slice(0, settings.fetchArticles);
+  // Google News linkleri JS yönlendirmesi olduğu için çekilmez.
+  const need = list.filter(i => !articles[i.id] && !/news\.google\./.test(i.link)).slice(0, settings.fetchArticles);
   await pool(need, 6, async it => {
     try {
       const html = await fetchx(it.link, { as: 'text', timeout: 9000, retries: 0, maxBytes: 1_500_000 });
-      const body = extractArticle(html);
-      articles[it.id] = { body: body.slice(0, 3000), t: Date.now() };
-    } catch { articles[it.id] = { body: '', t: Date.now(), failed: true }; }
+      const { text, via } = extractArticle(html);
+      articles[it.id] = { body: text.slice(0, 3000), via, t: Date.now() };
+    } catch (e) { articles[it.id] = { body: '', via: e.status ? `http-${e.status}` : 'ağ', t: Date.now() }; }
   });
+  const stats = {};
   for (const it of list) {
     const a = articles[it.id];
+    if (a) stats[a.via] = (stats[a.via] || 0) + 1;
     if (a?.body) {
       it.lead = lead(a.body);
-      it.check = titleCheck(it.title, a.body);
-      it.misleading = isMisleading(it.check);
+      it.via = a.via;
+      // Meta açıklaması zaten bir özet; başlıkla kıyaslamak yanlış alarm üretir.
+      if (a.via !== 'meta') { it.check = titleCheck(it.title, a.body); it.misleading = isMisleading(it.check); }
       // Skor artık gövde metniyle de hesaplanıyor: başlık abartılıysa skor içerikle düzelir.
       it.impact = impact(`${it.title} ${a.body.slice(0, 1500)}`, settings.weights, moves);
     }
@@ -61,10 +64,11 @@ async function enrichNews(items, settings, moves) {
   // 3 günden eski önbelleği temizle
   for (const [k, v] of Object.entries(articles)) if (Date.now() - v.t > 3 * 864e5) delete articles[k];
   writeJSON('articles.json', articles);
+  list.stats = stats;
   return list.sort((a, b) => b.impact.score - a.impact.score || b.ts - a.ts);
 }
 
-// ---- Delta: son taramadan bu yana ne değişti? AI'ı gereksiz yere çağırmamak için puanlanır. ----
+// Son taramadan bu yana değişimi puanlar; puan düşükse AI çağrılmaz.
 function computeDelta(prev, cur) {
   const ev = [];
   let score = 0;
@@ -109,9 +113,10 @@ export async function sweep({ force = false, onDone } = {}) {
       markets: mk, crypto, usdtPremium,
       tcmb: d('tcmb'), evds: d('evds'), epias: d('epias'), resmiGazete: d('resmigazete'),
       quakes: d('quakes'), fires: d('firms'), weather: d('weather'),
-      macro: d('macro'), fred: d('fred'), tone: d('gdelt')?.tone,
+      macro: d('macro'), fred: d('fred'), ecb: d('ecb'), calendar: d('calendar'), tone: d('gdelt')?.tone,
       news: news.slice(0, 300).map(slim),
       feedStatus: d('rss')?.status,
+      articleStats: news.stats,
       sources: sourceList(settings),
     };
     snap.delta = computeDelta(prev, snap);

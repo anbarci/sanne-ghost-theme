@@ -32,14 +32,50 @@ test('Atom beslemesi ve link href', () => {
 test('Tam metin: JSON-LD articleBody önceliklidir', () => {
   const body = 'Türkiye Cumhuriyet Merkez Bankası politika faizini yüzde 50 seviyesinde sabit bıraktı. '.repeat(5);
   const html = `<html><script type="application/ld+json">{"@type":"NewsArticle","articleBody":${JSON.stringify(body)}}</script><p>menü</p></html>`;
-  assert.match(extractArticle(html), /politika faizini/);
+  const r = extractArticle(html);
+  assert.match(r.text, /politika faizini/);
+  assert.equal(r.via, 'jsonld');
 });
 
 test('Tam metin: <article> paragrafları, çerez uyarısı atılır', () => {
   const html = `<article><p>Bu sitede çerez kullanılmaktadır, devam ederek kabul etmiş olursunuz.</p><p>${'Brent petrol varil başına 90 doların üzerine çıktı ve piyasalarda risk iştahı azaldı. '.repeat(4)}</p></article>`;
-  const t = extractArticle(html);
+  const t = extractArticle(html).text;
   assert.match(t, /Brent/);
   assert.doesNotMatch(t, /çerez/);
+});
+
+test('Readability: <article> olmayan tipik haber sitesi şablonu', () => {
+  const para = 'Merkez Bankası Para Politikası Kurulu, politika faizini yüzde 40 seviyesinde sabit tutma kararı aldı ve enflasyon görünümüne ilişkin değerlendirmelerini paylaştı. ';
+  const html = `<html><head><title>x</title></head><body>
+    <nav class="menu"><a href="/">Anasayfa</a><a href="/eko">Ekonomi</a><a href="/spor">Spor</a></nav>
+    <div class="sidebar"><h3>En çok okunanlar</h3><ul>${'<li><a href="/x">Başka bir haber başlığı burada</a></li>'.repeat(12)}</ul></div>
+    <div class="haber-detay content"><h1>Faiz kararı</h1><div class="detail-text"><p>${para}</p><p>${para.replace('40', '41')}</p><p>${para.replace('40', '42')}</p></div></div>
+    <div class="related"><h3>İlgili haberler</h3>${'<a href="/y">İlgili haber linki başlığı burada yer alıyor</a>'.repeat(10)}</div>
+    <footer>Tüm hakları saklıdır</footer></body></html>`;
+  const r = extractArticle(html);
+  assert.equal(r.via, 'readability');
+  assert.match(r.text, /politika faizini/);
+  assert.doesNotMatch(r.text, /En çok okunanlar|İlgili haber/);
+});
+
+test('JS ile yüklenen sayfa nedeniyle etiketlenir', () => {
+  const html = '<html><body><div id="root"></div>' + '<script src="/a.js"></script>'.repeat(20) + '</body></html>';
+  assert.deepEqual(extractArticle(html), { text: '', via: 'js-sayfa' });
+});
+
+test('Kandilli XML ve metin ayrıştırma', async () => {
+  const { parseKandilliXml, parseKandilliText } = await import('../sources/quakes.mjs');
+  const xml = '<?xml version="1.0"?><eqlist><earhquake name="2026.09.30 04:12:33" lokasyon="PUTURGE (MALATYA)                  " lat="38.2010" lng="38.8712" mag="4.8" Depth="7.0"/></eqlist>';
+  const [e] = parseKandilliXml(xml);
+  assert.equal(e.mag, 4.8); assert.equal(e.lon, 38.8712); assert.equal(e.place, 'PUTURGE (MALATYA)');
+  assert.equal(new Date(e.t).toISOString(), '2026-09-30T01:12:33.000Z');
+  const txt = '2026.09.30 04:12:33  38.2010   38.8712        7.0      -.-  4.8  -.-   PUTURGE (MALATYA)                                 İlksel\n';
+  assert.equal(parseKandilliText(txt)[0].mag, 4.8);
+});
+
+test('FRED grafik CSV: eksik değerler (.) atlanır', async () => {
+  const { lastTwoCsv } = await import('../sources/global.mjs');
+  assert.deepEqual(lastTwoCsv('observation_date,DGS10\n2026-09-25,4.20\n2026-09-26,4.31\n2026-09-29,.\n'), { date: '2026-09-26', value: 4.31, prev: 4.2 });
 });
 
 test('Başlık-içerik uyumu: yanıltıcı başlık yakalanır', () => {
@@ -110,4 +146,45 @@ test('parseJSON: kod bloğu içindeki JSON', () => {
 
 test('stripTags boşlukları sadeleştirir', () => {
   assert.equal(stripTags('<b>a</b>\n\n  <i>b</i>'), 'a b');
+});
+
+test('DeepSeek: düşünme kapalı/açık istek gövdesi', async () => {
+  const { openaiBody } = await import('../lib/ai/providers.mjs');
+  const p = { baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash' };
+  const off = openaiBody(p, 's', 'u');
+  assert.deepEqual(off.thinking, { type: 'disabled' });
+  assert.equal(off.temperature, 0.3);
+  assert.deepEqual(off.response_format, { type: 'json_object' });
+  const on = openaiBody({ ...p, thinking: 'on', effort: 'high' }, 's', 'u');
+  assert.deepEqual(on.thinking, { type: 'enabled' });
+  assert.equal(on.reasoning_effort, 'high');
+  assert.equal(on.temperature, undefined);
+  assert.equal(openaiBody({ baseUrl: 'https://api.openai.com/v1', model: 'x' }, 's', 'u').thinking, undefined);
+});
+
+test('Önbellek sayacı: DeepSeek ve OpenAI biçimleri', async () => {
+  const { openaiUsage } = await import('../lib/ai/providers.mjs');
+  assert.deepEqual(openaiUsage({ prompt_tokens: 2000, completion_tokens: 500, prompt_cache_hit_tokens: 1500 }), { in: 500, out: 500, cacheRead: 1500, reasoning: 0 });
+  assert.equal(openaiUsage({ prompt_tokens: 100, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 60 } }).in, 40);
+});
+
+test('Maliyet: DeepSeek sakin saat indirimi ve bilinmeyen model', async () => {
+  const { costUSD, isOffPeak } = await import('../lib/ai/providers.mjs');
+  const u = { in: 1e6, out: 1e6, cacheRead: 0 };
+  const peak = Date.parse('2026-09-30T10:00:00Z'), off = Date.parse('2026-09-30T20:00:00Z');
+  assert.ok(!isOffPeak(peak) && isOffPeak(off) && isOffPeak(Date.parse('2026-09-30T00:10:00Z')));
+  assert.equal(costUSD('deepseek-flash', u, peak), 1.5);
+  assert.equal(costUSD('deepseek-flash', u, off), 0.75);
+  assert.equal(costUSD('claude-opus-5-5', { in: 1e6, out: 0, cacheRead: 1e6 }), 4.4);
+  assert.equal(costUSD('bilinmeyen-model', u), null);
+});
+
+test('Günlük harcama İstanbul gününe göre toplanır', async () => {
+  const { spentToday } = await import('../lib/ai/analyze.mjs');
+  const now = Date.parse('2026-09-30T10:00:00Z');
+  const hist = [
+    { at: Date.parse('2026-09-30T08:00:00Z'), cost: 0.1, usage: { in: 100, out: 50, cacheRead: 10 } },
+    { at: Date.parse('2026-09-29T20:30:00Z'), cost: 0.2, usage: { in: 1, out: 1 } }, // İstanbul'da 23:30, dün
+  ];
+  assert.deepEqual(spentToday(hist, now), { usd: 0.1, tokens: 160 });
 });

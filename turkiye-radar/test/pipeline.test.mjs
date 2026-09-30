@@ -38,6 +38,7 @@ globalThis.fetch = async (url, opts = {}) => {
     return PRICES[sym] ? json(yahoo(...PRICES[sym])) : json({}, 404);
   }
   if (u.includes('btcturk')) return json({ data: [{ pair: 'USDTTRY', last: '42.5', dailyPercent: '0.9' }, { pair: 'BTCTRY', last: '4700000', dailyPercent: '-2.1' }] });
+  if (u.includes('GetEventsByFilter')) return json({ eventList: [{ eventDate: new Date(Date.now() - 3600e3).toISOString().slice(0, 19), magnitude: '4.8', latitude: '38.3', longitude: '38.1', depth: '7', location: 'Malatya' }] });
   if (u.includes('deprem.afad')) return json([{ date: new Date(Date.now() - 3600e3).toISOString().slice(0, 19), magnitude: '4.8', latitude: '38.3', longitude: '38.1', depth: '7', location: 'Malatya' }]);
   if (u.includes('usgs')) return json({ features: [{ properties: { mag: 5.1, place: 'Japan', time: Date.now() }, geometry: { coordinates: [140, 36, 10] } }] });
   if (u.includes('haber.test/a1')) return text(ARTICLE, 'text/html');
@@ -115,6 +116,10 @@ test('AI analizi: tek çağrı, tekrar çağrı yapılmaz, tahmin karnesi puanla
   (await import('../lib/store.mjs')).writeJSON('predictions.json', preds);
   scorePredictions({ ...snap, markets: { ...snap.markets, USDTRY: { price: 41.8 * 1.02 } } });
   const sc = scorecard();
+  const lim = loadSettings(); lim.aiDailyTokens = 1000; saveSettings(lim);
+  const blocked = await analyze(snap, loadSettings(), { force: true });
+  assert.match(blocked.skipped, /token sınırı/);
+  assert.equal(aiCalls, 1, 'bütçe dolunca çağrı yapılmamalı');
   assert.equal(sc.done, 1);
   assert.equal(sc.models[0].isabet, 100);
   assert.equal(sc.models[0].brier, 0.09);

@@ -2,7 +2,9 @@ import { $, esc, safeUrl, api, nf, pct, dir, ago, toast, initTheme } from './com
 
 initTheme($('#btn-theme'));
 let data = null, map = null, shown = 40;
-const filt = { cat: '', stance: '', min: 15, bad: false };
+const filt = { cat: '', stance: '', min: 15, bad: false, q: '' };
+const lastPrice = {};
+const fold = s => String(s || '').toLocaleLowerCase('tr').replace(/ı/g, 'i');
 
 const TAPE = [
   ['USDTRY', 'Dolar/TL', 4], ['EURTRY', 'Euro/TL', 4], ['GRAM_ALTIN', 'Gram altın', 0], ['XU100', 'BIST 100', 0], ['XBANK', 'BIST Banka', 0],
@@ -23,13 +25,19 @@ function renderTape(s) {
   const m = s.markets || {};
   const items = TAPE.filter(([k]) => m[k]).map(([k, label, d]) => {
     const x = m[k];
-    return `<div class="tick ${x.anomaly ? 'anomaly' : ''} ${dir(x.chg)}c" title="${esc([NOTE[k], x.anomaly ? `Olağandışı hareket: normal günlük oynaklık %${nf(x.vol)}` : ''].filter(Boolean).join(' '))}">
+    return `<div class="tick ${x.anomaly ? 'anomaly' : ''} ${dir(x.chg)}c" data-k="${k}" title="${esc([NOTE[k], x.anomaly ? `Olağandışı hareket: normal günlük oynaklık %${nf(x.vol)}` : ''].filter(Boolean).join(' '))}">
       <div class="k"><span>${esc(label)}</span><span class="${dir(x.chg)}">${pct(x.chg)}</span></div>
       <b>${nf(x.price, d)}</b>${spark(x.spark)}</div>`;
   });
   if (s.crypto?.BTCTRY) items.push(`<div class="tick"><div class="k"><span>BTC/TL</span><span class="${dir(s.crypto.BTCTRY.chg)}">${pct(s.crypto.BTCTRY.chg)}</span></div><b>${nf(s.crypto.BTCTRY.price, 0)}</b></div>`);
   if (s.usdtPremium != null) items.push(`<div class="tick" title="USDT/TRY ile resmi kur farkı. Pozitif ve büyüyorsa dövize talep baskısı var."><div class="k"><span>USDT makası</span></div><b class="${s.usdtPremium > 1 ? 'down' : ''}">%${nf(s.usdtPremium)}</b></div>`);
   $('#tape').innerHTML = items.join('') || '<p class="empty">Piyasa verisi henüz yok.</p>';
+  // Son yüklemeden bu yana fiyatı değişen kutu kısa süre renklenir (OpenTerminal'daki flaş fikri).
+  for (const el of document.querySelectorAll('.tick[data-k]')) {
+    const k = el.dataset.k, p = m[k].price, was = lastPrice[k];
+    if (was != null && p !== was) el.classList.add(p > was ? 'flash-up' : 'flash-down');
+    lastPrice[k] = p;
+  }
 }
 
 function renderAI(a) {
@@ -58,7 +66,8 @@ function renderNews(s) {
   const st = $('#stance');
   const stances = [...new Set(news.map(n => n.stance).filter(Boolean))];
   st.innerHTML = '<option value="">tümü</option>' + stances.map(x => `<option value="${esc(x)}" ${filt.stance === x ? 'selected' : ''}>${esc(STANCE_LABEL[x] || x)}</option>`).join('');
-  const list = news.filter(n => (!filt.cat || n.cat === filt.cat) && (!filt.stance || n.stance === filt.stance) && n.impact.score >= filt.min && (!filt.bad || n.misleading));
+  const q = fold(filt.q);
+  const list = news.filter(n => (!filt.cat || n.cat === filt.cat) && (!filt.stance || n.stance === filt.stance) && n.impact.score >= filt.min && (!filt.bad || n.misleading) && (!q || fold(n.title + ' ' + (n.lead || '') + ' ' + n.srcName).includes(q)));
   $('#news-count').textContent = `${list.length} / ${news.length}`;
   $('#news').innerHTML = list.slice(0, shown).map(n => {
     const ch = n.impact.channels.slice(0, 3).map(c => `<span class="tag">${CH_LABEL[c] || c}</span>`).join(' ');
@@ -106,6 +115,7 @@ function renderSide(s) {
   if (wb.issizlik) rows.push([`İşsizlik (DB ${wb.issizlik.year})`, nf(wb.issizlik.value, 1)]);
   const F = { fedFaiz: 'Fed faizi', abd10y: 'ABD 10y', yuksekGetiriSpread: 'HY spread', abdEnflasyonBeklenti5y: 'ABD 5y enf. bekl.' };
   for (const [k, v] of Object.entries(s.fred || {})) if (F[k]) rows.push([F[k], nf(v.value)]);
+  if (s.ecb?.EURTRY) rows.push([`ECB EUR/TRY (${s.ecb.EURTRY.date})`, nf(s.ecb.EURTRY.value, 4)]);
   if (s.epias?.avg) rows.push([`Elektrik PTF ort. ${s.epias.day}`, `${nf(s.epias.avg, 0)} TL`]);
   if (s.fires?.count != null) rows.push(['Aktif yangın noktası (FIRMS)', nf(s.fires.count, 0)]);
   if (s.tone?.length) rows.push(['Dünya basını TR tonu (GDELT)', nf(s.tone.at(-1)[1])]);
@@ -118,6 +128,12 @@ function renderSide(s) {
   $('#rg').innerHTML = (rg?.items || []).slice(0, 8).map(i => `<li><span><a href="${esc(safeUrl(i.link))}" target="_blank" rel="noopener noreferrer">${esc(i.title)}</a></span></li>`).join('') || '<li class="empty">Bugünkü sayı alınamadı.</li>';
 
   $('#srcs').innerHTML = (s.sources || []).map(x => `<li><span>${esc(x.name)}</span><span class="${x.ok ? 'ok' : x.missing?.length || !x.enabled ? 'muted' : 'err'}">${!x.enabled ? 'kapalı' : x.missing?.length ? 'anahtar yok' : x.ok ? ago(x.at) : 'hata'}</span></li>`).join('');
+}
+
+const CCY_TR = { USD: 'ABD', EUR: 'Euro Bölgesi', CNY: 'Çin', GBP: 'İngiltere', JPY: 'Japonya' };
+function renderCal(list) {
+  const fmt = new Intl.DateTimeFormat('tr-TR', { weekday: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' });
+  $('#cal').innerHTML = (list || []).filter(e => e.t > Date.now() - 6 * 3600e3).slice(0, 12).map(e => `<li><span><span class="tag ${e.impact === 'High' ? 'acc' : ''}">${esc(CCY_TR[e.ccy] || e.ccy)}</span> ${esc(e.title)}${e.forecast || e.previous ? `<span class="small muted"> · bekl. ${esc(e.forecast || '—')} / önc. ${esc(e.previous || '—')}</span>` : ''}</span><span class="small muted num">${esc(fmt.format(e.t))}</span></li>`).join('') || '<li class="empty">Takvim alınamadı.</li>';
 }
 
 function renderScore(sc) {
@@ -139,7 +155,7 @@ function renderStatus(st) {
 async function load() {
   data = await api('/api/data');
   if (!data.snap) { $('#stamp').textContent = 'ilk tarama sürüyor…'; return; }
-  renderTape(data.snap); renderNews(data.snap); renderSide(data.snap); renderAI(data.analysis); renderScore(data.score);
+  renderTape(data.snap); renderNews(data.snap); renderSide(data.snap); renderAI(data.analysis); renderScore(data.score); renderCal(data.snap.calendar);
   renderStatus(data.status);
   renderMap(data.snap);
 }
@@ -148,6 +164,17 @@ $('#cat-filters').addEventListener('click', e => { const b = e.target.closest('[
 $('#stance').addEventListener('change', e => { filt.stance = e.target.value; shown = 40; renderNews(data.snap); });
 $('#minimp').addEventListener('input', e => { filt.min = +e.target.value; $('#minimp-v').textContent = e.target.value; renderNews(data.snap); });
 $('#only-bad').addEventListener('change', e => { filt.bad = e.target.checked; renderNews(data.snap); });
+let qTimer;
+$('#q').addEventListener('input', e => { clearTimeout(qTimer); qTimer = setTimeout(() => { filt.q = e.target.value; shown = 40; renderNews(data.snap); }, 150); });
+// Kısayollar: R tara, A analiz, T tema, / arama. Yazı alanındayken devre dışı.
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === '/') { e.preventDefault(); $('#q').focus(); }
+  else if (k === 'r') $('#btn-sweep').click();
+  else if (k === 'a') $('#btn-ai').click();
+  else if (k === 't') $('#btn-theme').click();
+});
 $('#news-more').addEventListener('click', () => { shown += 40; renderNews(data.snap); });
 $('#btn-sweep').addEventListener('click', async () => { await api('/api/sweep', {}); toast('Tarama başladı'); });
 $('#btn-ai').addEventListener('click', async () => {

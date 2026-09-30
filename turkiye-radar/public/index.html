@@ -19,13 +19,13 @@
       <h1>Türkiye <span>Radar</span></h1>
       <span class="stamp"><span class="pulse" id="pulse"></span> <span id="stamp">yükleniyor</span></span>
     </div>
-    <button class="btn primary" id="btn-sweep" type="button">Şimdi tara</button>
-    <button class="btn" id="btn-ai" type="button">Analiz et</button>
-    <button class="btn ghost" id="btn-theme" type="button" aria-label="Temayı değiştir">Tema</button>
+    <button class="btn primary" id="btn-sweep" type="button" title="Kısayol: R">Şimdi tara</button>
+    <button class="btn" id="btn-ai" type="button" title="Kısayol: A">Analiz et</button>
+    <button class="btn ghost" id="btn-theme" type="button" aria-label="Temayı değiştir" title="Kısayol: T">Tema</button>
     <a class="btn ghost" href="/admin">Yönetim</a>
   </div>
   <nav class="jump" aria-label="Bölümler">
-    <a class="chip" href="#analiz">Analiz</a><a class="chip" href="#haberler">Haberler</a><a class="chip" href="#harita-p">Harita</a><a class="chip" href="#deprem-p">Deprem</a><a class="chip" href="#makro-p">Makro</a><a class="chip" href="#karne-p">Karne</a>
+    <a class="chip" href="#analiz">Analiz</a><a class="chip" href="#haberler">Haberler</a><a class="chip" href="#harita-p">Harita</a><a class="chip" href="#deprem-p">Deprem</a><a class="chip" href="#takvim-p">Takvim</a><a class="chip" href="#makro-p">Makro</a><a class="chip" href="#karne-p">Karne</a>
   </nav>
 </header>
 
@@ -47,6 +47,7 @@
         </label>
         <label class="inline small">En az etki <input type="range" id="minimp" min="0" max="80" step="5" value="15"> <span id="minimp-v" class="num">15</span></label>
         <label class="inline small"><input type="checkbox" id="only-bad"> sadece başlığı uyumsuzlar</label>
+        <input type="search" id="q" placeholder="Haberlerde ara (/)" aria-label="Haberlerde ara" class="grow">
       </div>
       <ol class="news" id="news"></ol>
       <button class="btn more" id="news-more" type="button" hidden>Daha fazla göster</button>
@@ -62,6 +63,10 @@
     <section class="panel" id="deprem-p" aria-labelledby="h-eq">
       <header><h2 id="h-eq">Depremler</h2><span class="small muted" id="eq-src"></span></header>
       <ul class="list" id="eq"></ul>
+    </section>
+    <section class="panel" id="takvim-p" aria-labelledby="h-cal">
+      <header><h2 id="h-cal">Ekonomik takvim</h2><span class="small muted">İstanbul saati</span></header>
+      <ul class="list" id="cal"></ul>
     </section>
     <section class="panel" id="makro-p" aria-labelledby="h-macro">
       <header><h2 id="h-macro">Makro ve resmi veri</h2></header>

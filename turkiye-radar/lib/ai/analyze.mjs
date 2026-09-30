@@ -83,6 +83,9 @@ export function buildDigest(s, prevSummary) {
   const imf = s.macro?.imf;
   if (imf && Object.keys(imf).length) L.push('IMF TR tahmin: ' + Object.entries(imf).map(([k, v]) => `${k} ${Object.entries(v).map(([y, x]) => `${y}:${f(x, 1)}`).join('/')}`).join(' | '));
   if (s.epias?.avg) L.push(`ELEKTRİK PTF ${s.epias.day}: ort ${s.epias.avg} TL/MWh`);
+  if (s.ecb?.EURTRY) L.push(`ECB EURTRY ${s.ecb.EURTRY.value} [${s.ecb.EURTRY.date}]`);
+  const cal = (s.calendar || []).filter(e => e.impact === 'High' && e.t > Date.now() - 864e5).slice(0, 6);
+  if (cal.length) L.push('TAKVİM (yüksek etki): ' + cal.map(e => `${new Date(e.t).toISOString().slice(5, 16).replace('T', ' ')}Z ${e.ccy} ${e.title}${e.forecast ? ` bekl ${e.forecast}` : ''}${e.previous ? ` önc ${e.previous}` : ''}`).join(' ; '));
   const q = s.quakes?.local?.filter(x => x.mag >= 4) || [];
   if (q.length) L.push('DEPREM(24s,M4+): ' + q.slice(0, 5).map(x => `M${x.mag} ${x.place}`).join('; '));
   if (s.fires?.count) L.push(`YANGIN: ${s.fires.count} sıcak nokta (NASA FIRMS, 24s)`);
@@ -102,6 +105,17 @@ export function activeProvider(settings) {
   return p ? { ...p, key: getSecret(settings, `AI_KEY_${p.id}`) } : null;
 }
 
+const trDay = t => new Date(t).toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' });
+
+// Bugün (İstanbul saatiyle) harcanan token ve dolar. Fiyatı bilinmeyen modelde sadece token sayılır.
+export function spentToday(hist, now = Date.now()) {
+  const today = trDay(now);
+  return hist.filter(x => trDay(x.at) === today).reduce((a, x) => ({
+    usd: a.usd + (x.cost || 0),
+    tokens: a.tokens + (x.usage?.in || 0) + (x.usage?.out || 0) + (x.usage?.cacheRead || 0),
+  }), { usd: 0, tokens: 0 });
+}
+
 export async function analyze(snap, settings, { force = false } = {}) {
   const p = activeProvider(settings);
   if (!p) return { skipped: 'Yapay zeka sağlayıcısı tanımlı değil (admin paneli)' };
@@ -115,6 +129,9 @@ export async function analyze(snap, settings, { force = false } = {}) {
     if (ageMin < settings.aiIntervalMin) return { skipped: `Son analiz ${Math.round(ageMin)} dk önce` };
     if ((snap.delta?.score || 0) < settings.aiMinDelta && ageMin < settings.aiIntervalMin * 4) return { skipped: `Değişim puanı düşük (${snap.delta?.score || 0} < ${settings.aiMinDelta})` };
   }
+  const spent = spentToday(hist);
+  if (settings.aiDailyUSD > 0 && spent.usd >= settings.aiDailyUSD) return { skipped: `Günlük bütçe doldu ($${spent.usd.toFixed(3)} / $${settings.aiDailyUSD})` };
+  if (settings.aiDailyTokens > 0 && spent.tokens >= settings.aiDailyTokens) return { skipped: `Günlük token sınırı doldu (${spent.tokens} / ${settings.aiDailyTokens})` };
   const t0 = Date.now();
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
   const result = parseJSON(r.text);
@@ -124,7 +141,6 @@ export async function analyze(snap, settings, { force = false } = {}) {
   return entry;
 }
 
-// ---- Tahmin karnesi ----
 const priceOf = (snap, kod) => (kod === 'BTCTRY' ? snap.crypto?.BTCTRY?.price : snap.markets?.[kod]?.price);
 
 function recordPredictions(entry, snap) {

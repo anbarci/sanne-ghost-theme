@@ -1,5 +1,4 @@
-/* Hallmark · pre-emit critique: P4 H4 E4 S5 R5 V4
-   Tür: editoryal-terminal. Tüm renk ve fontlar token üzerinden; harici font/CDN yok (gizlilik). */
+/* Renk ve fontlar yalnızca token üzerinden; harici font veya CDN yok (gizlilik). */
 :root {
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
@@ -87,7 +86,10 @@ h2 { font-size: 1.15rem; }
 .tape { max-width: 1440px; margin: 0 auto; padding: 12px var(--gap) 4px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .tick { background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--r-md); padding: 8px 10px 6px; min-width: 0; }
 .tick.anomaly { border-color: var(--c-warn); }
-.tick .k { font-size: .72rem; color: var(--c-muted); letter-spacing: .04em; text-transform: uppercase; display: flex; justify-content: space-between; gap: 6px; }
+.tick.flash-up { animation: flash-up 1.4s var(--ease); } .tick.flash-down { animation: flash-down 1.4s var(--ease); }
+@keyframes flash-up { from { background: color-mix(in srgb, var(--c-up) 22%, var(--c-surface)); } }
+@keyframes flash-down { from { background: color-mix(in srgb, var(--c-down) 22%, var(--c-surface)); } }
+.tick .k { font-size: .76rem; color: var(--c-muted); display: flex; justify-content: space-between; gap: 6px; }
 .tick b { display: block; font-size: 1.05rem; font-weight: 600; margin-top: 2px; }
 .tick svg { width: 100%; height: 22px; display: block; margin-top: 2px; }
 .tick svg polyline { fill: none; stroke: var(--c-muted); stroke-width: 1.4; }
@@ -111,7 +113,7 @@ h2 { font-size: 1.15rem; }
 .subgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--c-line); vertical-align: top; }
-th { font-weight: 500; color: var(--c-muted); font-size: .76rem; text-transform: uppercase; letter-spacing: .04em; }
+th { font-weight: 500; color: var(--c-muted); font-size: .8rem; }
 td.n, th.n { text-align: right; }
 .idea { border: 1px solid var(--c-line); border-radius: var(--r-sm); padding: 10px; display: grid; gap: 4px; }
 .ideas { display: grid; gap: 8px; }
@@ -119,7 +121,7 @@ td.n, th.n { text-align: right; }
 .tag.al { color: var(--c-up); border-color: currentColor; } .tag.sat { color: var(--c-down); border-color: currentColor; }
 .tag.acc { color: var(--c-accent); border-color: currentColor; }
 .meta { margin-top: 12px; font-size: .78rem; color: var(--c-muted); }
-.note { font-size: .78rem; color: var(--c-muted); border-left: 2px solid var(--c-line); padding-left: 8px; margin-top: 10px; }
+.note { font-size: .78rem; color: var(--c-muted); margin-top: 12px; }
 
 /* ---- Haberler ---- */
 .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; align-items: center; }
@@ -127,6 +129,7 @@ td.n, th.n { text-align: right; }
 .chip:hover { color: var(--c-text); }
 .chip[aria-pressed="true"] { background: var(--c-raise); color: var(--c-text); border-color: var(--c-accent); }
 select, input, textarea { font: inherit; color: var(--c-text); background: var(--c-bg); border: 1px solid var(--c-line); border-radius: var(--r-sm); padding: 7px 9px; min-width: 0; }
+.grow { flex: 1 1 180px; }
 input[type="range"] { padding: 0; accent-color: var(--c-accent); }
 input[type="checkbox"] { accent-color: var(--c-accent); width: 16px; height: 16px; }
 .news { list-style: none; display: grid; }
@@ -187,4 +190,4 @@ label { display: grid; gap: 4px; font-size: .82rem; color: var(--c-muted); }
   .rail { grid-template-columns: minmax(0, 1fr); }
   .news li { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

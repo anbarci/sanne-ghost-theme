@@ -25,18 +25,55 @@ export const macro = {
   },
 };
 
+// FRED'in grafik CSV'si anahtar istemez (OpenTerminal'daki yöntem). cosd ile son 90 güne kısıtlanır.
+export function lastTwoCsv(csv) {
+  const rows = csv.trim().split('\n').slice(1).map(l => l.split(',')).filter(r => r[1] && r[1] !== '.' && Number.isFinite(+r[1]));
+  const [a, b] = rows.slice(-2).reverse();
+  return a ? { date: a[0], value: +a[1], prev: b ? +b[1] : null } : null;
+}
+
 export const fred = {
-  id: 'fred', name: 'FRED (ABD Fed verileri)', group: 'makro', ttlMin: 360, needs: ['FRED_API_KEY'],
-  async run({ secret }) {
-    const key = secret('FRED_API_KEY');
+  id: 'fred', name: 'FRED (ABD Fed verileri, anahtarsız)', group: 'makro', ttlMin: 360,
+  async run() {
     const series = { fedFaiz: 'DFF', abd10y: 'DGS10', dolarEndeksi: 'DTWEXBGS', yuksekGetiriSpread: 'BAMLH0A0HYM2', abdEnflasyonBeklenti5y: 'T5YIE' };
+    const cosd = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
     const out = {};
-    await pool(Object.entries(series), 4, async ([k, id]) => {
-      const j = await fetchx(`https://api.stlouisfed.org/fred/series/observations?series_id=${id}&api_key=${key}&file_type=json&sort_order=desc&limit=2`, { as: 'json' });
-      const [a, b] = (j.observations || []).filter(o => o.value !== '.');
-      if (a) out[k] = { date: a.date, value: +a.value, prev: b ? +b.value : null };
+    await pool(Object.entries(series), 3, async ([k, id]) => {
+      const r = lastTwoCsv(await fetchx(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${cosd}`, { as: 'text', ttl: 3600e3 }));
+      if (r) out[k] = r;
     });
+    if (!Object.keys(out).length) throw new Error('FRED yanıt vermedi');
     return out;
+  },
+};
+
+// ECB referans kuru: TCMB'den bağımsız ikinci bir EUR/TRY kaynağı.
+export const ecb = {
+  id: 'ecb', name: 'ECB EUR/TRY referans kuru', group: 'makro', ttlMin: 360,
+  async run() {
+    const csv = await fetchx('https://data-api.ecb.europa.eu/service/data/EXR/D.TRY.EUR.SP00.A?format=csvdata&lastNObservations=2', { as: 'text' });
+    const [head, ...rows] = csv.trim().split('\n');
+    const h = head.split(','), iT = h.indexOf('TIME_PERIOD'), iV = h.indexOf('OBS_VALUE');
+    const pts = rows.map(r => r.split(',')).map(c => ({ date: c[iT], value: +c[iV] })).filter(p => Number.isFinite(p.value));
+    if (!pts.length) throw new Error('ECB boş yanıt');
+    return { EURTRY: pts.at(-1), prev: pts.at(-2)?.value ?? null };
+  },
+};
+
+// Forex Factory'nin herkese açık JSON takvimi (anahtarsız). TRY olayları yok; Fed/ECB/CPI gibi TL'yi etkileyenler var.
+const CAL_CCY = new Set(['USD', 'EUR', 'CNY', 'GBP', 'JPY']);
+export const calendar = {
+  id: 'calendar', name: 'Ekonomik takvim (Forex Factory)', group: 'makro', ttlMin: 180,
+  async run() {
+    const weeks = await Promise.allSettled(['thisweek', 'nextweek'].map(w => fetchx(`https://nfs.faireconomy.media/ff_calendar_${w}.json`, { as: 'json' })));
+    const rows = weeks.flatMap(w => (w.status === 'fulfilled' && Array.isArray(w.value) ? w.value : []));
+    if (!rows.length) throw new Error('takvim alınamadı');
+    const from = Date.now() - 864e5, to = Date.now() + 8 * 864e5;
+    return rows
+      .map(r => ({ title: r.title, ccy: r.country, t: Date.parse(r.date), impact: r.impact, forecast: r.forecast || null, previous: r.previous || null }))
+      .filter(r => r.t > from && r.t < to && CAL_CCY.has(r.ccy) && (r.impact === 'High' || (r.impact === 'Medium' && (r.ccy === 'USD' || r.ccy === 'EUR'))))
+      .sort((a, b) => a.t - b.t)
+      .slice(0, 40);
   },
 };
 

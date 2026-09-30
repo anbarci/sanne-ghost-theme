@@ -22,7 +22,8 @@ export async function fetchx(url, { timeout = 12000, retries = 1, headers = {}, 
         const err = new Error(`HTTP ${res.status} ${url}`);
         err.status = res.status;
         if (res.status < 500 && res.status !== 429) throw err; // 4xx: tekrar denemenin anlamı yok
-        throw Object.assign(err, { retry: true });
+        const ra = Number(res.headers.get('retry-after'));
+        throw Object.assign(err, { retry: true, wait: Number.isFinite(ra) && ra > 0 ? Math.min(ra, 10) * 1000 : 0 });
       }
       const buf = await readCapped(res, maxBytes);
       const ctype = res.headers.get('content-type') || '';
@@ -33,7 +34,7 @@ export async function fetchx(url, { timeout = 12000, retries = 1, headers = {}, 
     } catch (e) {
       lastErr = e;
       if (e.status && !e.retry) break;
-      if (i < retries) await sleep(600 * (i + 1));
+      if (i < retries) await sleep(e.wait || 600 * 2 ** i);
     } finally {
       clearTimeout(timer);
     }

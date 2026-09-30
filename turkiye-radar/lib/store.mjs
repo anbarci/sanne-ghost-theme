@@ -52,6 +52,8 @@ const DEFAULTS = {
   intervalMin: 15,
   aiIntervalMin: 60,
   aiMinDelta: 12,          // bu puanın altında değişiklik varsa AI çağrılmaz (token tasarrufu)
+  aiDailyUSD: 1,           // 0 = sınırsız
+  aiDailyTokens: 300000,   // 0 = sınırsız
   providers: [],           // {id,name,kind,baseUrl,model,effort,maxTokens,secretRef}
   activeProvider: null,
   sources: {},             // {sourceId: false} ile kapatılır

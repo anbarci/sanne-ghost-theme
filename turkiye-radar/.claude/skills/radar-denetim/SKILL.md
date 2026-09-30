@@ -40,7 +40,7 @@ Sonra şunları kontrol et:
 - Sistem metnine (`SYSTEM`) tarih veya saat gibi değişken bir şey eklenmemeli. Eklenirse önbellek her çağrıda bozulur.
 
 ## 5. Tasarım
-`public/` için hallmark denetimini çalıştır: `hallmark audit public/index.html`. Özellikle şunlara bak:
+Kurulu bir tasarım skill'in varsa (hallmark, anti-slop) `public/` klasörünü onunla denetle. Yoksa elle şunlara bak:
 - Renkler sadece token üzerinden, satır içi hex yok.
 - Sayılarda `tabular-nums` kullanılmış.
 - 320, 375 ve 768 px'de yatay kaydırma yok.
