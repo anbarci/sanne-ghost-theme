@@ -16,15 +16,41 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 - **Günlük bütçe.** Günlük dolar ve token sınırı var (varsayılan 1 $ ve 300 bin token). Dolunca analiz durur, elle tetiklense bile.
 - **Uyarılar.** Deprem (M4,5 ve üstü), olağandışı piyasa hareketi ve yüksek etkili haber Telegram'a gider.
 
+## Görünümler
+
+Üstteki sekmelerle (ya da 1-4 tuşlarıyla) geçilir. Adres çubuğu görünümü tutar, yer imi olarak kaydedilebilir.
+
+| Sekme | İçerik |
+|---|---|
+| **Gündem** (varsayılan) | Merkezde yapay zeka değerlendirmesi ve Türkiye'ye etkisine göre haberler. Yanda "gündemden hisselere" özeti, Türkiye haritası, ekonomik takvim, depremler; altta makro veri, karne, Resmi Gazete, kaynak durumu. |
+| **Trade** | Piyasa seçimi (Türkiye / ABD / Avrupa), strateji seçimi, hisse listesi, mum grafik, gündem katalizörleri. |
+| **Dünya** | Dünya endeksleri (S&P 500, Nasdaq, Euro Stoxx 50, DAX, FTSE, Nikkei, Şanghay…), dünya haritası (M5+ depremler, haber odakları, merkezde Türkiye), küresel etkisine göre haberler, ABD ve Avrupa gündemi. |
+| **Analizler** | Geçmiş yapay zeka analizleri. Her biri kendi sayfasında (`#analiz/<zaman>`) açılır; varlık tahminlerinin tutup tutmadığı yanında yazar. |
+
+**Veri ne kadar güncel?** Anlık değil. Yahoo verisi borsaya göre 15-20 dk gecikmelidir. Fiyat şeridi 5 dakikada bir, haberler ve tarayıcı 15 dakikada bir yenilenir (süre yönetimden değişir). Kripto (BtcTurk) neredeyse anlıktır.
+
+**Yapay zeka önceki analizlerini hatırlar.** Her yeni analize son 3 analizin özeti ve varlık tahminlerinin sonucu ("USDTRY↑ %60/7g TUTMADI(-0,8%)") eklenir. Model görüşünü değiştirdiyse nedenini söylemek zorundadır. Bu satırlar "veri değişti mi?" kontrolünün dışında tutulur, yani tek başına yeni analiz tetiklemez.
+
+**Dünya haberleri analize girer.** Türkiye skoru düşük ama küresel piyasayı oynatan haberler ayrı bir "Dünya skoru"yla seçilir (finans, enerji, ticaret, jeopolitik, şiddet; Türkiye bağı aranmaz). En yüksek 5'i AI özetine "DÜNYA" satırı olarak girer. ABD ve Avrupa tarayıcılarının özeti de gider.
+
 ## Hisse tarayıcısı ve grafikler
 
-61 likit BIST hissesi (`data/bist-universe.json`) için 2 yıllık günlük veri çekilir ve üç stratejiyle sıralanır:
+Üç piyasa taranır; Trade sekmesinden geçilir:
+
+| Piyasa | Evren | Karşılaştırma |
+|---|---|---|
+| Türkiye | 61 likit BIST hissesi (`data/bist-universe.json`) | BIST 100 |
+| ABD | 42 büyük şirket, sektör dengeli (`data/universe-us.json`) | S&P 500 |
+| Avrupa | 38 büyük şirket (`data/universe-eu.json`) | Euro Stoxx 50 |
+
+Her biri için 2 yıllık günlük veri çekilir ve dört stratejiyle sıralanır:
 
 | Strateji | Ne arar |
 |---|---|
 | Trend ve momentum | 50/200 günlük ortalamanın üstünde, son 3 ayda güçlü, endeksi geçen, RSI 50-68, hacim artışı, 52 hafta zirvesine yakın |
 | Düşüş sonrası toparlanma | Son 1 ayda en çok düşen ama 200 günlük ortalamanın üstünde kalan, aşırı satımda ve MACD'si dönen |
 | Sakin yükseliş | Oynaklığı düşük, uzun vadeli trendi yukarı |
+| Gündem | Güncel haber ya da fiyat hareketinin neden→sonuç zinciriyle olumlu etkilediği hisseler (aşağıda) |
 
 Her hisseye tıklayınca mum grafik (50 ve 200 günlük ortalama, hacim, RSI), skorun nedenleri, riskler ve hisseyi anan güncel haberler açılır. Piyasa şeridindeki kutular da (BIST 100, dolar, Brent…) tıklanınca grafiğe gelir.
 
@@ -36,9 +62,26 @@ Her hisseye tıklayınca mum grafik (50 ve 200 günlük ortalama, hacim, RSI), s
 | Düşüş sonrası toparlanma | %-0,5 | %44 | 0,02 (anlamsız) |
 | Sakin yükseliş | %-0,4 | %45 | 0,01 (anlamsız) |
 
+ABD ve Avrupa'da aynı ölçüm (30 Eylül 2026): ABD'de trend %+0,3 (t -0,9), toparlanma %+0,6 (t 0,8), sakin %-0,1; Avrupa'da hepsi %+0,1 civarı. Hiçbiri istatistiksel olarak anlamlı değil.
+
 Tek tek 10 teknik faktör de (momentum, göreli güç, RSI, 52 hafta zirvesi, hacim, oynaklık, MACD) ayrı ayrı test edildi. Hiçbiri istatistiksel olarak anlamlı değil ve verinin ilk yarısında görünen zayıf sinyaller ikinci yarıda kayboluyor. Yani bu dönemde kısa vadeli teknik göstergeler BIST'te güvenilir bir üstünlük sağlamadı. Panel bunu açıkça yazar, AI da hisse fikri verirken bu karneyi belirtmek zorundadır.
 
 Kanıtı zamanla biriktirmek için her gün her stratejinin ilk 5 hissesi kaydedilir ve 14 gün sonra BIST 100'e göre puanlanır ("Karne" paneli). Bu kısım sonradan ayarlanamaz; gerçek zamanlı ölçümdür.
+
+### Gündem katalizörleri: "bu gelişme şu hisseye yarar"
+
+`data/themes.json` içinde 13 tema var: petrol, Avrupa doğalgazı, altın, TCMB faizi, Fed faizi, savunma, bölgesel çatışma, turizm, yenilenebilir enerji, çelik, Avrupa otomotivi, yapay zeka çipleri, obezite ilaçları. Her tema üç şey söyler: hangi haberler onu anlatır, yönü neyden anlaşılır, hangi hisseyi hangi nedenle etkiler.
+
+Basit örnek: Brent bugün %3 yükseldi → "Petrol fiyatı ▲" teması doğar → TÜPRAŞ ▲ (stok değer kazancı), THY ▼ (yakıt, havayolunun en büyük gider kalemi), Pegasus ▼.
+
+Ayrıntı:
+- **Yön iki yoldan gelir.** Petrol, gaz, altın gibi fiyatı olan temalarda yön, göstergenin günlük değişiminden (eşiği aşarsa) okunur. Faiz, savunma, turizm gibi temalarda haber metnindeki yön kelimelerinden (indirim/artırım, ateşkes/saldırı) ya da genel olumlu/olumsuz kök sözlüğünden okunur. En az iki haberin net olarak aynı yönü göstermesi gerekir; tek başlık yetmez.
+- **Yanlış eşleşmeye karşı kurallar.** Anahtar kelime başından eşleşir ("altın", "altına geriledi"yi yakalamaz). TCMB teması haberde TCMB/Merkez Bankası/PPK geçmesini ister ve Fed/ECB geçen haberi saymaz. Uzak savaş haberleri THY'yi sürekli eksiye çekmesin diye çatışma teması yalnızca Türkiye etki skoru 45'in üstündeki haberleri sayar.
+- **Şirket haberlerinin tonu kullanılmıyor.** Denendi, gerçek veride tutmadı: "cost" kelimesi Costco'ya, "race" Ferrari'ye, bir aracı kurumun "ASELS satışları" raporu Aselsan'a olumsuz haber diye bağlandı. Kelime sayarak şirket düzeyinde ton ölçmek güvenilir değil.
+- **Test edilemez, ölçülür.** Geçmiş haber arşivi olmadığı için geriye dönük test yapılamıyor. Bu yüzden panelde "Test edilmemiş" etiketiyle çıkar ve her gün ilk 5'i canlı takibe girer.
+- Zincirler AI özetine "GÜNDEM" satırı olarak gider; model hisse fikrinde "gelişme → etki kanalı → şirket" zincirini yazmak zorundadır.
+
+Tema eklemek için `data/themes.json` dosyasına aynı biçimde bir kayıt eklemek yeterli.
 
 Ölçümün dürüst olması için:
 - Sinyal t günü kapanışında hesaplanır, işleme t+1 kapanışında girilir (ileriye bakma yok). Örnekler 5 günde bir alınır (çakışan pencereler sonucu şişirmesin).
@@ -92,7 +135,7 @@ Tamamen gizli çalışmak istersen Ollama veya LM Studio seç. Bu durumda veri m
 ### Token neden az harcanıyor
 
 1. **Tek çağrı.** Üç bakış açısı ayrı ayrı istenmiyor; veri bir kez gönderiliyor.
-2. **Sıkıştırılmış özet.** Ham JSON gitmiyor. Yaklaşık 50 satırlık, 6000 karakteri aşmayan bir özet gidiyor (~1700 token).
+2. **Sıkıştırılmış özet.** Ham JSON gitmiyor. Yaklaşık 60 satırlık, 7000 karakter civarı bir özet gidiyor (~2000 token). Dünya haberleri, ABD/Avrupa özeti, gündem zincirleri ve son 3 analizin hafızası eklenince özet ~%15 büyüdü.
 3. **Önbellek.** Sabit talimat metni Anthropic'te 1 saat önbellekte tutuluyor. Tekrarlanan kısım yaklaşık %90 daha ucuza okunuyor.
 4. **Gereksiz çağrı yok.** Veri değişmediyse ya da değişim puanı eşiğin altındaysa çağrı yapılmıyor. Varsayılan en sık saatte bir.
 5. **Maliyet görünür.** Her analizin token sayısı ve dolar maliyeti panelde listeleniyor.
@@ -172,6 +215,9 @@ Demo verisiyle geçen testler gerçek veride şu hataları ortaya çıkardı. He
 - DeepSeek'in yoğun/sakin saat pencereleri resmi dokümandan doğrulanamadı. `data/pricing.json` içindeki `offPeakUTC` değerini kontrol et.
 - Forex Factory takviminde TL olayları (TCMB PPK, TÜİK enflasyon) yok. Bunlar haber akışından ve EVDS'ten izleniyor.
 - İşlem fikirleri model çıktısıdır, yatırım tavsiyesi değildir.
+- Gündem temaları kural tabanlıdır; piyasanın haberi zaten fiyatlamış olabileceğini bilmez. Güç puanı (0-100) kanıtın miktarını gösterir, getiri beklentisini değil.
+- Dünya haber odakları ülke adından çıkarılır (ör. "Wall Street" → New York). Bir haber birden çok ülke anıyorsa ilki alınır.
+- CNBC ve NPR akışları bu ortamda 403 döndüğü için eklenmedi. Eklenen dünya kaynakları (MarketWatch, Guardian, Nikkei Asia, France 24, FT, OilPrice, Investing) canlı doğrulandı.
 
 ## Geliştirme
 
@@ -210,4 +256,6 @@ Aşağıdakiler **geliştirme sırasında kullanıldı, repoya eklenmedi**:
 - Anahtarsız piyasa uçları: [OpenTerminal](https://github.com/ErTasselli/OpenTerminal)
 - AFAD ve Kandilli'nin güncel biçimi: [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
 - Tam metin: [Mozilla Readability](https://github.com/mozilla/readability) (Apache 2.0), [linkedom](https://github.com/WebReflection/linkedom) (ISC)
-- Harita verisi: Natural Earth, [world-atlas](https://github.com/topojson/world-atlas) paketi üzerinden
+- Harita verisi: Natural Earth (kamu malı), [world-atlas](https://github.com/topojson/world-atlas) paketi üzerinden. Dünya haritası tek seferlik SVG yoluna çevrildi (`public/world.json`), çalışırken dışarıya istek atılmaz.
+- Koyu lacivert finans paleti ve "finans panelinde koyu varsayılan" kararı: [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill). Yükseliş/düşüş renkleri yeni yüzeye karşı renk körlüğü testinden yeniden geçirildi.
+- İncelenip kullanılmayanlar: [proxy-scraper](https://github.com/maximilianfeix/proxy-scraper) (açık proxy'ler hem gizliliği bozar hem veri kaynaklarının engellemesine yol açar; radar kendi IP'sinden, dürüst kullanıcı ajanıyla istek atar), [CSVLint](https://github.com/BdR76/CSVLint) (Notepad++ eklentisi; kullanılan CSV'ler FRED/ECB/FIRMS'ün sabit biçimli dosyaları).

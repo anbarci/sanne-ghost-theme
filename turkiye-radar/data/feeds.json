@@ -350,5 +350,61 @@
   "stance": "dünya",
   "cat": "dünya",
   "lang": "en"
+ },
+ {
+  "id": "marketwatch",
+  "name": "MarketWatch",
+  "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "guardian-world",
+  "name": "The Guardian World",
+  "url": "https://www.theguardian.com/world/rss",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "nikkei-asia",
+  "name": "Nikkei Asia",
+  "url": "https://asia.nikkei.com/rss/feed/nar",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "france24-en",
+  "name": "France 24",
+  "url": "https://www.france24.com/en/rss",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "ft-world",
+  "name": "Financial Times World",
+  "url": "https://www.ft.com/world?format=rss",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "oilprice",
+  "name": "OilPrice",
+  "url": "https://oilprice.com/rss/main",
+  "stance": "dünya",
+  "cat": "enerji",
+  "lang": "en"
+ },
+ {
+  "id": "investing-markets",
+  "name": "Investing.com Piyasalar",
+  "url": "https://www.investing.com/rss/news_25.rss",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
  }
 ]

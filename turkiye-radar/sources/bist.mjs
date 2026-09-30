@@ -1,10 +1,17 @@
-// BIST tarayıcısı için 1 yıllık günlük fiyatlar (Yahoo). Grafikler de bu veriyi kullanır (runtime/ohlc.json).
+// Hisse tarayıcısı için 2 yıllık günlük fiyatlar (Yahoo): Türkiye, ABD, Avrupa. Grafikler de bu veriyi kullanır.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fetchx, pool } from '../lib/http.mjs';
 import { ROOT, writeJSON } from '../lib/store.mjs';
 
-export const loadUniverse = () => JSON.parse(readFileSync(join(ROOT, 'data/bist-universe.json'), 'utf8')).hisseler;
+// Piyasa tanımları. bench: karşılaştırma endeksi; ohlc: runtime'daki fiyat dosyası.
+export const MARKETS = {
+  tr: { ad: 'Türkiye', file: 'bist-universe.json', bench: { kod: 'XU100', sym: 'XU100.IS', ad: 'BIST 100' }, ohlc: 'ohlc.json', ttlMin: 30, suffix: '.IS' },
+  us: { ad: 'ABD', file: 'universe-us.json', bench: { kod: 'SPX', sym: '^GSPC', ad: 'S&P 500' }, ohlc: 'ohlc-us.json', ttlMin: 60, suffix: '' },
+  eu: { ad: 'Avrupa', file: 'universe-eu.json', bench: { kod: 'SX5E', sym: '^STOXX50E', ad: 'Euro Stoxx 50' }, ohlc: 'ohlc-eu.json', ttlMin: 60, suffix: '' },
+};
+export const loadUniverse = (m = 'tr') => JSON.parse(readFileSync(join(ROOT, 'data', MARKETS[m].file), 'utf8')).hisseler
+  .map(u => ({ ...u, sym: u.sym || `${u.kod}${MARKETS[m].suffix}` }));
 const day = s => new Date(s * 1000).toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' });
 
 // Yahoo fiyatları bölünmeye göre düzeltilmiş gelir ama temettüye göre gelmez; temettü günü sahte düşüş görünür.
@@ -49,17 +56,23 @@ export async function yahooDaily(sym, range = '2y') {
   return s;
 }
 
-export const bist = {
-  id: 'bist', name: 'BIST hisse tarayıcısı (Yahoo, 2 yıl)', group: 'piyasa', ttlMin: 30, timeoutSec: 150,
-  async run() {
-    const uni = loadUniverse();
-    const series = {};
-    const failed = [];
-    await pool([{ kod: 'XU100', ad: 'BIST 100' }, ...uni], 2, async u => { // 4 paralel istekte Yahoo 429 veriyor
-      try { series[u.kod] = { kod: u.kod, ad: u.ad, ...(await yahooDaily(`${u.kod}.IS`)) }; } catch (e) { failed.push(`${u.kod} (${e.status || e.message})`); }
-    });
-    if (Object.keys(series).length < 10) throw new Error(`çok az hisse alınabildi: ${failed.slice(0, 5).join(', ')}`);
-    writeJSON('ohlc.json', { at: Date.now(), series });
-    return { count: Object.keys(series).length - (series.XU100 ? 1 : 0), failed };
-  },
-};
+function equitySource(m, id, name) {
+  const M = MARKETS[m];
+  return {
+    id, name, group: 'piyasa', ttlMin: M.ttlMin, timeoutSec: 180,
+    async run() {
+      const series = {};
+      const failed = [];
+      await pool([M.bench, ...loadUniverse(m)], 2, async u => { // 4 paralel istekte Yahoo 429 veriyor
+        try { series[u.kod] = { kod: u.kod, ad: u.ad, ...(await yahooDaily(u.sym)) }; } catch (e) { failed.push(`${u.kod} (${e.status || e.message})`); }
+      });
+      if (Object.keys(series).length < 10) throw new Error(`çok az hisse alınabildi: ${failed.slice(0, 5).join(', ')}`);
+      writeJSON(M.ohlc, { at: Date.now(), market: m, bench: M.bench.kod, series });
+      return { count: Object.keys(series).length - (series[M.bench.kod] ? 1 : 0), failed };
+    },
+  };
+}
+
+export const bist = equitySource('tr', 'bist', 'BIST hisse tarayıcısı (Yahoo, 2 yıl)');
+export const usEq = equitySource('us', 'us', 'ABD hisseleri (Yahoo, 2 yıl)');
+export const euEq = equitySource('eu', 'eu', 'Avrupa hisseleri (Yahoo, 2 yıl)');

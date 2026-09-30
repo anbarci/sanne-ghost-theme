@@ -60,7 +60,7 @@ export function score(f, r = { mom: 0.5 }, news = null) {
   if (f.slope50 > 0) s += 5;
   s += Math.round(mom * 15);
   if (mom >= 0.8) why.push('Son 3 ayda evrenin en güçlü %20\'sinde');
-  if (f.rs21 > 0) { s += 10; why.push(`Son 1 ayda BIST 100'ü ${pct(f.rs21)} geçti`); }
+  if (f.rs21 > 0) { s += 10; why.push(`Son 1 ayda endeksi ${pct(f.rs21)} geçti`); }
   if (f.rsi != null) {
     if (f.rsi >= 50 && f.rsi < 68) { s += 15; why.push(`RSI ${Math.round(f.rsi)}: güçlü ama aşırı alımda değil`); }
     else if (f.rsi >= 68 && f.rsi < 75) { s += 8; risk.push(`RSI ${Math.round(f.rsi)}: aşırı alıma yakın`); }

@@ -7,7 +7,10 @@ export const CORE = {
   USDTRY: 'USDTRY=X', EURTRY: 'EURTRY=X', ONS: 'GC=F', GUMUS: 'SI=F', BRENT: 'BZ=F', TTF: 'TTF=F',
   XU100: 'XU100.IS', XU030: 'XU030.IS', XBANK: 'XBANK.IS', VIX: '^VIX', DXY: 'DX-Y.NYB', SP500: '^GSPC', US10Y: '^TNX',
   TUR_ETF: 'TUR', EEM: 'EEM',
+  // Dünya görünümü için başlıca endeksler.
+  NASDAQ: '^IXIC', STOXX50: '^STOXX50E', DAX: '^GDAXI', FTSE: '^FTSE', NIKKEI: '^N225', SHANGHAI: '000001.SS',
 };
+export const WORLD = ['SP500', 'NASDAQ', 'STOXX50', 'DAX', 'FTSE', 'NIKKEI', 'SHANGHAI', 'VIX', 'DXY', 'US10Y', 'ONS', 'BRENT', 'EEM'];
 
 // Yahoo bulut IP'lerine sık sık 429 verir. İlk 429'dan sonra 15 dk boyunca diğer sembolleri denemeyiz.
 let yahooBlockedUntil = 0;

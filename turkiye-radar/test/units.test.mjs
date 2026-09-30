@@ -289,3 +289,44 @@ test('Tam metin: Next.js gömülü JSON (__NEXT_DATA__)', () => {
   assert.match(r.text, /brüt rezerv/);
   assert.doesNotMatch(r.text, /<p>/);
 });
+
+test('Gündem katalizörü: piyasa hareketi ve haber yönü hisseye zincirlenir', async () => {
+  const { catalysts, gundemScore, tone } = await import('../lib/catalysts.mjs');
+  const news = [
+    { title: 'Brent petrol OPEC kararıyla sert yükseldi', lead: '', impact: { score: 60 } },
+    { title: 'TCMB politika faizi kararında 250 baz puan indirim yaptı', lead: '', impact: { score: 80 } },
+    { title: 'Merkez bankası faiz kararı: politika faizi indirimi sürdü', lead: '', impact: { score: 70 } },
+  ];
+  const markets = { BRENT: { chg: 3.1 } };
+  const kods = new Set(['THYAO', 'TUPRS', 'AKBNK']);
+  const { themes, byKod } = catalysts(news, markets, 'tr', kods);
+  const petrol = themes.find(t => t.id === 'petrol');
+  assert.equal(petrol.yon, 1);
+  assert.deepEqual(petrol.etkiler.map(e => [e.kod, e.yon]), [['THYAO', -1], ['TUPRS', 1]]);
+  assert.equal(themes.find(t => t.id === 'tcmb_faiz').yon, 1);
+  assert.ok(byKod.AKBNK.net > 0 && byKod.THYAO.net < 0);
+  assert.equal(gundemScore(byKod.THYAO).score, 0);
+  assert.ok(gundemScore(byKod.THYAO).risk[0].includes('Yakıt'));
+  // Eşik altı hareket ve haber yoksa tema doğmaz; ABD'ye özgü tema TR'de görünmez.
+  assert.equal(catalysts([], { BRENT: { chg: 0.4 } }, 'tr', kods).themes.length, 0);
+  assert.ok(tone('Satışlar rekor kırdı, kâr arttı') > 0 && tone('Şirket zarar açıkladı, üretim durdu, iflas') < 0);
+});
+
+test('AI hafızası: son 3 analiz ve tahmin sonuçları özete girer, hash dışında kalır', async () => {
+  const { prevAnalyses, buildDigest } = await import('../lib/ai/analyze.mjs');
+  const at = Date.UTC(2026, 8, 29, 9);
+  const hist = [1, 2, 3, 4].map(i => ({ at: at - i * 36e5, result: { ozet: `özet ${i}`, varliklar: [{ kod: 'USDTRY', yon: 'yukari', olasilik: 60, vade_gun: 7 }] } }));
+  const preds = [{ id: `${hist[0].at}-USDTRY`, done: true, hit: false, chg: -0.8 }];
+  const prev = prevAnalyses(hist, preds);
+  assert.equal(prev.length, 3);
+  assert.match(prev[0].varliklar, /USDTRY↑%60\/7g TUTMADI\(-0,8%\)/);
+  const d = buildDigest({ news: [], markets: {} }, prev);
+  assert.match(d, /ÖNCEKİ ANALİZLER[\s\S]*özet 1[\s\S]*özet 3/);
+  assert.equal(d.replace(/\nÖNCEKİ ANALİZLER[\s\S]*$/, '').includes('özet'), false);
+});
+
+test('Dünya skoru: Türkiye bağı olmayan küresel haber de puan alır', () => {
+  const w = impact('Oil prices surge as OPEC cuts output amid war fears', W);
+  assert.ok(w.world >= 40, `world ${w.world}`);
+  assert.deepEqual(impact('Fed holds rates, Wall Street falls', W).wplace, [40.7, -74]);
+});

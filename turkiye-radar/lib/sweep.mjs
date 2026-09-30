@@ -6,8 +6,9 @@ import { extractArticle, titleCheck, isMisleading, lead } from './extract.mjs';
 import { impact, dedupe } from './impact.mjs';
 import { prepare, screen, backtest } from './screener.mjs';
 import { recordPicks, scorePicks, picksSummary } from './picks.mjs';
-import { loadUniverse } from '../sources/bist.mjs';
+import { loadUniverse, MARKETS } from '../sources/bist.mjs';
 import { fold } from './rss.mjs';
+import { catalysts, gundemScore } from './catalysts.mjs';
 
 const state = readJSON('state.json', { sources: {} }); // kaynak başına son sonuç + zaman + hata
 let running = null;
@@ -73,28 +74,41 @@ async function enrichNews(items, settings, moves) {
   return list.sort((a, b) => b.impact.score - a.impact.score || b.ts - a.ts);
 }
 
-// Tarayıcı: runtime/ohlc.json'daki fiyatlar + son haberlerde anılma. Geriye dönük ölçüm fiyat verisi
+// Tarayıcı: piyasanın fiyat dosyası + son haberlerde anılma. Geriye dönük ölçüm fiyat verisi
 // değişmedikçe tekrar hesaplanmaz.
-let btCache = { at: 0, res: null };
-function runScreener(news) {
-  const store = readJSON('ohlc.json', null);
-  if (!store?.series) return null;
-  const { XU100, ...rest } = store.series;
-  const uni = new Map(loadUniverse().map(u => [u.kod, u]));
-  const prepared = Object.values(rest).map(s => prepare(s));
-  const index = XU100 ? prepare(XU100) : null;
+const btCache = {};
+export function newsMatcher(news, uni, useKod = true) {
   const texts = news.map(n => ({ t: fold(` ${n.title} ${n.lead || ''} `), n }));
-  const newsFor = kod => {
-    const keys = [kod.toLowerCase(), ...(uni.get(kod)?.anahtar || [])].map(fold);
-    const hits = texts.filter(x => keys.some(k => x.t.includes(k.length <= 5 ? ` ${k} ` : k)));
-    return hits.length ? { count: hits.length, titles: hits.slice(0, 3).map(x => ({ title: x.n.title, link: x.n.link, src: x.n.srcName })) } : null;
+  // Kod yalnızca BIST'te anahtar olur (THYAO, ASELS sıradan kelime değil). ABD/Avrupa kodları çoğu zaman
+  // kelimedir (COST, RACE, AI, V); orada sadece şirket adları aranır.
+  return kod => {
+    const keys = [...(useKod && kod.length >= 4 ? [kod.toLowerCase()] : []), ...(uni.get(kod)?.anahtar || [])].map(fold);
+    const hits = texts.filter(x => keys.some(k => x.t.includes(k.length <= 5 ? ` ${k.trim()} ` : k)));
+    return hits.length ? { count: hits.length, items: hits.slice(0, 5).map(x => x.n), titles: hits.slice(0, 3).map(x => ({ title: x.n.title, link: x.n.link, src: x.n.srcName })) } : null;
   };
-  if (btCache.at !== store.at) btCache = { at: store.at, res: backtest(prepared, index) };
-  const rows = screen(prepared, index, newsFor).map(r => ({ ...r, news: newsFor(r.kod) }));
-  const res = { asOf: store.at, rows, backtest: btCache.res, index: index ? { price: index.c.at(-1), r21: index.c.at(-1) / index.c.at(-22) - 1 } : null, failed: readJSON('state.json', {}).sources?.bist?.data?.failed || [] };
-  scorePicks(store);
-  recordPicks(res);
-  res.live = picksSummary();
+}
+
+function runScreener(market, news, markets) {
+  const M = MARKETS[market];
+  const store = readJSON(M.ohlc, null);
+  if (!store?.series) return null;
+  const benchKod = store.bench || M.bench.kod;
+  const { [benchKod]: B, ...rest } = store.series;
+  const uni = new Map(loadUniverse(market).map(u => [u.kod, u]));
+  const prepared = Object.values(rest).map(x => prepare(x));
+  const index = B ? prepare(B) : null;
+  const find = newsMatcher(news, uni, market === 'tr');
+  if (btCache[market]?.at !== store.at) btCache[market] = { at: store.at, res: backtest(prepared, index) };
+  const cat = catalysts(news, markets, market, new Set(uni.keys()));
+  const rows = screen(prepared, index, find).map(r => ({ ...r, news: find(r.kod), scores: { ...r.scores, gundem: gundemScore(cat.byKod[r.kod]) } }));
+  const res = {
+    market, ad: M.ad, bench: { kod: benchKod, ad: M.bench.ad }, asOf: store.at, rows, backtest: btCache[market].res, catalysts: cat.themes,
+    index: index ? { price: index.c.at(-1), r21: index.c.at(-1) / index.c.at(-22) - 1 } : null,
+    failed: readJSON('state.json', {}).sources?.[market === 'tr' ? 'bist' : market]?.data?.failed || [],
+  };
+  scorePicks(store, market);
+  recordPicks(res, Date.now(), market);
+  res.live = picksSummary(undefined, market);
   return res;
 }
 
@@ -145,11 +159,14 @@ export async function sweep({ force = false, onDone } = {}) {
       quakes: d('quakes'), fires: d('firms'), weather: d('weather'),
       macro: d('macro'), fred: d('fred'), ecb: d('ecb'), calendar: d('calendar'), tone: d('gdelt')?.tone,
       news: news.slice(0, 300).map(slim),
-      screener: runScreener(news),
+      // Dünya görünümü: Türkiye bağından bağımsız, küresel etkisi yüksek haberler (son 48 saat).
+      world: news.filter(n => n.impact.world >= 25 && Date.now() - n.ts < 48 * 36e5).sort((a, b) => b.impact.world - a.impact.world || b.ts - a.ts).slice(0, 80).map(slim),
+      screeners: Object.fromEntries(Object.keys(MARKETS).map(m => [m, runScreener(m, news, mk)])),
       feedStatus: d('rss')?.status,
       articleStats: news.stats,
       sources: sourceList(settings),
     };
+    snap.screener = snap.screeners.tr; // AI özeti ve eski istemciler Türkiye tarayıcısını buradan okur
     snap.delta = computeDelta(prev, snap);
     writeJSON('latest.json', snap);
     writeJSON('state.json', { sources: Object.fromEntries(Object.entries(state.sources).map(([k, v]) => [k, v])) });
@@ -160,3 +177,21 @@ export async function sweep({ force = false, onDone } = {}) {
 }
 
 const slim = n => ({ id: n.id, title: n.title, link: n.link, ts: n.ts, src: n.src, srcName: n.srcName, srcs: n.srcs, also: n.also, stance: n.stance, cat: n.cat, lang: n.lang, lead: n.lead || n.summary?.slice(0, 280), impact: n.impact, check: n.check, misleading: n.misleading });
+
+// Hızlı yenileme: tam tarama (haber, tarayıcı) 15 dk'da bir; fiyat şeridi arada birkaç dakikada bir.
+// Yahoo verisi zaten 15 dk gecikmeli olduğundan daha sık çekmek hem boşa hem de 429 riskini artırır.
+export async function refreshQuotes() {
+  if (running) return null;
+  const snap = readJSON('latest.json', null);
+  if (!snap) return null;
+  const settings = loadSettings();
+  const src = SOURCES.filter(s => s.id === 'markets' || s.id === 'btcturk');
+  await Promise.all(src.map(s => runSource(s, settings, false)));
+  if (running) return null; // bu arada tam tarama başladıysa onun sonucunu ezme
+  const mk = state.sources.markets?.data, cr = state.sources.btcturk?.data;
+  if (mk) snap.markets = mk;
+  if (cr) snap.crypto = cr;
+  snap.quotesAt = Date.now();
+  writeJSON('latest.json', snap);
+  return { markets: snap.markets, crypto: snap.crypto, quotesAt: snap.quotesAt };
+}

@@ -26,6 +26,21 @@ export const PLACES = {
   'kızıldeniz': [20, 38.5], 'red sea': [20, 38.5], ege: [38.5, 25.5], aegean: [38.5, 25.5],
 };
 
+// Dünya haritası için başlıca ülke/bölge merkezleri [enlem, boylam]. Türkiye çevresi PLACES'ta.
+export const WORLD_PLACES = {
+  'abd': [39, -98], 'amerika': [39, -98], 'united states': [39, -98], 'washington': [38.9, -77], 'wall street': [40.7, -74], 'new york': [40.7, -74],
+  'çin': [35, 104], 'china': [35, 104], 'pekin': [39.9, 116.4], 'beijing': [39.9, 116.4], 'tayvan': [23.7, 121], 'taiwan': [23.7, 121],
+  'japonya': [36, 138], 'japan': [36, 138], 'tokyo': [35.7, 139.7], 'güney kore': [36, 128], 'south korea': [36, 128], 'hindistan': [21, 78], 'india': [21, 78],
+  'almanya': [51, 10], 'germany': [51, 10], 'fransa': [46.5, 2.5], 'france': [46.5, 2.5], 'ingiltere': [53, -1.5], 'britain': [53, -1.5], ' uk ': [53, -1.5], 'london': [51.5, -0.1],
+  'italya': [42.8, 12.5], 'italy': [42.8, 12.5], 'ispanya': [40, -3.7], 'spain': [40, -3.7], 'brüksel': [50.8, 4.4], 'brussels': [50.8, 4.4],
+  'suudi arabistan': [24, 45], 'saudi': [24, 45], 'katar': [25.3, 51.2], 'qatar': [25.3, 51.2], 'bae': [24, 54], 'uae': [24, 54], 'hürmüz': [26.6, 56.3], 'hormuz': [26.6, 56.3],
+  'venezuela': [7, -66], 'brezilya': [-10, -52], 'brazil': [-10, -52], 'meksika': [23, -102], 'mexico': [23, -102], 'arjantin': [-34, -64], 'argentina': [-34, -64],
+  'kanada': [56, -106], 'canada': [56, -106], 'avustralya': [-25, 134], 'australia': [-25, 134], 'güney afrika': [-29, 24], 'south africa': [-29, 24], 'nijerya': [9, 8], 'nigeria': [9, 8],
+  'polonya': [52, 19], 'poland': [52, 19], 'kuzey kore': [40, 127], 'north korea': [40, 127], 'pakistan': [30, 70], 'afganistan': [34, 66], 'afghanistan': [34, 66],
+  'sudan': [15, 30], 'yemen': [15.5, 48], 'panama': [9, -80], 'süveyş': [30, 32.5], 'suez': [30, 32.5], 'endonezya': [-2, 118], 'indonesia': [-2, 118],
+};
+const WORLD_KEYS = Object.keys(WORLD_PLACES).map(p => [fold(p), WORLD_PLACES[p]]);
+
 const norm = s => ' ' + fold(s).replace(/[^\p{L}\p{N}&'%$]+/gu, ' ') + ' ';
 const PLACE_KEYS = Object.keys(PLACES).map(p => [fold(p), PLACES[p]]);
 const count = (t, list) => list.reduce((n, w) => n + (t.includes(w) ? 1 : 0), 0);
@@ -56,7 +71,10 @@ export function impact(text, weights, moves = {}, body = '') {
   const final = Math.round(Math.min(100, score * 100 * (0.8 + 0.3 * sev)));
   const channels = Object.entries(ch).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k]) => k);
   const place = PLACE_KEYS.find(([p]) => t.includes(' ' + p));
-  return { score: final, channels, severity: sev, place: place ? place[1] : null };
+  // Dünya skoru: Türkiye bağı aranmaz; küresel piyasayı oynatan kanallar (finans, enerji, ticaret, jeopolitik) ve şiddet.
+  const world = Math.round(Math.min(100, 100 * Math.min(1, 0.35 * ch.finance + 0.25 * ch.energy + 0.2 * ch.trade + 0.2 * ch.geo + 0.3 * sev)));
+  const wp = place ? null : WORLD_KEYS.find(([p]) => t.includes(p.startsWith(' ') ? p : ' ' + p));
+  return { score: final, world, channels, severity: sev, place: place ? place[1] : null, wplace: place ? place[1] : wp ? wp[1] : null };
 }
 
 // Haber tekrarlarını birleştir: aynı olayı 10 site yazınca 10 kez saymayalım.

@@ -5,12 +5,12 @@ import { join, normalize, extname } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ROOT, readJSON, writeJSON, loadSettings, saveSettings, setSecret, publicSettings } from './lib/store.mjs';
 import { hasAdmin, setPassword, checkPassword, issueCookie, isAuthed, clearCookie } from './lib/auth.mjs';
-import { sweep, sourceList } from './lib/sweep.mjs';
+import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
 import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA } from './lib/ai/analyze.mjs';
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
 import { loadFeeds } from './sources/news.mjs';
-import { yahooDaily, loadUniverse } from './sources/bist.mjs';
+import { yahooDaily, loadUniverse, MARKETS } from './sources/bist.mjs';
 import { CORE } from './sources/markets.mjs';
 import { sma, rsi } from './lib/ta.mjs';
 
@@ -79,10 +79,15 @@ async function cycle({ force = false, forceAI = false } = {}) {
   }
 }
 
-let timer;
+let timer, quick;
 function schedule() {
-  clearInterval(timer);
+  clearInterval(timer); clearInterval(quick);
   timer = setInterval(() => cycle(), Math.max(5, loadSettings().intervalMin) * 60e3);
+  // Kaynakların ttlMin'i (5 dk) daha sık çekmeyi zaten engeller; bu döngü sadece şeridi tazeler.
+  quick = setInterval(async () => {
+    if (status.sweeping) return;
+    try { const q = await refreshQuotes(); if (q) broadcast({ type: 'quotes', ...q }); } catch (e) { console.error('[quotes]', e.message); }
+  }, 60e3);
 }
 
 const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'sources', 'telegram'];
@@ -150,10 +155,12 @@ async function admin(req, res, path, body) {
 // istek anında Yahoo'dan (20 dk önbellek). Sadece bilinen semboller kabul edilir.
 async function chartData(key) {
   const k = String(key).toUpperCase().replace(/\.IS$/, '');
-  const store = readJSON('ohlc.json', null);
-  let s = store?.series?.[k];
+  let s = null, sym = CORE[k] || null;
+  for (const [m, M] of Object.entries(MARKETS)) {
+    s ||= readJSON(M.ohlc, null)?.series?.[k];
+    sym ||= M.bench.kod === k ? M.bench.sym : loadUniverse(m).find(u => u.kod === k)?.sym;
+  }
   if (!s) {
-    const sym = CORE[k] || (loadUniverse().some(u => u.kod === k) || k === 'XU100' ? `${k}.IS` : null);
     if (!sym) return { error: 'Bilinmeyen sembol' };
     try { s = { kod: k, ad: k, ...(await yahooDaily(sym, '2y')) }; } catch (e) { return { error: `Veri alınamadı: ${e.message}` }; }
   }
@@ -203,7 +210,13 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { snap, analysis: analyses[0] || null, status, score: scorecard() });
       }
       if (path === '/api/chart') return send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100'));
-      if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, ...m }) => ({ ...m, ozet: result?.ozet })));
+      if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, hash, ...m }) => ({ ...m, ozet: result?.ozet, guven: result?.guven, kotumser: result?.kotumser?.olasilik, iyimser: result?.iyimser?.olasilik })));
+      if (path === '/api/analysis') {
+        const at = +url.searchParams.get('at');
+        const a = readJSON('analyses.json', []).find(x => x.at === at);
+        const preds = readJSON('predictions.json', []).filter(p => p.at === at);
+        return a ? send(res, 200, { ...a, predictions: preds }) : send(res, 404, { error: 'Analiz bulunamadı' });
+      }
       if (path === '/api/sweep' && req.method === 'POST') { cycle({ force: true, forceAI: !!body.ai }); return send(res, 202, { ok: true }); }
       if (path === '/api/analyze' && req.method === 'POST') {
         const snap = readJSON('latest.json', null);

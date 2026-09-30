@@ -50,8 +50,10 @@ Kurallar:
 4. Haberlerin yayın çizgisi etiketli (resmi, iktidara-yakın, muhalif, bağımsız, uluslararası, dünya). Tek bir çizginin anlatısına yaslanma; çelişki varsa belirt.
 5. varliklar: her varlık için en fazla 1 kayıt, vade_gun 1-30 arası. yukari = vade sonunda +%0,5'ten fazla, asagi = -%0,5'ten fazla düşüş, yatay = arada. olasilik 0-100 kalibre edilmiş olsun: emin değilsen 50-60 civarı ver.
 6. fikirler: en fazla 5, kişisel kullanım içindir. Hisse fikri verirken TARAYICI satırlarına dayan ve o stratejinin geçmiş karnesini (endekse göre getiri, isabet) yaz; karne zayıfsa bunu açıkça söyle, "kesin yükselir" deme. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
-7. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
-8. Yalnızca şemaya uyan JSON döndür.`;
+7. GÜNDEM satırları kural tabanlı neden→sonuç zincirleridir (geriye dönük test edilmemiştir). Hisse fikrinde "gelişme → etki kanalı → şirket" zincirini açıkça yaz; zincir tek haberdense zayıf olduğunu söyle. ABD ve Avrupa satırlarını Türkiye'ye yansıması (sermaye akışı, emtia, ihracat) açısından da değerlendir.
+8. ÖNCEKİ ANALİZLER senin son görüşlerin ve tahminlerinin sonuçlarıdır. Görüşün değiştiyse nedenini tarafsiz.yorum içinde bir cümleyle söyle; tutmayan tahmin varsa aynı hatayı tekrarlama.
+9. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
+10. Yalnızca şemaya uyan JSON döndür.`;
 
 const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));
 const sign = x => (x > 0 ? '+' : '') + f(x);
@@ -68,7 +70,7 @@ function balancedNews(news, n = 12) {
   return out.sort((a, b) => b.impact.score - a.impact.score);
 }
 
-export function buildDigest(s, prevSummary) {
+export function buildDigest(s, prev) {
   const m = s.markets || {};
   const L = [];
   const mk = ['USDTRY', 'EURTRY', 'GRAM_ALTIN', 'ONS', 'XU100', 'XBANK', 'BRENT', 'TTF', 'DXY', 'VIX', 'US10Y', 'SP500', 'TUR_ETF']
@@ -105,9 +107,41 @@ export function buildDigest(s, prevSummary) {
         top.map(r => `${r.kod} ${r.scores[id].score} (${r.scores[id].setup}; RSI ${Math.round(r.rsi)}; 1a ${sign(r.r21 * 100)}%${r.news ? `; ${r.news.count} haber` : ''})`).join(' | '));
     }
   }
+  // Dünya: Türkiye etki skoru düşük olsa da küresel piyasayı oynatan haberler (balancedNews'e girmeyenler).
+  const used = new Set(balancedNews(s.news || []).map(n => n.id));
+  const world = (s.news || []).filter(n => !used.has(n.id) && ['dünya', 'uluslararası'].includes(n.stance)).slice(0, 5);
+  if (world.length) L.push('DÜNYA: ' + world.map(n => `${n.title.slice(0, 110)} [${n.srcName}]`).join(' ; '));
+  const other = ['us', 'eu'].map(k => s.screeners?.[k]).filter(Boolean);
+  for (const x of other) {
+    const m = s.markets?.[x.market === 'us' ? 'SP500' : 'STOXX50'];
+    const top = [...x.rows].sort((a, b) => b.scores.trend.score - a.scores.trend.score).slice(0, 3);
+    L.push(`${x.ad.toUpperCase()} (${x.bench.ad}${m ? ` ${sign(m.chg)}%` : ''}): trend ilk 3 ${top.map(r => `${r.kod} 1a ${sign(r.r21 * 100)}%`).join(', ')}`);
+  }
+  for (const x of [sc, ...other].filter(Boolean)) {
+    if (!x.catalysts?.length) continue;
+    L.push(`GÜNDEM ${x.ad}: ` + x.catalysts.slice(0, 4).map(t => `${t.ad} ${t.yon > 0 ? '▲' : '▼'} (${t.neden}) → ${t.etkiler.slice(0, 4).map(e => `${e.kod}${e.yon > 0 ? '+' : '−'}`).join(' ')}`).join(' ; '));
+  }
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
-  if (prevSummary) L.push('ÖNCEKİ ANALİZ ÖZETİ: ' + prevSummary);
+  if (prev?.length) {
+    // Önbellek/tekrar kontrolünde hash'e girmesin diye hep en sonda.
+    L.push('ÖNCEKİ ANALİZLER (yeniden eskiye):');
+    for (const a of prev) L.push(`- ${a.when}: ${a.ozet} | beklenti: ${a.varliklar || '-'}`);
+  }
   return L.join('\n');
+}
+
+// Son 3 analizin kısa özeti ve varlık tahminlerinin (vadesi dolduysa) sonucu.
+const YON = { yukari: '↑', asagi: '↓', yatay: '→' };
+export function prevAnalyses(hist, preds = readJSON('predictions.json', []), n = 3) {
+  const byId = new Map(preds.map(p => [p.id, p]));
+  return hist.slice(0, n).map(a => ({
+    when: new Date(a.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+    ozet: String(a.result?.ozet || '').slice(0, 220),
+    varliklar: (a.result?.varliklar || []).map(v => {
+      const p = byId.get(`${a.at}-${v.kod}`);
+      return `${v.kod}${YON[v.yon] || v.yon}%${v.olasilik}/${v.vade_gun}g${p?.done ? (p.hit ? ' TUTTU' : ` TUTMADI(${sign(p.chg)}%)`) : ''}`;
+    }).join(' '),
+  }));
 }
 
 // Modelin yazdığı rakamlar veri özetinde var mı? (Vibe-Trading'in "grounding gate" fikrinin sade hali.)
@@ -155,8 +189,8 @@ export async function analyze(snap, settings, { force = false } = {}) {
   if (!p) return { skipped: 'Yapay zeka sağlayıcısı tanımlı değil (admin paneli)' };
   const hist = readJSON('analyses.json', []);
   const last = hist[0];
-  const digest = buildDigest(snap, last?.result?.tarafsiz?.yorum);
-  const h = createHash('sha1').update(digest.replace(/ÖNCEKİ ANALİZ ÖZETİ:.*$/m, '')).digest('hex');
+  const digest = buildDigest(snap, prevAnalyses(hist));
+  const h = createHash('sha1').update(digest.replace(/\nÖNCEKİ ANALİZLER[\s\S]*$/, '')).digest('hex');
   if (!force && last) {
     const ageMin = (Date.now() - last.at) / 60e3;
     if (last.hash === h) return { skipped: 'Veri değişmedi' };

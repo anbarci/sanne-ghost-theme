@@ -40,7 +40,7 @@ export function toast(msg, ms = 3200) {
 export function initTheme(btn) {
   let saved = null;
   try { saved = localStorage.getItem('radar-theme'); } catch {}
-  const t = saved || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  const t = saved || 'dark'; // finans paneli: koyu varsayılan (ui-ux-pro-max önerisi); açık tema düğmeyle
   document.documentElement.dataset.theme = t;
   btn?.addEventListener('click', () => {
     const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
