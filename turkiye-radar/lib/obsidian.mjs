@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readJSON } from './store.mjs';
-import { loadArchive } from './ai/memtree.mjs';
+import { loadArchive, loadDebates } from './ai/memtree.mjs';
 import { loadMemory, STABLE } from './ai/memory.mjs';
 import { THEMES } from './catalysts.mjs';
 
@@ -77,6 +77,41 @@ export function exportVault(vault, { now = Date.now() } = {}) {
     ].filter(x => x !== '').join('\n'));
   }
 
+  // Hisseler: boğa–ayı tartışmalarının geçmişi ve endekse göre sonuçları (temalardaki [[KOD]] bağlantıları buraya iner).
+  const deb = [...loadDebates()].sort((a, b) => a.at - b.at);
+  const pcs = x => `${x > 0 ? '+' : ''}${f(x * 100, 1)}%`;
+  const debRes = d => (!d.done ? 'bekliyor' : `${d.gun} günde endekse göre ${pcs(d.alfa)} · ${d.hit == null ? 'yönsüz' : d.hit ? 'tuttu' : 'tutmadı'}`);
+  const byKod = new Map();
+  for (const d of deb) (byKod.get(d.kod) || byKod.set(d.kod, []).get(d.kod)).push(d);
+  const rowOf = k => { for (const sc of Object.values(snap.screeners || {})) { const r = sc?.rows?.find(x => x.kod === k); if (r) return r; } return null; };
+  for (const [k, ds] of byKod) {
+    if (kods.has(k)) continue; // makro varlık notuyla çakışmasın
+    const sc = ds.filter(d => d.done && d.hit != null), hit = sc.filter(d => d.hit).length;
+    const avg = sc.length ? sc.reduce((a, d) => a + d.alfa, 0) / sc.length : null;
+    const px = rowOf(k)?.price;
+    const newest = [...ds].reverse();
+    put(`varliklar/${k}.md`, front({ type: 'entity', title: k, tags: ['radar', 'varlik', 'hisse'], created: day(ds[0].at), updated: today, extra: { ad: ds.at(-1).ad || k, tartisma: ds.length, isabet: sc.length ? Math.round((hit / sc.length) * 100) : null } }) + [
+      `# ${k} · ${esc(ds.at(-1).ad || '')}`, '',
+      px != null ? `Son fiyat (tarayıcı): **${f(px, 2)}** (${today})\n` : '',
+      sc.length ? `Sonuçlanan ${sc.length} yönlü kararın **${hit}**'i endekse göre tuttu (ortalama alfa ${pcs(avg)}).\n` : 'Henüz sonuçlanan yönlü karar yok.\n',
+      '## Tartışmalar', '',
+      '| Tarih | Karar | Hakem | Vade | Sonuç |', '|---|---|---|---|---|',
+      ...newest.map(d => `| ${day(d.at)} ${hm(d.at)} | **${d.karar}** | ${d.hakemKarar || '—'} | ${d.vade} gün | ${debRes(d)} |`), '',
+      ...newest.slice(0, 50).flatMap(d => [
+        `### ${day(d.at)} ${hm(d.at)} · ${d.karar}`, '',
+        esc(d.gerekce), '',
+        ...(d.adimlar || []).map(x => `- ${esc(x)}`), d.adimlar?.length ? '' : null,
+        d.degistirir ? `Kararı değiştirir: ${esc(d.degistirir)}` : null,
+        d.uyari ? `Risk uyarısı: ${esc(d.uyari)}` : null,
+        d.zarar_kes ? `Zarar kes: ${esc(d.zarar_kes)}` : null, '',
+        d.boga ? `> **Boğa:** ${esc(d.boga)}` : null, d.boga ? '' : null,
+        d.ayi ? `> **Ayı:** ${esc(d.ayi)}` : null, d.ayi ? '' : null,
+        `Sonuç: ${debRes(d)} · ${esc(d.provider || '')} ${esc(d.model || '')} · Gün: [[radar-${day(d.at)}|${day(d.at)}]]`, '',
+      ].filter(x => x !== null)),
+      'Model çıktısıdır, yatırım tavsiyesi değildir. Dizin: [[Radar]]', '',
+    ].join('\n'));
+  }
+
   // Temalar: gündem kuralları ve bugünkü durumu.
   const active = new Map();
   for (const sc of Object.values(snap.screeners || {})) for (const t of sc?.catalysts || []) if (!active.has(t.id)) active.set(t.id, t);
@@ -102,10 +137,18 @@ export function exportVault(vault, { now = Date.now() } = {}) {
   ].join('\n'));
 
   // Gün notları: o günün analizleri. "radar-" ön eki kullanıcının kendi günlük notlarıyla ad çakışmasın diye.
-  const byDay = new Map();
+  const byDay = new Map(), debDay = new Map();
   for (const a of arr) (byDay.get(day(a.at)) || byDay.set(day(a.at), []).get(day(a.at))).push(a);
+  for (const d of deb) { (debDay.get(day(d.at)) || debDay.set(day(d.at), []).get(day(d.at))).push(d); if (!byDay.has(day(d.at))) byDay.set(day(d.at), []); }
+  const days = [...byDay.keys()].sort();
   mkdirSync(join(root, 'gunler'), { recursive: true });
-  for (const [d, xs] of byDay) put(`gunler/radar-${d}.md`, front({ type: 'meta', title: d, tags: ['radar', 'gun'], status: 'evergreen', created: d, updated: d }) + [`# ${d}`, '', ...xs.map(a => `- [[${slug(a.at)}|${hm(a.at)}]] ${esc(String(a.ozet).slice(0, 160))}`), '', 'Dizin: [[Radar]]', ''].join('\n'));
+  for (const d of days) {
+    const xs = byDay.get(d), ds = debDay.get(d) || [];
+    put(`gunler/radar-${d}.md`, front({ type: 'meta', title: d, tags: ['radar', 'gun'], status: 'evergreen', created: d, updated: d }) + [`# ${d}`, '',
+      ...xs.map(a => `- [[${slug(a.at)}|${hm(a.at)}]] ${esc(String(a.ozet).slice(0, 160))}`),
+      ...ds.map(x => `- Tartışma: [[${x.kod}]] ${x.karar}${x.hakemKarar && x.hakemKarar !== x.karar ? ` (hakem ${x.hakemKarar})` : ''} · ${hm(x.at)} — ${esc(String(x.gerekce).slice(0, 140))}`),
+      '', 'Dizin: [[Radar]]', ''].join('\n'));
+  }
 
   // Dizin (içerik haritası) ve son durum.
   const last = arr.at(-1);
@@ -114,8 +157,9 @@ export function exportVault(vault, { now = Date.now() } = {}) {
     last ? `**Son analiz** (${day(last.at)} ${hm(last.at)}): ${esc(last.ozet)} → [[${slug(last.at)}]]\n` : '',
     '## Varlıklar', '', [...kods].sort().map(k => `[[${k}]]`).join(' · ') || '—', '',
     '## Temalar', '', THEMES.map(t => `[[tema-${t.id}|${t.ad}]]`).join(' · '), '',
+    '## Hisse tartışmaları', '', [...byKod.keys()].sort().map(k => `[[${k}]] (${byKod.get(k).length})`).join(' · ') || '—', '',
     '## Hafıza', '', '[[Dersler]]', '',
-    '## Günler', '', ...[...byDay.keys()].reverse().slice(0, 120).map(d => `- [[radar-${d}|${d}]] (${byDay.get(d).length} analiz)`), '',
+    '## Günler', '', ...[...days].reverse().slice(0, 120).map(d => `- [[radar-${d}|${d}]] (${[byDay.get(d).length ? `${byDay.get(d).length} analiz` : '', debDay.get(d)?.length ? `${debDay.get(d).length} tartışma` : ''].filter(Boolean).join(', ')})`), '',
     `_Radar tarafından ${today} tarihinde üretildi. Bu klasördeki dosyalar her aktarımda yeniden yazılır; kendi notlarını başka bir klasörde tut._`, '',
   ].filter(x => x !== '').join('\n'));
 

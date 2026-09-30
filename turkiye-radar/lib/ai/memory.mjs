@@ -5,6 +5,7 @@
 // Hafıza her analizde veri özetine "HAFIZA" satırları olarak girer.
 import { readJSON, writeJSON } from '../store.mjs';
 import { similarity } from '../verify.mjs';
+import { loadDebates } from './memtree.mjs';
 
 const pct = x => Math.round(x * 100);
 
@@ -43,7 +44,7 @@ export function statLessons(preds) {
 }
 
 // Hafızaya giden ölçüm satırı: kararların endekse göre isabeti (model kullanılmaz, fiyatlardan hesaplanır).
-export function debateLessons(all = readJSON('debates.json', [])) {
+export function debateLessons(all = loadDebates()) {
   const pc = x => `${x > 0 ? '+' : ''}${(x * 100).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}%`;
   const out = [];
   for (const [ad, set] of [['AL/ARTIR', ['AL', 'ARTIR']], ['AZALT/SAT', ['AZALT', 'SAT']]]) {

@@ -80,20 +80,24 @@ test('tartışma: 4 çağrı sırayla, ayı boğayı görür, hakem ikisini, uyd
 });
 
 test('vade dolunca endekse göre puanlama ve hafıza satırı', () => {
-  const all = readJSON('debates.json');
-  for (const d of all) d.due = Date.now() - 1;
-  writeJSON('debates.json', all);
+  // Arşivdeki vadeyi geçmişe çek; arayüz listesinden düşmüş bir karar da puanlanmalı.
+  const arch = readJSON('debate-archive.json');
+  assert.equal(arch.length, 3, 'her tartışma arşive girer');
+  for (const d of arch) d.due = Date.now() - 1;
+  writeJSON('debate-archive.json', arch);
+  writeJSON('debates.json', readJSON('debates.json').slice(0, 2));
   const later = { ...snap, markets: { ...snap.markets, XU100: { price: 10500 } }, screeners: { tr: { ...snap.screeners.tr, rows: [{ ...snap.screeners.tr.rows[0], price: 330 }] } } };
   const scored = scoreDebates(later);
   const artir = scored.find(d => d.karar === 'ARTIR');
   assert.ok(Math.abs(artir.getiri - 0.1) < 1e-9 && Math.abs(artir.alfa - 0.05) < 1e-9);
   assert.equal(artir.hit, true);
+  assert.ok(readJSON('debates.json').every(d => d.done), 'sonuç arayüz listesine de işlenir');
   assert.equal(scored.find(d => d.karar === 'TUT').hit, null, 'TUT yönsüz');
   assert.equal(scored.find(d => d.karar === REVIEW).hit, null);
   assert.match(pastLines('THYAO').at(-1), /ARTIR dedin; \d+ günde hisse \+10%, endekse göre \+5% \(tuttu\)/);
 
   assert.deepEqual(debateLessons(), [], '3 karardan az: satır yok');
-  writeJSON('debates.json', [...scored, ...[1, 2].map(i => ({ ...artir, id: `x${i}`, alfa: -0.02, hit: false }))]);
+  writeJSON('debate-archive.json', [...scored, ...[1, 2].map(i => ({ ...artir, id: `x${i}`, at: artir.at - i * 864e5 * 40, alfa: -0.02, hit: false }))]);
   assert.deepEqual(debateLessons(), ['Hisse tartışmalarında AL/ARTIR dediğin 3 kararın 1\'i endekse göre tuttu (ortalama alfa +0,3%)']);
   assert.ok(memoryLines('').some(x => x.startsWith('ölçüm: Hisse tartışmalarında')));
 });
@@ -104,4 +108,31 @@ test('TL varlıkta nominal isabet ile dolar bazı ayrı ölçülür', async () =
   const p = { done: true, kod: 'XU100', yon: 'yukari', actual: 'yukari', hit: true, p: 0.6, chgUsd: -1.9 };
   const lines = statLessons([p, { ...p }, { ...p, chgUsd: 2 }]);
   assert.ok(lines.some(x => /tutan 3 "yukari" tahmininin 2'i dolar bazında kayıptı/.test(x)), lines.join('\n'));
+});
+
+test('tartışmalar hafıza ağacında, aramada ve Obsidian notlarında', async () => {
+  const { toc, readNode, searchMemory, dateNodes } = await import('../lib/ai/memtree.mjs');
+  const { exportVault } = await import('../lib/obsidian.mjs');
+  const arch = readJSON('debate-archive.json');
+  const d = arch.find(x => x.karar === 'TUT');
+  const day = new Date(d.at).toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' });
+  // Analiz hiç yokken de ağaç tartışmalardan kurulur.
+  assert.match(toc(), /HAFIZA AĞACI[\s\S]*tartışma[\s\S]*THYAO TUT/);
+  const node = readNode(day);
+  assert.match(node, /TARTIŞMALAR \(\d\):[\s\S]*THYAO: TUT \(hakem ARTIR dedi, risk temkinliye çekti\)[\s\S]*Gerekçe: Trend güçlü/);
+  assert.ok(dateNodes('bugün THYAO için ne demiştin?').includes(day));
+  assert.match(readNode(`T${d.at}`), /Risk uyarısı: Seçim belirsizliği[\s\S]*Boğa: Boğa: trend güçlü/);
+  assert.match(searchMemory('THYAO'), /\[T\d+\] .*tartışma THYAO: /);
+  assert.match(searchMemory('seçim belirsizliği'), /tartışma THYAO: TUT/);
+
+  const vault = mkdtempSync(join(tmpdir(), 'kasa-'));
+  exportVault(vault);
+  const { readFileSync } = await import('node:fs');
+  const note = readFileSync(join(vault, 'wiki/radar/varliklar/THYAO.md'), 'utf8');
+  assert.match(note, /type: entity[\s\S]*# THYAO · Türk Hava Yolları/);
+  assert.match(note, /\| Tarih \| Karar \| Hakem \| Vade \| Sonuç \|/);
+  assert.match(note, /endekse göre \+5% · tuttu/);
+  assert.match(note, /Kararı değiştirir: 280 altı kapanış/);
+  assert.match(readFileSync(join(vault, 'wiki/radar/Radar.md'), 'utf8'), /## Hisse tartışmaları[\s\S]*\[\[THYAO\]\]/);
+  assert.match(readFileSync(join(vault, `wiki/radar/gunler/radar-${day}.md`), 'utf8'), /Tartışma: \[\[THYAO\]\] TUT/);
 });

@@ -358,7 +358,11 @@ const server = createServer(async (req, res) => {
         if (!R.tartisma) return deny('tartisma');
         const q = M.useQuota(user, 'tartisma');
         if (!q.ok) return send(res, 200, { error: `Günlük tartışma hakkın doldu (${q.limit}). Yarın yenilenir ya da üyeliğini yükselt.` });
-        try { const { uid, ...d } = await debate(body.kod, loadSettings(), { market: body.m, uid: user.id }); return send(res, 200, d); }
+        try {
+          const { uid, ...d } = await debate(body.kod, loadSettings(), { market: body.m, uid: user.id });
+          if (process.env.RADAR_OBSIDIAN_DIR) { try { exportVault(process.env.RADAR_OBSIDIAN_DIR); } catch (e) { console.error('[obsidian]', e.message); } }
+          return send(res, 200, d);
+        }
         catch (e) { if (e.early) M.refundQuota(user, 'tartisma'); return send(res, 200, { error: e.message }); }
       }
       if (path.startsWith('/api/chat') && !R.sohbet) return deny('sohbet');

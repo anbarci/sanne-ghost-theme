@@ -26,8 +26,8 @@ Kurallar:
 7. KULLANICI NOTLARI kullanıcının kendisi hakkında verdiği bilgilerdir (portföy, risk tercihi, hedef); önerileri buna göre kişiselleştir.
 8. Elindeki veri soruyu cevaplamaya yetmiyorsa cevap YAZMA; yalnızca şu satırlardan en fazla 3 tane yaz ve dur:
    ARA: <web'de aranacak kısa sorgu>   (güncel olay, radarda olmayan haber ya da açıklama için)
-   OKU: <hafıza düğümü>               (HAFIZA AĞACI'ndaki kimlik: 2026-H39, 2026-09-25, 2026-09 ya da A<sayı>)
-   BUL: <konu kelimeleri>             (geçmiş analizlerde ve sohbetlerde konu araması; ör. "altın", "THYAO faiz")
+   OKU: <hafıza düğümü>               (HAFIZA AĞACI'ndaki kimlik: 2026-H39, 2026-09-25, 2026-09, analiz için A<sayı>, hisse tartışması için T<sayı>)
+   BUL: <konu kelimeleri>             (geçmiş analizlerde, hisse tartışmalarında ve sohbetlerde konu araması; ör. "altın", "THYAO faiz")
    Sonuçlar sana verilince soruyu cevapla. WEB ARAMASI sonuçlarını kullanırken yayıncıyı ve tarihi belirt; tarihi eski ya da tek kaynaklı sonucu güncel kesin bilgi gibi sunma.`;
 
 const f = (x, d = 2) => (x == null || !Number.isFinite(+x) ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));

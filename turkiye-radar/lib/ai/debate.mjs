@@ -11,6 +11,7 @@ import { complete, costUSD, parseJSON } from './providers.mjs';
 import { readJSON, writeJSON } from '../store.mjs';
 import { activeProvider, spentToday, spendLog, unverifiedNumbers } from './analyze.mjs';
 import { retrieve } from './chat.mjs';
+import { loadDebates, archiveDebate } from './memtree.mjs';
 
 export const RATINGS = ['AL', 'ARTIR', 'TUT', 'AZALT', 'SAT'];
 export const REVIEW = 'İNCELE';
@@ -67,8 +68,8 @@ export function findRow(snap, kod, market) {
 }
 
 // Aynı hissenin son kararları ve sonuçları (TradingAgents'ın hafıza günlüğündeki "aynı sembol" bağlamı).
-export function pastLines(kod, all = readJSON('debates.json', [])) {
-  return all.filter(d => d.kod === kod).slice(0, 3).map(d => {
+export function pastLines(kod, all = loadDebates()) {
+  return all.filter(d => d.kod === kod).sort((a, b) => b.at - a.at).slice(0, 3).map(d => {
     const when = new Date(d.at).toLocaleDateString('tr-TR', { timeZone: 'Europe/Istanbul' });
     return d.done
       ? `${when}: ${d.karar} dedin; ${d.gun} günde hisse ${pc(d.getiri)}, endekse göre ${pc(d.alfa)} (${d.hit == null ? 'yönsüz karar' : d.hit ? 'tuttu' : 'tutmadı'})`
@@ -128,16 +129,18 @@ export async function debate(kod, settings, { market, uid = null, snap = readJSO
     provider: p.name, model: jr.model, usage, cost: costUSD(p.model, usage),
   };
   entry.unverified = unverifiedNumbers([bull, bear, entry.hakem.gerekce, entry.hakem.degistirir, entry.risk.zarar_kes, entry.risk.uyari].join('\n'), head);
-  writeJSON('debates.json', [entry, ...all].slice(0, 300));
+  writeJSON('debates.json', [entry, ...all].slice(0, 300)); // arayüz için tam metin
+  archiveDebate(entry); // hafıza ağacı, arama, karne ve Obsidian için sınırsız arşiv
   return entry;
 }
 
 // Vadesi dolan kararların endekse göre sonucu. AL/ARTIR endeksi geçerse, AZALT/SAT geride kalırsa tutmuş sayılır;
-// TUT ve İNCELE yönsüzdür, getirisi yazılır ama isabete girmez.
+// TUT ve İNCELE yönsüzdür, getirisi yazılır ama isabete girmez. Puanlama arşiv üzerinden yapılır (son 300'ün
+// dışına düşmüş bir karar da puanlanır); sonuç arayüzün tam metin listesine de işlenir.
 export function scoreDebates(snap, now = Date.now()) {
-  const all = readJSON('debates.json', []);
-  let changed = false;
-  for (const d of all) {
+  const arch = loadDebates();
+  const scored = new Map();
+  for (const d of arch) {
     if (d.done || now < d.due || !d.price) continue;
     const row = findRow(snap, d.kod, d.m)?.r;
     const b = snap?.markets?.[d.bench]?.price;
@@ -145,8 +148,12 @@ export function scoreDebates(snap, now = Date.now()) {
     const getiri = row.price / d.price - 1, alfa = getiri - (b / d.benchPrice - 1);
     Object.assign(d, { done: true, getiri, alfa, gun: Math.round((now - d.at) / 864e5),
       hit: ['AL', 'ARTIR'].includes(d.karar) ? alfa > 0 : ['AZALT', 'SAT'].includes(d.karar) ? alfa < 0 : null });
-    changed = true;
+    scored.set(d.id, d);
   }
-  if (changed) writeJSON('debates.json', all);
-  return all;
+  if (!scored.size) return arch;
+  writeJSON('debate-archive.json', arch);
+  const full = readJSON('debates.json', []);
+  for (const d of full) { const x = scored.get(d.id); if (x) Object.assign(d, { done: true, getiri: x.getiri, alfa: x.alfa, gun: x.gun, hit: x.hit }); }
+  writeJSON('debates.json', full);
+  return arch;
 }
