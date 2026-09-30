@@ -376,3 +376,33 @@ test('SearXNG: yayıncı ve tarih çıkarılır, tarihsiz ve eski sonuç teyit s
   const r = judge({ title: 'Brent petrol 96 doların altına geriledi', srcName: 'Investing', link: 'https://tr.investing.com/a' }, c, now);
   assert.deepEqual(r.ornek.map(o => o.src).sort(), ['Dünya Gazetesi', 'malatyaguncel.com']); // 2 hafta önceki ve tarihsiz atıldı
 });
+
+test('Hafıza: ölçülmüş isabet, kalibrasyon, yön yanlılığı; tekrar eden ders eklenmez', async () => {
+  const { statLessons, addLesson, loadMemory } = await import('../lib/ai/memory.mjs');
+  const P = (kod, yon, p, actual) => ({ kod, yon, p, actual, done: true, hit: yon === actual });
+  const preds = [P('USDTRY', 'asagi', 0.7, 'yukari'), P('USDTRY', 'asagi', 0.75, 'yukari'), P('USDTRY', 'yukari', 0.6, 'yukari'),
+    P('XU100', 'yukari', 0.8, 'asagi'), P('XU100', 'yukari', 0.7, 'yatay'), P('XU100', 'yukari', 0.65, 'asagi')];
+  const L = statLessons(preds);
+  assert.ok(L.some(x => /USDTRY: 3 tahminin 1'i tuttu \(tutmayanların çoğu "asagi"/.test(x)), L.join('\n'));
+  assert.ok(L.some(x => /%65 ve üstü güvenle verdiğin 5 tahminin %0'i tuttu: güvenini düşür/.test(x)), L.join('\n'));
+  assert.ok(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim.'));
+  assert.equal(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim!'), false);
+  assert.equal(loadMemory().dersler.length, 1);
+});
+
+test('Sohbet verisi: sorudaki hisse, varlık ve konu kelimeleri ilgili veriyi getirir', async () => {
+  const { retrieve } = await import('../lib/ai/chat.mjs');
+  const row = { kod: 'THYAO', ad: 'Türk Hava Yolları', price: 300, r1: 0.01, r21: -0.05, r63: 0.1, rsi: 45, dist52: 0.12, atr: 2.1, volRatio: 1.2,
+    scores: { trend: { score: 50, setup: 'İzle', why: ['x'], risk: [] }, gundem: { score: 0, setup: 'Gündem aleyhine', why: [], risk: ['Petrol yukarı → Yakıt'] } }, news: { titles: [{ title: 'THY yeni uçak aldı', src: 'AA' }] } };
+  const snap = {
+    at: Date.now(), markets: { BRENT: { price: 96, chg: 1.2, vol: 1.8, spark: [90, 96] } },
+    screeners: { tr: { ad: 'Türkiye', bench: { ad: 'BIST 100' }, rows: [row], backtest: { presets: { trend: { excess: -0.003, hit: 0.46 } } }, catalysts: [{ ad: 'Petrol fiyatı', yon: 1, neden: 'BRENT +1,2%', etkiler: [{ kod: 'THYAO', yon: -1, neden: 'Yakıt maliyeti' }] }] } },
+    news: [{ id: 'a', title: 'Petrol fiyatları Hürmüz gerilimiyle yükseldi', lead: 'Brent 96 dolar', srcName: 'AA', stance: 'resmi', ts: Date.now(), impact: { score: 70 } }],
+  };
+  const r = retrieve('THY hissesi petrol fiyatları yüzünden düşer mi?', snap);
+  assert.match(r, /HİSSE THYAO/);
+  assert.match(r, /Gündem: Petrol fiyatı yukarı .* Yakıt maliyeti/);
+  assert.match(r, /FİYATLAR: BRENT 96/);
+  assert.match(r, /HABER \[AA\/resmi.*Petrol fiyatları Hürmüz/);
+  assert.equal(retrieve('merhaba', snap), '');
+});

@@ -7,6 +7,8 @@ import { ROOT, readJSON, writeJSON, loadSettings, saveSettings, setSecret, publi
 import { hasAdmin, setPassword, checkPassword, issueCookie, isAuthed, clearCookie } from './lib/auth.mjs';
 import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
 import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA } from './lib/ai/analyze.mjs';
+import { chat, loadChat, clearChat } from './lib/ai/chat.mjs';
+import { loadMemory, deleteLesson, statLessons } from './lib/ai/memory.mjs';
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
 import { loadFeeds } from './sources/news.mjs';
@@ -64,8 +66,12 @@ async function cycle({ force = false, forceAI = false } = {}) {
     const settings = loadSettings();
     let analysis = null;
     status.analyzing = true; broadcast({ type: 'status', status });
+    // Zamanlanmış analiz: son analizden bu yana seçilen saat (1/2/3/6) geçtiyse veri değişmemiş olsa da analiz yapılır.
+    // Arada büyük bir olay olursa normal tetik (değişim puanı) yine çalışır. Günlük bütçe her durumda geçerli.
+    const lastAt = readJSON('analyses.json', [])[0]?.at || 0;
+    const due = settings.aiAutoHours > 0 && Date.now() - lastAt >= settings.aiAutoHours * 36e5 - 5 * 60e3;
     try {
-      analysis = await analyze(snap, settings, { force: forceAI });
+      analysis = await analyze(snap, settings, { force: forceAI || due });
       status.lastAnalysisNote = analysis.skipped || null;
     } catch (e) { status.lastAnalysisNote = `Analiz hatası: ${e.message}`; }
     status.analyzing = false;
@@ -90,7 +96,7 @@ function schedule() {
   }, 60e3);
 }
 
-const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'searxngUrl', 'sources', 'telegram'];
+const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'searxngUrl', 'aiAutoHours', 'sources', 'telegram'];
 
 async function admin(req, res, path, body) {
   const s = loadSettings();
@@ -101,6 +107,7 @@ async function admin(req, res, path, body) {
       for (const k of SETTABLE) if (k in body) s[k] = body[k];
       s.intervalMin = Math.max(5, +s.intervalMin || 15);
       s.verifyTop = Math.min(40, Math.max(0, +s.verifyTop || 0));
+      s.aiAutoHours = [0, 1, 2, 3, 6, 12, 24].includes(+s.aiAutoHours) ? +s.aiAutoHours : 0;
       s.searxngUrl = /^https?:\/\/[^\s]+$/.test(s.searxngUrl || '') ? s.searxngUrl : '';
       s.watchlist = (s.watchlist || []).map(x => String(x).trim().toUpperCase()).filter(x => /^[A-Z0-9.^=-]{1,15}$/.test(x)).slice(0, 30);
       saveSettings(s); schedule();
@@ -228,6 +235,14 @@ const server = createServer(async (req, res) => {
         catch (e) { return send(res, 200, { error: e.message }); }
         finally { status.analyzing = false; broadcast({ type: 'status', status }); }
       }
+      if (path === '/api/chat' && req.method === 'GET') return send(res, 200, { turns: loadChat(url.searchParams.get('at')) });
+      if (path === '/api/chat' && req.method === 'POST') {
+        try { return send(res, 200, await chat(body.at, body.q, loadSettings())); }
+        catch (e) { return send(res, 200, { error: e.message }); }
+      }
+      if (path === '/api/chat/clear' && req.method === 'POST') { clearChat(body.at); return send(res, 200, { ok: true }); }
+      if (path === '/api/memory' && req.method === 'GET') return send(res, 200, { dersler: loadMemory().dersler, olcum: statLessons(readJSON('predictions.json', [])) });
+      if (path === '/api/memory/delete' && req.method === 'POST') { deleteLesson(+body.at); return send(res, 200, { ok: true }); }
       if (path.startsWith('/api/admin/')) return admin(req, res, path, body);
       return send(res, 404, { error: 'Bulunamadı' });
     }

@@ -18,7 +18,7 @@ const rss = `<rss><channel>
 <item><title>Oslo'da ekmek yarışması</title><link>https://haber.test/a3</link><description>Yerel haber</description><pubDate>${new Date().toUTCString()}</pubDate></item>
 </channel></rss>`;
 
-let aiCalls = 0;
+let aiCalls = 0, lastAI = null;
 const AI_OUT = {
   ozet: 'Enerji şoku TL üzerinde baskı yaratıyor.',
   kotumser: { yorum: 'Brent %7 arttı, cari açık genişler.', dayanak: ['BRENT +6,98%'], olasilik: 35 },
@@ -49,6 +49,8 @@ globalThis.fetch = async (url, opts = {}) => {
     aiCalls++;
     const b = JSON.parse(opts.body);
     assert.equal(b.messages[0].role, 'system');
+    lastAI = b;
+    if (!b.response_format) return json({ model: 'test-model', choices: [{ message: { content: 'Dolar/TL şu an 41,8 civarında; 99.999 gibi bir seviye veride yok.' } }], usage: { prompt_tokens: 1200, completion_tokens: 60 } });
     return json({ model: 'test-model', choices: [{ message: { content: JSON.stringify(AI_OUT) } }], usage: { prompt_tokens: 900, completion_tokens: 300 } });
   }
   if (/\.rss|rss|feed|export|xml/.test(u) && !u.includes('google')) return text(rss);
@@ -114,6 +116,18 @@ test('AI analizi: tek çağrı, tekrar çağrı yapılmaz, tahmin karnesi puanla
   assert.ok(again.skipped, 'aynı veriyle ikinci çağrı yapılmamalı');
   assert.equal(aiCalls, 1);
 
+  // Sohbet: bağlamda analiz + şu anki veri; soruda geçen varlığın fiyatı ek veri olarak gelir.
+  const { chat, loadChat } = await import('../lib/ai/chat.mjs');
+  const t = await chat(a.at, 'Dolar için ne yapmalıyım?', loadSettings());
+  assert.equal(aiCalls, 2);
+  assert.match(lastAI.messages[0].content, /ANALİZ \(/);
+  assert.match(lastAI.messages[0].content, /ŞU ANKİ GERÇEK VERİ/);
+  assert.match(lastAI.messages.at(-1).content, /SORUYLA İLGİLİ VERİ[\s\S]*FİYATLAR: USDTRY/);
+  assert.deepEqual(t.unverified, ['99999']); // cevaptaki uydurma rakam yakalanır
+  assert.equal(loadChat(a.at).length, 2);
+  await chat(a.at, 'Peki euro?', loadSettings());
+  assert.equal(lastAI.messages.filter(m => m.role !== 'system').length, 3, 'önceki soru-cevap geçmişi gönderilir');
+
   // Vade dolmuş gibi davran: USDTRY %2 yükselmiş olsun -> tahmin tuttu.
   const preds = readJSON('predictions.json');
   preds[0].due = Date.now() - 1;
@@ -123,7 +137,9 @@ test('AI analizi: tek çağrı, tekrar çağrı yapılmaz, tahmin karnesi puanla
   const lim = loadSettings(); lim.aiDailyTokens = 1000; saveSettings(lim);
   const blocked = await analyze(snap, loadSettings(), { force: true });
   assert.match(blocked.skipped, /token sınırı/);
-  assert.equal(aiCalls, 1, 'bütçe dolunca çağrı yapılmamalı');
+  assert.equal(aiCalls, 3, 'bütçe dolunca çağrı yapılmamalı (1 analiz + 2 sohbet)');
+  const { chat: chat2 } = await import('../lib/ai/chat.mjs');
+  await assert.rejects(chat2(a.at, 'Son soru', loadSettings()), /token sınırı/, 'sohbet de aynı bütçeye tabi');
   assert.equal(sc.done, 1);
   assert.equal(sc.models[0].isabet, 100);
   assert.equal(sc.models[0].brier, 0.09);

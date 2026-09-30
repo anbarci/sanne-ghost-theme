@@ -73,6 +73,7 @@
     <form class="form" id="set-form">
       <div class="row">
         <label>Tarama aralığı (dk)<input type="number" id="s-int" min="5" max="240"></label>
+        <label>Otomatik analiz<select id="s-auto"><option value="0">Yalnızca önemli değişimde</option><option value="1">Saatte bir</option><option value="2">2 saatte bir</option><option value="3">3 saatte bir</option><option value="6">6 saatte bir</option><option value="12">12 saatte bir</option><option value="24">Günde bir</option></select></label>
         <label>AI en sık (dk)<input type="number" id="s-aiint" min="10" max="1440"></label>
         <label>AI tetik eşiği (değişim puanı)<input type="number" id="s-aimin" min="0" max="100"></label>
         <label>Tam metni çekilecek haber<input type="number" id="s-art" min="0" max="150"></label>

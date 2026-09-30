@@ -1,9 +1,11 @@
-// AI analizi: tek çağrıda üç bakış açısı + varlık beklentileri + işlem fikirleri.
+// AI analizi: tek çağrıda üç bakış açısı, yayın çizgisi çerçeveleri, çözüm/korunma/fırsat/eylem,
+// varlık beklentileri, işlem fikirleri ve kendi hatasından çıkardığı ders.
 // Token tasarrufu: (1) sıkıştırılmış veri özeti, (2) değişmeyen sistem metni önbellekte,
 // (3) özet değişmediyse ya da delta küçükse çağrı yapılmaz, (4) üç ayrı çağrı yerine tek çağrı.
 import { createHash } from 'node:crypto';
 import { complete, parseJSON, costUSD } from './providers.mjs';
 import { readJSON, writeJSON, getSecret } from '../store.mjs';
+import { memoryLines, addLesson } from './memory.mjs';
 
 export const ASSETS = ['USDTRY', 'EURTRY', 'GRAM_ALTIN', 'XU100', 'BRENT', 'BTCTRY'];
 
@@ -13,12 +15,23 @@ const view = (extra = {}) => ({ type: 'object', additionalProperties: false, req
 
 export const SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['ozet', 'kotumser', 'iyimser', 'tarafsiz', 'varliklar', 'fikirler', 'eksik_veri', 'guven'],
+  required: ['ozet', 'kotumser', 'iyimser', 'tarafsiz', 'cerceve', 'cozum', 'korunma', 'firsat', 'eylem', 'varliklar', 'fikirler', 'eksik_veri', 'ders', 'guven'],
   properties: {
     ozet: str,
     kotumser: view({ olasilik: { type: 'integer' } }),
     iyimser: view({ olasilik: { type: 'integer' } }),
     tarafsiz: view({ izle: strs }),
+    cerceve: { type: 'object', additionalProperties: false, required: ['muhalif', 'yandas'], properties: { muhalif: view(), yandas: view() } },
+    cozum: strs,
+    korunma: strs,
+    firsat: strs,
+    eylem: {
+      type: 'array', items: {
+        type: 'object', additionalProperties: false, required: ['adim', 'neden', 'risk'],
+        properties: { adim: str, neden: str, risk: str },
+      },
+    },
+    ders: str,
     varliklar: {
       type: 'array', items: {
         type: 'object', additionalProperties: false, required: ['kod', 'yon', 'vade_gun', 'olasilik', 'gerekce'],
@@ -43,6 +56,12 @@ Görev: Türkiye ekonomisi ve piyasaları (dolar/TL, euro/TL, gram altın, BIST,
 - kotumser: Veride kötüye işaret eden ne varsa onu öne çıkar. Riskleri, zincirleme etkileri anlat.
 - iyimser: Veride iyiye işaret eden ne varsa onu öne çıkar. Toparlanma kanallarını anlat.
 - tarafsiz: İki tarafı tart, hangi senaryonun neden daha olası olduğunu söyle, belirsizlikleri ve "izle" listesinde takip edilecek somut göstergeleri ver.
+- cerceve.muhalif / cerceve.yandas: "muhalif" ve "iktidara-yakın" etiketli haberlerin olayı NASIL çerçevelediğini aktar (kendi görüşün değil; kimin neyi vurguladığı, neyi atladığı). Dayanak o çizgideki haber başlıkları olsun. O çizgiden haber yoksa yorum "Bu çizgiden haber yok" olsun, dayanak boş kalsın.
+- cozum: Sorunu hafifletecek somut politika ya da kurum adımları (en fazla 3).
+- korunma: Bir hanenin ya da küçük yatırımcının bu durumdan daha az etkilenmek için yapabilecekleri (en fazla 3; yasal, somut, genel geçer tavsiye değil veriye bağlı).
+- firsat: Bu durumdan hangi sektörün, varlığın ya da şirket tipinin kazançlı çıkabileceği ve neden (en fazla 3).
+- eylem: Kişisel kullanım için adım adım plan (en fazla 3): ne yapılır, neden, risk. "Garanti", "kesin kazanç" gibi ifadeler kullanma.
+- ders: ÖNCEKİ ANALİZLER ve HAFIZA satırlarına bakarak kendi tahmin hatalarından çıkardığın tek cümlelik yeni bir ders. Yeni bir ders yoksa boş metin döndür.
 
 Kurallar:
 1. Her "dayanak" maddesi özetteki somut bir veriye atıf yapmalı (rakam, kaynak adı ya da haber başlığı). Atıf yapamıyorsan o maddeyi yazma.
@@ -52,17 +71,17 @@ Kurallar:
 5. varliklar: her varlık için en fazla 1 kayıt, vade_gun 1-30 arası. yukari = vade sonunda +%0,5'ten fazla, asagi = -%0,5'ten fazla düşüş, yatay = arada. olasilik 0-100 kalibre edilmiş olsun: emin değilsen 50-60 civarı ver.
 6. fikirler: en fazla 5, kişisel kullanım içindir. Hisse fikri verirken TARAYICI satırlarına dayan ve o stratejinin geçmiş karnesini (endekse göre getiri, isabet) yaz; karne zayıfsa bunu açıkça söyle, "kesin yükselir" deme. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
 7. GÜNDEM satırları kural tabanlı neden→sonuç zincirleridir (geriye dönük test edilmemiştir). Hisse fikrinde "gelişme → etki kanalı → şirket" zincirini açıkça yaz; zincir tek haberdense zayıf olduğunu söyle. ABD ve Avrupa satırlarını Türkiye'ye yansıması (sermaye akışı, emtia, ihracat) açısından da değerlendir.
-8. ÖNCEKİ ANALİZLER senin son görüşlerin ve tahminlerinin sonuçlarıdır. Görüşün değiştiyse nedenini tarafsiz.yorum içinde bir cümleyle söyle; tutmayan tahmin varsa aynı hatayı tekrarlama.
+8. ÖNCEKİ ANALİZLER senin son görüşlerin ve tahminlerinin sonuçlarıdır; HAFIZA ise ölçülmüş isabet istatistiklerin ve daha önce çıkardığın derslerdir. Görüşün değiştiyse nedenini tarafsiz.yorum içinde bir cümleyle söyle; hafızadaki hataları tekrarlama (ör. isabetin düşükse olasılıkları 50-60'a çek).
 9. Olguyu yorumdan ayır: dayanak maddeleri yalnızca özetteki olgulardır; senaryo ve tahmin yorum kısmına yazılır. KONTROL satırında geçmeyen bir kontrol varsa o veriye dayanma ya da şüpheli olduğunu söyle.
 10. eksik_veri: sonuca varmak için gereken ama özette olmayan veriyi en fazla 3 maddeyle yaz (ör. "TCMB rezerv verisi yok"). Eksik veriyi tahminle doldurma.
-11. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
+11. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak ve her liste maddesi tek cümle.
 12. Yalnızca şemaya uyan JSON döndür.`;
 
 const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));
 const sign = x => (x > 0 ? '+' : '') + f(x);
 
 // Farklı yayın çizgilerinden dengeli haber seçimi: en yüksek skorlulardan, çizgi başına sırayla.
-function balancedNews(news, n = 12) {
+export function balancedNews(news, n = 12) {
   const by = {};
   for (const it of news.filter(x => x.impact?.score >= 20)) (by[it.stance] ||= []).push(it);
   const out = [];
@@ -128,8 +147,10 @@ export function buildDigest(s, prev) {
   const bad = (s.checks || []).filter(c => !c.ok);
   if (bad.length) L.push('KONTROL (geçmeyen): ' + bad.map(c => `${c.ad}: ${c.detay}`).join(' ; '));
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
+  // HAFIZA ve ÖNCEKİ ANALİZLER hep en sonda: "veri değişti mi?" kontrolüne (hash) girmezler.
+  const mem = memoryLines();
+  if (mem.length) L.push('HAFIZA (ölçülmüş isabet ve kendi derslerin):', ...mem.map(x => `- ${x}`));
   if (prev?.length) {
-    // Önbellek/tekrar kontrolünde hash'e girmesin diye hep en sonda.
     L.push('ÖNCEKİ ANALİZLER (yeniden eskiye):');
     for (const a of prev) L.push(`- ${a.when}: ${a.ozet} | beklenti: ${a.varliklar || '-'}`);
   }
@@ -160,19 +181,30 @@ const parseNum = s => {
 };
 const numsIn = t => (String(t).match(/[+−-]?\d[\d.,]*\d|\d/g) || []).map(parseNum).filter(Number.isFinite);
 export function verifyNumbers(result, digest) {
-  const known = numsIn(digest).map(Math.abs);
   const texts = [
     ...['kotumser', 'iyimser', 'tarafsiz'].flatMap(k => [result[k]?.yorum, ...(result[k]?.dayanak || [])]),
     ...(result.fikirler || []).flatMap(f => [f.gerekce, f.risk, f.gecersiz_kilan]),
+    ...['muhalif', 'yandas'].flatMap(k => [result.cerceve?.[k]?.yorum, ...(result.cerceve?.[k]?.dayanak || [])]),
+    ...['cozum', 'korunma', 'firsat'].flatMap(k => result[k] || []),
+    ...(result.eylem || []).flatMap(e => [e.adim, e.neden, e.risk]),
   ].filter(Boolean);
+  return unverifiedNumbers(texts.join('\n'), digest);
+}
+
+// Metindeki rakamlar kaynak metinde (±%0,5) var mı? Küçük tamsayılar (gün, adet) ve yıllar atlanır.
+export function unverifiedNumbers(text, source) {
+  const known = numsIn(source).map(Math.abs);
   const bad = new Set();
-  for (const t of texts) for (const n of numsIn(t)) {
+  for (const n of numsIn(text)) {
     const a = Math.abs(n);
     if ((Number.isInteger(a) && a <= 31) || (a >= 2020 && a <= 2035)) continue;
     if (!known.some(k => (k === 0 ? a === 0 : Math.abs(k - a) / k <= 0.005))) bad.add(String(n).replace('.', ','));
   }
   return [...bad].slice(0, 12);
 }
+
+// Günlük bütçe analizler ve sohbet mesajları için ortaktır.
+export const spendLog = () => [...readJSON('analyses.json', []), ...Object.values(readJSON('chats.json', {})).flatMap(c => c.turns || []).filter(t => t.usage)];
 
 export function activeProvider(settings) {
   const p = settings.providers.find(x => x.id === settings.activeProvider) || settings.providers[0];
@@ -196,20 +228,21 @@ export async function analyze(snap, settings, { force = false } = {}) {
   const hist = readJSON('analyses.json', []);
   const last = hist[0];
   const digest = buildDigest(snap, prevAnalyses(hist));
-  const h = createHash('sha1').update(digest.replace(/\nÖNCEKİ ANALİZLER[\s\S]*$/, '')).digest('hex');
+  const h = createHash('sha1').update(digest.replace(/\n(HAFIZA|ÖNCEKİ ANALİZLER)[\s\S]*$/, '')).digest('hex');
   if (!force && last) {
     const ageMin = (Date.now() - last.at) / 60e3;
     if (last.hash === h) return { skipped: 'Veri değişmedi' };
     if (ageMin < settings.aiIntervalMin) return { skipped: `Son analiz ${Math.round(ageMin)} dk önce` };
     if ((snap.delta?.score || 0) < settings.aiMinDelta && ageMin < settings.aiIntervalMin * 4) return { skipped: `Değişim puanı düşük (${snap.delta?.score || 0} < ${settings.aiMinDelta})` };
   }
-  const spent = spentToday(hist);
+  const spent = spentToday(spendLog());
   if (settings.aiDailyUSD > 0 && spent.usd >= settings.aiDailyUSD) return { skipped: `Günlük bütçe doldu ($${spent.usd.toFixed(3)} / $${settings.aiDailyUSD})` };
   if (settings.aiDailyTokens > 0 && spent.tokens >= settings.aiDailyTokens) return { skipped: `Günlük token sınırı doldu (${spent.tokens} / ${settings.aiDailyTokens})` };
   const t0 = Date.now();
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
   const result = parseJSON(r.text);
   result.dogrulanamayan = verifyNumbers(result, digest);
+  if (result.ders) addLesson(result.ders);
   const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result, provenance: provenance(snap, digest) };
   writeJSON('analyses.json', [entry, ...hist].slice(0, 60));
   recordPredictions(entry, snap);

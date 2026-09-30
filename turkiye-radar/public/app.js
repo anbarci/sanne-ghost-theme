@@ -216,11 +216,18 @@ function renderAI(a, body = $('#ai-body'), meta = $('#ai-meta')) {
   const assets = (r.varliklar || []).map(v => `<tr><td>${esc(v.kod)}</td><td class="${v.yon === 'yukari' ? 'up' : v.yon === 'asagi' ? 'down' : 'flat'}">${v.yon === 'yukari' ? '▲' : v.yon === 'asagi' ? '▼' : '■'} ${esc(v.yon)}</td><td class="n">${esc(v.vade_gun)}g</td><td class="n">%${esc(v.olasilik)}</td><td class="small muted">${esc(v.gerekce)}</td></tr>`).join('');
   const ideas = (r.fikirler || []).map(f => `<div class="idea"><div class="inline"><span class="tag ${esc(f.yon)}">${esc(f.yon)}</span><b>${esc(f.baslik)}</b><span class="small muted">${esc(f.enstruman)}</span></div><div>${esc(f.gerekce)}</div><div class="small muted">Risk: ${esc(f.risk)} · Geçersiz kılan: ${esc(f.gecersiz_kilan)}</div></div>`).join('');
   const eksik = r.eksik_veri?.length ? `<p class="small muted">Eksik veri: ${r.eksik_veri.map(esc).join(' · ')}</p>` : '';
+  const list = xs => `<ul>${xs.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  const frame = r.cerceve ? `<h3 class="more">Yayın çizgilerine göre</h3><div class="povs two">${view('opp', 'Muhalif basın', r.cerceve.muhalif)}${view('gov', 'İktidara yakın basın', r.cerceve.yandas)}</div>` : '';
+  const acts = [['Çözüm', r.cozum], ['Nasıl daha az etkilenirim', r.korunma], ['Kim kazançlı çıkar', r.firsat]].filter(([, xs]) => xs?.length).map(([t, xs]) => `<div class="card"><h3>${t}</h3>${list(xs)}</div>`).join('')
+    + (r.eylem?.length ? `<div class="card"><h3>Ne yaparsam kârlı çıkarım</h3><ol>${r.eylem.map(e => `<li><b>${esc(e.adim)}</b><div class="small">${esc(e.neden)}</div><div class="small muted">Risk: ${esc(e.risk)}</div></li>`).join('')}</ol></div>` : '');
+  const ders = r.ders ? `<p class="small muted">Bu analizde kendi hatalarından çıkardığı ders: ${esc(r.ders)}</p>` : '';
   const bad = r.dogrulanamayan?.length ? `<p class="alert">Veri özetinde bulunamayan rakamlar: ${r.dogrulanamayan.map(esc).join(', ')}. Bu rakamlara güvenmeyin.</p>` : '';
   body.innerHTML = `
     <p class="lead-sum">${esc(r.ozet)}</p>
     <div class="povs">${view('bear', 'Kötümser', r.kotumser)}${view('bull', 'İyimser', r.iyimser)}${view('base', 'Tarafsız', r.tarafsiz, izle)}</div>
-    ${bad}${eksik}
+    ${frame}
+    ${acts ? `<div class="cards">${acts}</div>` : ''}
+    ${bad}${eksik}${ders}
     <div class="subgrid">
       <div><h3>Varlık beklentileri</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Yön</th><th class="n">Vade</th><th class="n">Olas.</th><th>Neden</th></tr></thead><tbody>${assets}</tbody></table></div></div>
       <div><h3>Fikirler (kişisel)</h3><div class="ideas">${ideas || '<p class="empty">Fikir yok.</p>'}</div></div>
@@ -228,6 +235,41 @@ function renderAI(a, body = $('#ai-body'), meta = $('#ai-meta')) {
     <p class="note">Model çıktısıdır, yatırım tavsiyesi değildir. Güven: ${esc(r.guven)}. Beklentiler karnede gerçek fiyatlarla puanlanır.</p>`;
   const cost = a.cost != null ? ` · $${a.cost.toFixed(4)}` : '';
   meta.textContent = `${a.provider} · ${a.model} · ${ago(a.at)} · ${a.usage.in + (a.usage.cacheRead || 0)}→${a.usage.out} token${cost}`;
+}
+
+// Sohbet: seçili analiz hakkında soru sor; cevaplar radarın gerçek verisine dayanır.
+const SUGGEST = ['Bu durumda dolar/TL için ne yapmalıyım?', 'Hangi hisseler bu gelişmeden fayda görür?', 'Muhalif ve yandaş basın bu konuyu nasıl anlatıyor?', 'Analizden bu yana veriler ne değişti?', 'En büyük risk ne, nasıl korunurum?'];
+const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+function turnHTML(t) {
+  if (t.role === 'user') return `<div class="msg me">${esc(t.content)}</div>`;
+  const warn = t.unverified?.length ? `<div class="warn">Verilerde bulunamayan rakamlar: ${t.unverified.map(esc).join(', ')}</div>` : '';
+  const meta = [t.model, t.used ? `${t.used} satır ek veri kullandı` : '', t.cost != null ? `$${t.cost.toFixed(4)}` : ''].filter(Boolean).join(' · ');
+  return `<div class="msg ai">${md(t.content)}${warn}<div class="small muted">${esc(meta)}</div></div>`;
+}
+async function mountChat(el, at) {
+  el.innerHTML = `<h3 class="more">Analizle sohbet</h3>
+    <div class="chips sugg">${SUGGEST.map(q => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+    <div class="msgs" aria-live="polite"></div>
+    <form class="ask"><textarea rows="2" maxlength="1500" placeholder="Soru sor (Enter gönderir, Shift+Enter yeni satır)" aria-label="Soru"></textarea><div class="inline"><button class="btn primary" type="submit">Sor</button><button class="btn ghost sm" type="button" data-clear>Sohbeti temizle</button></div></form>
+    <p class="note">Cevaplar bu analize, radarın şu anki verisine (piyasa, haber, tarayıcı) ve hafızaya dayanır; sorudaki hisse ve konu için ilgili veri otomatik eklenir. Günlük bütçeye sayılır.</p>`;
+  const box = el.querySelector('.msgs'), ta = el.querySelector('textarea'), btn = el.querySelector('[type=submit]');
+  const show = turns => { box.innerHTML = turns.map(turnHTML).join(''); box.scrollTop = box.scrollHeight; };
+  const { turns = [] } = await api(`/api/chat?at=${at || ''}`).catch(() => ({}));
+  show(turns);
+  const ask = async q => {
+    q = q.trim(); if (!q || btn.disabled) return;
+    btn.disabled = true; ta.value = '';
+    box.insertAdjacentHTML('beforeend', `${turnHTML({ role: 'user', content: q })}<div class="msg ai muted">düşünüyor…</div>`); box.scrollTop = box.scrollHeight;
+    try {
+      const r = await api('/api/chat', { at, q });
+      if (r.error) { toast(r.error, 6000); box.lastElementChild.textContent = r.error; }
+      else { box.lastElementChild.outerHTML = turnHTML(r); box.scrollTop = box.scrollHeight; }
+    } catch (e) { toast(e.message, 6000); } finally { btn.disabled = false; }
+  };
+  el.querySelector('form').addEventListener('submit', e => { e.preventDefault(); ask(ta.value); });
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(ta.value); } });
+  el.querySelector('.sugg').addEventListener('click', e => { const c = e.target.closest('[data-q]'); if (c) ask(c.dataset.q); });
+  el.querySelector('[data-clear]').addEventListener('click', async () => { await api('/api/chat/clear', { at }); show([]); });
 }
 
 // Haberler
@@ -309,6 +351,7 @@ async function renderWorld(s) {
 const fmtDT = t => new Date(t).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 const GUVEN = { dusuk: 'düşük', orta: 'orta', yuksek: 'yüksek' };
 async function renderHistory(at) {
+  renderMemory();
   const list = await api('/api/analyses');
   $('#alist-sub').textContent = `${list.length} kayıt`;
   const cur = at || list[0]?.at;
@@ -324,8 +367,19 @@ async function renderHistory(at) {
     <ol class="prov">${pv.haberler.map(n => `<li><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span class="small muted">${esc(n.src)} · etki ${esc(n.etki ?? '—')}${n.teyit ? ` · teyit: ${esc(n.teyit)}` : ''}${n.uyumsuz ? ' · başlık uyumsuz' : ''}</span></li>`).join('')}</ol>
     ${pv.kontroller.length ? `<p class="small err">Geçmeyen veri kontrolleri: ${pv.kontroller.map(esc).join(' ; ')}</p>` : ''}
     <details class="digest"><summary class="small">Modele giden veri özetinin tamamı (${pv.digest.length} karakter)</summary><pre>${esc(pv.digest)}</pre></details>`);
+  $('#adet').insertAdjacentHTML('beforeend', '<div id="chat-a"></div>');
+  mountChat($('#chat-a'), a.at);
   const preds = a.predictions || [];
   if (preds.length) $('#adet').insertAdjacentHTML('beforeend', `<h3 class="more">Tahminlerin sonucu</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Tahmin</th><th class="n">Olas.</th><th>Vade</th><th>Sonuç</th></tr></thead><tbody>${preds.map(p => `<tr><td>${esc(p.kod)}</td><td>${esc(p.yon)}</td><td class="n">%${Math.round(p.p * 100)}</td><td class="small">${esc(fmtDT(p.due))}</td><td>${p.done ? `<span class="${p.hit ? 'ok' : 'err'}">${p.hit ? 'tuttu' : 'tutmadı'}</span> <span class="small muted">${pct(p.chg)}</span>` : '<span class="muted">bekliyor</span>'}</td></tr>`).join('')}</tbody></table></div>`);
+}
+
+// Hafıza: ölçülmüş isabet (fiyatlardan) ve modelin kendi dersleri; yanlış bulduğun dersi silebilirsin.
+async function renderMemory() {
+  const m = await api('/api/memory').catch(() => null);
+  if (!m) return;
+  $('#mem').innerHTML = `${m.olcum.length ? `<ul class="list small">${m.olcum.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul>` : '<p class="empty">Ölçüm için en az 3 sonuçlanmış tahmin gerekiyor.</p>'}
+    <h3 class="more">Kendi çıkardığı dersler</h3>
+    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span><button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}`;
 }
 
 const CCY_TR = { USD: 'ABD', EUR: 'Euro', CNY: 'Çin', GBP: 'İngiltere', JPY: 'Japonya' };
@@ -395,7 +449,9 @@ function render(at) {
   if (ui.view === 'analizler') { renderHistory(at).catch(e => toast(e.message)); return; }
   if (!data?.snap) return;
   renderTape(data.snap);
-  if (ui.view === 'gundem') { renderNews(data.snap); renderSide(data.snap); renderAI(data.analysis); renderScore(data.score); renderMap(data.snap); renderCatMini(data.snap); }
+  if (ui.view === 'gundem') {
+    if (data.analysis?.at && $('#chat-g').dataset.at !== String(data.analysis.at)) { $('#chat-g').dataset.at = data.analysis.at; mountChat($('#chat-g'), data.analysis.at); }
+    renderNews(data.snap); renderSide(data.snap); renderAI(data.analysis); renderScore(data.score); renderMap(data.snap); renderCatMini(data.snap); }
   else if (ui.view === 'trade') { renderScreener(); if (!chartData || !chart) selectSymbol(ui.sel); }
   else if (ui.view === 'dunya') renderWorld(data.snap);
 }
@@ -426,6 +482,7 @@ document.addEventListener('click', e => {
   selectSymbol(kod);
 });
 window.addEventListener('hashchange', route);
+$('#mem').addEventListener('click', async e => { const b = e.target.closest('[data-del]'); if (!b) return; await api('/api/memory/delete', { at: +b.dataset.del }); renderMemory(); });
 $('#slist').addEventListener('click', e => {
   if (e.target.closest('#scr-all')) { ui.showAll = !ui.showAll; renderScreener(); return; }
   const r = e.target.closest('.srow'); if (r) { selectSymbol(r.dataset.kod); if (matchMedia('(max-width: 1100px)').matches) $('#grafik').scrollIntoView({ behavior: 'smooth' }); }

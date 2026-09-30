@@ -44,10 +44,13 @@ export function costUSD(model, u, at = Date.now()) {
 // Reddedilen isteği başka modelde yeniden deneyen sunucu tarafı yedek; bu modellerde varsayılan açık.
 const FALLBACK_MODELS = /^claude-(opus-5|sonnet-5-5|fable-5-1)/;
 
+// user: tek mesaj (metin) ya da sohbet geçmişi [{ role: 'user'|'assistant', content }].
+// schema verilirse JSON çıktı istenir; verilmezse düz metin (sohbet).
+const toMsgs = user => (Array.isArray(user) ? user : [{ role: 'user', content: user }]);
 export async function complete(p, key, system, user, schema) {
   if (p.kind === 'anthropic') return anthropic(p, key, system, user, schema);
-  if (p.kind === 'gemini') return gemini(p, key, system, user);
-  return openaiCompat(p, key, system, user);
+  if (p.kind === 'gemini') return gemini(p, key, system, user, !!schema);
+  return openaiCompat(p, key, system, user, !!schema);
 }
 
 async function anthropic(p, key, system, user, schema) {
@@ -57,11 +60,12 @@ async function anthropic(p, key, system, user, schema) {
     max_tokens: p.maxTokens || 6000,
     // Sabit sistem metni önbelleklenir; her çağrıda sadece değişen veri özeti ücretlendirilir.
     system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral', ttl: '1h' } }],
-    messages: [{ role: 'user', content: user }],
-    output_config: { format: { type: 'json_schema', schema } },
+    messages: toMsgs(user),
+    output_config: schema ? { format: { type: 'json_schema', schema } } : {},
   };
   // Haiku 4.5 "effort" parametresini kabul etmiyor; diğer güncel modellerde maliyet/kalite ayarı budur.
   if (!/haiku/.test(p.model)) req.output_config.effort = p.effort || 'medium';
+  if (!Object.keys(req.output_config).length) delete req.output_config; // Haiku ile düz metin sohbet
   if (FALLBACK_MODELS.test(p.model)) { req.betas = ['server-side-fallback-2026-07-01']; req.fallbacks = 'default'; }
   const r = await client.beta.messages.create(req);
   if (r.stop_reason === 'refusal') throw new Error(`Model yanıt vermeyi reddetti (${r.stop_details?.category || 'bilinmiyor'})`);
@@ -72,11 +76,11 @@ async function anthropic(p, key, system, user, schema) {
 
 export const isDeepSeek = p => /deepseek\.com/i.test(p.baseUrl || '');
 
-export function openaiBody(p, system, user) {
+export function openaiBody(p, system, user, json = true) {
   const body = {
     model: p.model, max_tokens: p.maxTokens || 6000,
-    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    response_format: { type: 'json_object' },
+    messages: [{ role: 'system', content: system }, ...toMsgs(user)],
+    ...(json ? { response_format: { type: 'json_object' } } : {}),
   };
   if (isDeepSeek(p)) {
     // Düşünme kapalıyken hem ucuz hem JSON çıktısı daha kararlı; açılırsa temperature desteklenmiyor.
@@ -98,8 +102,8 @@ async function post(url, headers, body) {
   }
 }
 
-async function openaiCompat(p, key, system, user) {
-  const body = openaiBody(p, system, user);
+async function openaiCompat(p, key, system, user, json = true) {
+  const body = openaiBody(p, system, user, json);
   const headers = { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) };
   const url = p.baseUrl.replace(/\/$/, '') + '/chat/completions';
   let r = await post(url, headers, body);
@@ -122,15 +126,15 @@ export function openaiUsage(u = {}) {
   return { in: Math.max(0, (u.prompt_tokens || 0) - hit), out: u.completion_tokens || 0, cacheRead: hit, reasoning: u.completion_tokens_details?.reasoning_tokens || 0 };
 }
 
-async function gemini(p, key, system, user) {
+async function gemini(p, key, system, user, json = true) {
   const url = `${(p.baseUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '')}/models/${encodeURIComponent(p.model)}:generateContent`;
   const r = await fetch(url, {
     method: 'POST', signal: AbortSignal.timeout(180_000),
     headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: p.maxTokens || 6000, temperature: 0.3 },
+      contents: toMsgs(user).map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      generationConfig: { ...(json ? { responseMimeType: 'application/json' } : {}), maxOutputTokens: p.maxTokens || 6000, temperature: 0.3 },
     }),
   });
   if (!r.ok) throw new Error(`Gemini HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);

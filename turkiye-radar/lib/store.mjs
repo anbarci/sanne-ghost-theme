@@ -51,6 +51,7 @@ export function decrypt(blob) {
 const DEFAULTS = {
   intervalMin: 15,
   aiIntervalMin: 60,
+  aiAutoHours: 0,          // 1, 2, 3, 6… saatte bir veri değişmese de analiz yap (0 = yalnızca olay tetikli)
   aiMinDelta: 12,          // bu puanın altında değişiklik varsa AI çağrılmaz (token tasarrufu)
   aiDailyUSD: 1,           // 0 = sınırsız
   aiDailyTokens: 300000,   // 0 = sınırsız
