@@ -79,7 +79,8 @@ Kurallar:
 9. Olguyu yorumdan ayır: dayanak maddeleri yalnızca özetteki olgulardır; senaryo ve tahmin yorum kısmına yazılır. KONTROL satırında geçmeyen bir kontrol varsa o veriye dayanma ya da şüpheli olduğunu söyle.
 10. eksik_veri: sonuca varmak için gereken ama özette olmayan veriyi en fazla 3 maddeyle yaz (ör. "TCMB rezerv verisi yok"). Eksik veriyi tahminle doldurma.
 11. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak ve her liste maddesi tek cümle.
-12. Yalnızca şemaya uyan JSON döndür.`;
+12. Yalnızca şemaya uyan JSON döndür. Alan adlarını AYNEN kullan (Türkçe karakter yok):
+{"ozet":"","kotumser":{"yorum":"","dayanak":[""],"olasilik":0},"iyimser":{"yorum":"","dayanak":[""],"olasilik":0},"tarafsiz":{"yorum":"","dayanak":[""],"izle":[""]},"cerceve":{"muhalif":{"yorum":"","dayanak":[""]},"yandas":{"yorum":"","dayanak":[""]}},"cozum":[""],"korunma":[""],"firsat":[""],"eylem":[{"adim":"","neden":"","risk":""}],"varliklar":[{"kod":"USDTRY|EURTRY|GRAM_ALTIN|XU100|BRENT|BTCTRY","yon":"yukari|asagi|yatay","vade_gun":7,"olasilik":55,"gerekce":""}],"fikirler":[{"baslik":"","enstruman":"","yon":"al|sat|bekle|koru","gerekce":"","risk":"","gecersiz_kilan":""}],"eksik_veri":[""],"ders":"","guven":"dusuk|orta|yuksek"}`;
 
 const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));
 const sign = x => (x > 0 ? '+' : '') + f(x);
@@ -177,6 +178,31 @@ export function prevAnalyses(hist, preds = readJSON('predictions.json', []), n =
   }));
 }
 
+// Şemayı zorla uygulamayan sağlayıcılar (DeepSeek json_object, Gemini) alan adlarını kaydırabiliyor:
+// "kod" yerine "varlik", "Dolar/TL", "%65", "yukarı" gibi. Gerçek DeepSeek çıktısında Varlık sütunu boş
+// kalıyor ve tahmin karnesi hiç puanlanmıyordu. Burada tek biçime getirilir.
+const ASSET_ALIAS = [[/usd|dolar/i, 'USDTRY'], [/eur|avro/i, 'EURTRY'], [/alt[ıi]n|gold|xau/i, 'GRAM_ALTIN'], [/bist|xu100|borsa|endeks/i, 'XU100'], [/brent|petrol|oil/i, 'BRENT'], [/btc|bitcoin|kripto/i, 'BTCTRY']];
+const toAsset = x => { const s = String(x || '').trim(); if (ASSETS.includes(s.toUpperCase())) return s.toUpperCase(); return ASSET_ALIAS.find(([re]) => re.test(s))?.[1] || null; };
+const toDir = x => { const s = String(x || '').toLocaleLowerCase('tr'); return /yuk|art|up|yüks/.test(s) ? 'yukari' : /aşa|asa|düş|dus|down|geril/.test(s) ? 'asagi' : /yat|flat|sabit|nötr/.test(s) ? 'yatay' : null; };
+const toPct = x => { let n = parseFloat(String(x ?? '').replace('%', '').replace(',', '.')); if (!Number.isFinite(n)) return null; if (n > 0 && n <= 1) n *= 100; return Math.round(Math.min(100, Math.max(0, n))); };
+export function normalizeResult(r = {}) {
+  const arr = x => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.entries(x).map(([k, v]) => (typeof v === 'object' ? { kod: k, ...v } : { kod: k, yon: v })) : x ? [x] : []);
+  r.varliklar = arr(r.varliklar || r.varlik_beklentileri || r.assets).map(v => ({
+    kod: toAsset(v.kod ?? v.varlik ?? v.varlık ?? v.sembol ?? v.ad ?? v.asset ?? v.symbol),
+    yon: toDir(v.yon ?? v.yön ?? v.direction ?? v.beklenti) || 'yatay',
+    vade_gun: Math.min(30, Math.max(1, parseInt(v.vade_gun ?? v.vade ?? v.gun ?? 7, 10) || 7)),
+    olasilik: toPct(v.olasilik ?? v.olasılık ?? v.probability) ?? 50,
+    gerekce: String(v.gerekce ?? v.gerekçe ?? v.neden ?? v.reason ?? ''),
+  })).filter((v, i, a) => v.kod && a.findIndex(x => x.kod === v.kod) === i);
+  for (const k of ['cozum', 'korunma', 'firsat', 'eksik_veri']) r[k] = arr(r[k]).map(x => (typeof x === 'string' ? x : x?.metin || x?.text || JSON.stringify(x)));
+  r.eylem = arr(r.eylem).map(e => (typeof e === 'string' ? { adim: e, neden: '', risk: '' } : { adim: e.adim ?? e.adım ?? '', neden: e.neden ?? '', risk: e.risk ?? '' }));
+  const ideaDir = x => { const s = String(x || '').toLocaleLowerCase('tr'); return /sat|sell|short/.test(s) ? 'sat' : /kor|hedge/.test(s) ? 'koru' : /^al|buy|long|alım/.test(s) ? 'al' : 'bekle'; };
+  r.fikirler = arr(r.fikirler).map(f => ({ baslik: f.baslik ?? f.başlık ?? '', enstruman: f.enstruman ?? f.enstrüman ?? '', yon: ideaDir(f.yon ?? f.yön), gerekce: f.gerekce ?? f.gerekçe ?? '', risk: f.risk ?? '', gecersiz_kilan: f.gecersiz_kilan ?? f.geçersiz_kılan ?? '' }));
+  for (const k of ['kotumser', 'iyimser', 'tarafsiz']) { r[k] ||= { yorum: '', dayanak: [] }; r[k].dayanak = arr(r[k].dayanak); if (r[k].olasilik != null) r[k].olasilik = toPct(r[k].olasilik); }
+  r.guven = { düşük: 'dusuk', yüksek: 'yuksek' }[r.guven] || r.guven || 'orta';
+  return r;
+}
+
 // Modelin yazdığı rakamlar veri özetinde var mı? (Vibe-Trading'in "grounding gate" fikrinin sade hali.)
 // Türkçe (1.234,5) ve İngilizce (1234.5) biçimleri çözülür; %0,5 tolerans; gün sayısı ve yıl gibi küçük tamsayılar atlanır.
 const parseNum = s => {
@@ -246,7 +272,7 @@ export async function analyze(snap, settings, { force = false } = {}) {
   if (settings.aiDailyTokens > 0 && spent.tokens >= settings.aiDailyTokens) return { skipped: `Günlük token sınırı doldu (${spent.tokens} / ${settings.aiDailyTokens})` };
   const t0 = Date.now();
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
-  const result = parseJSON(r.text);
+  const result = normalizeResult(parseJSON(r.text));
   result.dogrulanamayan = verifyNumbers(result, digest);
   if (result.ders) addLesson(result.ders);
   const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result, provenance: provenance(snap, digest) };

@@ -468,3 +468,17 @@ test('API anahtarı kontrolü: adres, boşluk ve yanlış önek yakalanır', asy
   assert.equal(checkKey('', ds), null);
   assert.match(checkKey('sk-123', { kind: 'anthropic', baseUrl: '' }), /sk-ant-/);
 });
+
+test('Model çıktısı normalizasyonu: DeepSeek tarzı kaymış alan adları düzelir', async () => {
+  const { normalizeResult } = await import('../lib/ai/analyze.mjs');
+  const r = normalizeResult({ varliklar: [{ varlik: 'Dolar/TL', yön: 'Yukarı', vade: '7 gün', olasılık: '%65', gerekçe: 'x' }, { ad: 'BIST 100', yon: 'düşüş', olasilik: 0.55 }, { kod: 'XU100', yon: 'yatay' }],
+    fikirler: [{ başlık: 'A', yön: 'Al' }], eylem: ['Altın al'], guven: 'yüksek', kotumser: { yorum: 'k', dayanak: 'tek', olasilik: '%30' } });
+  assert.deepEqual(r.varliklar.map(v => [v.kod, v.yon, v.vade_gun, v.olasilik]), [['USDTRY', 'yukari', 7, 65], ['XU100', 'asagi', 7, 55]]);
+  assert.equal(r.fikirler[0].yon, 'al');
+  assert.deepEqual(r.eylem[0], { adim: 'Altın al', neden: '', risk: '' });
+  assert.equal(r.guven, 'yuksek');
+  assert.deepEqual(r.kotumser.dayanak, ['tek']);
+  assert.equal(r.kotumser.olasilik, 30);
+  const m = normalizeResult({ varliklar: { USDTRY: { yon: 'yukari', olasilik: 60 }, GRAM_ALTIN: 'yukari' } });
+  assert.deepEqual(m.varliklar.map(v => v.kod), ['USDTRY', 'GRAM_ALTIN']);
+});

@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { ROOT, readJSON, writeJSON, loadSettings, saveSettings, setSecret, publicSettings } from './lib/store.mjs';
 import { hasAdmin, setPassword, checkPassword, issueCookie, isAuthed, clearCookie } from './lib/auth.mjs';
 import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
-import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA } from './lib/ai/analyze.mjs';
+import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA, normalizeResult } from './lib/ai/analyze.mjs';
 import { chat, loadChat, clearChat } from './lib/ai/chat.mjs';
 import { loadMemory, deleteLesson, statLessons, addNote, deleteNote } from './lib/ai/memory.mjs';
 import { toc, loadArchive } from './lib/ai/memtree.mjs';
@@ -223,7 +223,9 @@ const server = createServer(async (req, res) => {
       if (path === '/api/data') {
         const snap = readJSON('latest.json', null);
         const analyses = readJSON('analyses.json', []);
-        return send(res, 200, { snap, analysis: analyses[0] || null, status, score: scorecard() });
+        // Eski (normalizasyondan önce kaydedilmiş) analizler de okunurken düzeltilir.
+        const last = analyses[0] ? { ...analyses[0], result: normalizeResult({ ...analyses[0].result }) } : null;
+        return send(res, 200, { snap, analysis: last, status, score: scorecard() });
       }
       if (path === '/api/chart') return send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100'));
       if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, hash, provenance, ...m }) => ({ ...m, ozet: result?.ozet, guven: result?.guven, kotumser: result?.kotumser?.olasilik, iyimser: result?.iyimser?.olasilik })));
@@ -231,7 +233,7 @@ const server = createServer(async (req, res) => {
         const at = +url.searchParams.get('at');
         const a = readJSON('analyses.json', []).find(x => x.at === at);
         const preds = readJSON('predictions.json', []).filter(p => p.at === at);
-        return a ? send(res, 200, { ...a, predictions: preds }) : send(res, 404, { error: 'Analiz bulunamadı' });
+        return a ? send(res, 200, { ...a, result: normalizeResult({ ...a.result }), predictions: preds }) : send(res, 404, { error: 'Analiz bulunamadı' });
       }
       if (path === '/api/sweep' && req.method === 'POST') { cycle({ force: true, forceAI: !!body.ai }); return send(res, 202, { ok: true }); }
       if (path === '/api/analyze' && req.method === 'POST') {
