@@ -529,3 +529,15 @@ test('Ders hafızası (PSSA kuralları): pekişen ders kararlı olur, kapasitede
   assert.ok(lines.some(l => /ders: donanım /.test(l)), 'bağlama en ilgili ders seçilmeli');
   assert.ok(lines.length <= 1 + 4);
 });
+
+test('API anahtarı: yalnızca özet saklanır, doğru anahtar üyeyi salt okunur tanır, silinince geçmez', () => {
+  const u = M.createUser({ ad: 'araci', password: 'araci-guclu-sifre', rank: 'pro' });
+  const tok = M.createToken(u.id, 'tooljet');
+  assert.match(tok, /^rdr_[0-9a-f]{8}_[A-Za-z0-9_-]{20,}$/);
+  assert.ok(!JSON.stringify(M.listTokens(u.id)).includes(tok.split('_')[2]), 'gizli kısım listede olmamalı');
+  const who = M.currentUser({ headers: { authorization: `Bearer ${tok}` } });
+  assert.equal(who.ad, 'araci'); assert.equal(who.readonly, true); assert.equal(who.rutbe.trade, true);
+  assert.equal(M.currentUser({ headers: { authorization: `Bearer ${tok.slice(0, -2)}xx` } }), null);
+  M.deleteToken(u.id, tok.split('_')[1]);
+  assert.equal(M.currentUser({ headers: { authorization: `Bearer ${tok}` } }), null);
+});

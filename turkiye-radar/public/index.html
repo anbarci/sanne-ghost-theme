@@ -194,6 +194,13 @@
       <p class="note" id="upgrade-note">Rütbeni yönetici belirler; yükseltme için yöneticiye yaz.</p>
     </section>
     <section class="panel">
+      <header><h2>API anahtarları</h2><span class="sub">ToolJet, Grafana, Excel için · salt okunur</span></header>
+      <form class="inline" id="tok-form"><input id="tok-name" maxlength="40" placeholder="ör. tooljet" class="grow" aria-label="Anahtar adı"><button class="btn sm" type="submit">Anahtar üret</button></form>
+      <p class="invite-out" id="tok-out" hidden></p>
+      <ul class="list small" id="tok-list"></ul>
+      <p class="note">Tablolar: <code>/api/v1/piyasa</code>, <code>/api/v1/haberler</code>, <code>/api/v1/analiz</code>, <code>/api/v1/tarayici?piyasa=tr</code>, <code>/api/v1/portfoy</code>. Başlık: <code>Authorization: Bearer &lt;anahtar&gt;</code>. Sonuna <code>?format=csv</code> eklersen CSV gelir. Rütbe kuralları anahtarda da geçerli.</p>
+    </section>
+    <section class="panel">
       <header><h2>Şifre değiştir</h2></header>
       <form class="form" id="me-pw">
         <label>Mevcut şifre<input type="password" id="me-old" autocomplete="current-password" required></label>

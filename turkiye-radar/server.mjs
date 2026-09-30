@@ -212,6 +212,34 @@ async function chartData(key) {
   return { kod: s.kod, ad: s.ad, adjusted: s.adjusted || null, t: s.t, o: s.o.map(r2), h: s.h.map(r2), l: s.l.map(r2), c: s.c.map(r2), v: s.v, sma50: sma(s.c, 50).map(r2), sma200: sma(s.c, 200).map(r2), rsi: rsi(s.c, 14).map(r2) };
 }
 
+// Dış araçlar için düz tablolar (ToolJet tablo bileşeni, Grafana, Excel/Sheets "web'den veri al").
+// Her uç bir satır dizisi döndürür; ?format=csv ile CSV. Rütbe kuralları aynen geçerli.
+function exportData(res, what, q, user) {
+  const R = user.rutbe, snap = readJSON('latest.json', {}) || {};
+  let rows;
+  if (what === 'piyasa') rows = Object.entries(snap.markets || {}).map(([k, x]) => ({ kod: k, fiyat: x.price, degisim_yuzde: x.chg, oynaklik: x.vol ?? null, gecikme_sn: x.delaySec ?? null, zaman: x.time ? new Date(x.time).toISOString() : null, olagandisi: !!x.anomaly }));
+  else if (what === 'haberler') rows = (snap.news || []).slice(0, Math.min(300, +q.get('limit') || 100)).map(n => ({ baslik: n.title, kaynak: n.srcName, cizgi: n.stance, kategori: n.cat, etki: n.impact?.score, dunya_etki: n.impact?.world ?? null, teyit: n.teyit?.durum || null, teyit_kaynak: n.teyit?.kaynak ?? null, uyumsuz: !!n.misleading, zaman: new Date(n.ts).toISOString(), link: n.link }));
+  else if (what === 'tarayici') {
+    if (!R.trade) return send(res, 403, { error: 'Bu veri üyeliğinde yok: Trade' });
+    const m = ['tr', 'us', 'eu'].includes(q.get('piyasa')) ? q.get('piyasa') : 'tr';
+    const r2 = (x, d = 2) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d), pc = x => r2(x * 100);
+    rows = (snap.screeners?.[m]?.rows || []).map(r => ({ kod: r.kod, ad: r.ad, fiyat: r2(r.price, 4), gun_yuzde: pc(r.r1), ay_yuzde: pc(r.r21), uc_ay_yuzde: pc(r.r63), rsi: r2(r.rsi, 1), zirveye_yuzde: pc(r.dist52), gunluk_oynaklik: r2(r.atr), trend: r.scores.trend?.score, toparlanma: r.scores.donus?.score, sakin: r.scores.sakin?.score, gundem: r.scores.gundem?.score }));
+  } else if (what === 'analiz') {
+    const a = readJSON('analyses.json', [])[0];
+    if (!a) rows = [];
+    else { const r = gateResult(normalizeResult({ ...a.result }), R); rows = [{ zaman: new Date(a.at).toISOString(), model: a.model, ozet: r.ozet, kotumser: r.kotumser?.olasilik, iyimser: r.iyimser?.olasilik, tarafsiz: r.tarafsiz?.yorum, guven: r.guven }, ...(r.varliklar || []).map(v => ({ zaman: new Date(a.at).toISOString(), varlik: v.kod, yon: v.yon, olasilik: v.olasilik, vade_gun: v.vade_gun, gerekce: v.gerekce }))]; }
+  } else if (what === 'portfoy') {
+    if (!R.portfoy) return send(res, 403, { error: 'Bu veri üyeliğinde yok: Portföy' });
+    rows = readJSON('portfolio.json', {})[user.id] || [];
+  } else return send(res, 404, { error: 'Bilinmeyen tablo. Olanlar: piyasa, haberler, tarayici, analiz, portfoy' });
+  if (q.get('format') === 'csv') {
+    const cols = [...new Set(rows.flatMap(r => Object.keys(r)))];
+    const cell = v => (v == null ? '' : /[",\n;]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    return send(res, 200, '\ufeff' + [cols.join(','), ...rows.map(r => cols.map(c => cell(r[c])).join(','))].join('\n'), { 'content-type': 'text/csv; charset=utf-8' });
+  }
+  return send(res, 200, rows);
+}
+
 // Temel üyelik analizin özetini ve bakış açılarını görür; eylem planı, fikirler ve beklentiler kilitli.
 function gateResult(r, R) {
   if (R.analizTam) return r;
@@ -227,6 +255,8 @@ const server = createServer(async (req, res) => {
   try {
     // Durum değiştiren her istek özel başlık taşımalı: başka sitelerden form ile CSRF'yi engeller.
     if (req.method !== 'GET' && req.headers['x-radar'] !== '1') return send(res, 403, { error: 'CSRF' });
+    // API anahtarıyla (dış araçlar) yalnızca okuma yapılır.
+    if (req.headers.authorization && req.method !== 'GET') return send(res, 403, { error: 'API anahtarı salt okunurdur' });
     const body = req.method === 'POST' ? await readBody(req) : {};
 
     if (path === '/api/health') return send(res, 200, { ok: true });
@@ -252,6 +282,8 @@ const server = createServer(async (req, res) => {
     // Statik dosyalar herkese açık (içlerinde veri yok); tüm /api ve /events oturum ister.
     if (path.startsWith('/api/') || path === '/events') {
       if (!user) return send(res, 401, { error: 'Giriş gerekli' });
+      // API anahtarı yalnızca dışa aktarım tablolarını okur (ayarlar, sohbet, olay akışı vb. kapalı).
+      if (user.readonly && !path.startsWith('/api/v1/')) return send(res, 403, { error: 'API anahtarı yalnızca /api/v1/ tablolarını okuyabilir' });
       const R = user.rutbe;
       // Rütbenin açmadığı özellik: 403 + hangi özelliğin gerektiği (arayüz yükseltme ipucu gösterir).
       const deny = f => send(res, 403, { error: `Bu özellik üyeliğinde yok: ${M.FEATURES[f]}`, feature: f });
@@ -263,6 +295,10 @@ const server = createServer(async (req, res) => {
         req.on('close', () => { clients.delete(res); clearInterval(ping); });
         return;
       }
+      if (path === '/api/me/tokens' && req.method === 'GET') return send(res, 200, { tokens: M.listTokens(user.id) });
+      if (path === '/api/me/tokens' && req.method === 'POST') { try { return send(res, 200, { token: M.createToken(user.id, body.name) }); } catch (e) { return send(res, 400, { error: e.message }); } }
+      if (path === '/api/me/tokens/delete' && req.method === 'POST') { M.deleteToken(user.id, body.id); return send(res, 200, { ok: true }); }
+      if (path.startsWith('/api/v1/')) return exportData(res, path.slice(8), url.searchParams, user);
       if (path === '/api/me' && req.method === 'GET') return send(res, 200, { user, usage: M.usage(user.id), ranks: M.ranks(), features: M.FEATURES });
       if (path === '/api/me/password' && req.method === 'POST') {
         try { const u = M.changeOwnPassword(user.id, body.old, body.new); return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(u, isSecure(req)) }); }

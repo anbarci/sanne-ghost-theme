@@ -80,6 +80,26 @@ Pro ve üstü rütbelerde "Portföy" sekmesi bir tablo gibi çalışır: hücrey
 
 [Univer](https://github.com/dream-num/univer) (tam bir tablo/ofis SDK'sı) incelendi ama gömülmedi: çekirdek paketleri 118 MB bağımlılık ve ~7 MB tarayıcı kodu getiriyor, React ve derleme adımı istiyor. Tüm radar arayüzü ~200 KB. Portföy için gereken (düzenlenebilir hücre, canlı hesap, toplam, dağılım) bu ağırlık olmadan yazıldı. İleride formül, çoklu sayfa ya da Excel içe/dışa aktarma gerekirse Univer ayrı, isteğe bağlı bir sayfa olarak eklenebilir.
 
+## Dış araçlara veri (ToolJet, Grafana, Excel)
+
+Radarın verisiyle kendi ekranlarını kurmak istersen Üyelik sayfasından **salt okunur API anahtarı** üret (üye başına en fazla 5; anahtar yalnızca üretilirken gösterilir, diskte SHA-256 özeti durur). Anahtar yalnızca aşağıdaki düz tabloları okuyabilir; yazma, ayarlar, sohbet ve diğer her şey kapalıdır. Rütbe kuralları anahtarda da geçerli (Temel anahtar tarayıcı tablosunu alamaz).
+
+| Uç | İçerik |
+|---|---|
+| `GET /api/v1/piyasa` | Kod, fiyat, günlük değişim %, oynaklık, gecikme, zaman |
+| `GET /api/v1/haberler?limit=100` | Başlık, kaynak, yayın çizgisi, etki, dünya etkisi, teyit durumu |
+| `GET /api/v1/analiz` | Son analizin özeti ve varlık beklentileri |
+| `GET /api/v1/tarayici?piyasa=tr\|us\|eu` | Hisseler, getiriler (%), RSI, strateji skorları |
+| `GET /api/v1/portfoy` | Kendi portföy satırların |
+
+Başlık: `Authorization: Bearer rdr_...`. Sonuna `&format=csv` (ya da `?format=csv`) eklersen Excel'in açabileceği UTF-8 CSV gelir.
+
+**[ToolJet](https://github.com/ToolJet/ToolJet) ile:** ToolJet ayrı bir platformdur (Postgres ve Docker ister, AGPL-3); radarın içine gömülmez, yanında çalışır. Mac'te Docker Desktop ile:
+```bash
+docker run -d --name tooljet --restart unless-stopped -p 8080:80 -v tooljet_data:/var/lib/postgresql/13/main tooljet/try:ee-lts-latest
+```
+http://localhost:8080 → yeni uygulama → veri kaynağı olarak **REST API**: temel adres `http://host.docker.internal:3120/api/v1`, başlık `Authorization: Bearer <anahtar>`. Sonra bir tablo ya da grafik bileşenine `piyasa`, `tarayici?piyasa=tr` gibi sorguları bağla. ToolJet sorguları kendi sunucusundan yaptığı için tarayıcı izin (CORS) ayarı gerekmez. Not: `tooljet/try` imajı Enterprise deneme sürümüdür; tamamen açık kaynak topluluk sürümü için ToolJet'in Docker kurulum belgesindeki CE imajını kullan. Radar sunucusunu internete açma; anahtar sızarsa Üyelik sayfasından sil.
+
 ## Görünümler
 
 Üstteki sekmelerle, 1-5 tuşlarıyla ya da **Ctrl+K komut paletiyle** geçilir (paletten hisse adı yazıp grafiğe, komut yazıp taramaya da gidilir). Sohbet her sayfada sağ alttaki düğmeden ya da C tuşuyla açılan çekmecededir. Gündem'in üstünde dört temel gösterge (kıvılcım grafikli, gecikmesiyle), senaryo dengesi çubuğu ve durum sayaçları (olağandışı hareket, yüksek etkili haber, geçmeyen kontrol) vardır; analiz kartı sekmelidir (Bakış açıları / Ne yapmalı / Beklentiler ve fikirler). Adres çubuğu görünümü tutar, yer imi olarak kaydedilebilir.

@@ -662,7 +662,23 @@ async function renderMembership() {
   $('#rank-table').innerHTML = `<thead><tr><th>Özellik</th>${ranks.map(([k, x]) => `<th class="c ${k === me.rank ? 'cur' : ''}">${esc(x.ad)}${k === me.rank ? '<div class="small">senin</div>' : ''}</th>`).join('')}</tr></thead>
     <tbody>${Object.entries(r.features).map(([f, l]) => `<tr><td>${esc(l)}</td>${ranks.map(([k, x]) => `<td class="c ${k === me.rank ? 'cur' : ''}">${typeof x[f] === 'number' ? (x[f] ? `<b class="num">${lim(x[f])}</b>` : '<span class="muted">—</span>') : x[f] ? '<span class="ok" aria-label="var">✓</span>' : '<span class="muted" aria-label="yok">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>`;
   setWidths($('#me-card'));
+  renderTokens();
 }
+async function renderTokens() {
+  const { tokens } = await api('/api/me/tokens');
+  $('#tok-list').innerHTML = tokens.map(t => `<li><span><b>${esc(t.name)}</b> <span class="muted">rdr_${esc(t.id)}_… · ${esc(fmtDT(t.created))}${t.last ? ` · son kullanım ${ago(t.last)}` : ' · hiç kullanılmadı'}</span></span><button type="button" class="btn ghost sm" data-deltok="${esc(t.id)}">sil</button></li>`).join('') || '<li class="empty">Anahtar yok.</li>';
+}
+$('#tok-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    const { token } = await api('/api/me/tokens', { name: $('#tok-name').value.trim() || 'araç' });
+    $('#tok-out').hidden = false;
+    $('#tok-out').innerHTML = `<b class="num">${esc(token)}</b> <button class="btn sm" type="button" id="tok-copy">Kopyala</button><br><span class="small muted">Bu anahtar yalnızca şimdi gösterilir; güvenli bir yere kaydet.</span>`;
+    $('#tok-copy').onclick = () => navigator.clipboard?.writeText(token).then(() => toast('Kopyalandı'));
+    $('#tok-name').value = ''; renderTokens();
+  } catch (x) { toast(x.message, 5000); }
+});
+$('#tok-list').addEventListener('click', async e => { const b = e.target.closest('[data-deltok]'); if (!b) return; await api('/api/me/tokens/delete', { id: b.dataset.deltok }); renderTokens(); });
 $('#me-pw').addEventListener('submit', async e => {
   e.preventDefault();
   try { await api('/api/me/password', { old: $('#me-old').value, new: $('#me-new').value }); e.target.reset(); toast('Şifre değişti'); } catch (x) { toast(x.message, 5000); }

@@ -2,7 +2,7 @@
 // Kayıt yalnızca yöneticinin ürettiği davet koduyla olur (açık kayıt yok). Şifreler scrypt ile saklanır.
 // Oturum çereze kullanıcı kimliği ve kullanıcının "sürüm" sayacıyla imzalanır: şifre ya da rütbe değişince
 // ya da üye kapatılınca o kullanıcının açık oturumları geçersiz olur.
-import { scryptSync, randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
+import { scryptSync, randomBytes, timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { readJSON, writeJSON } from './store.mjs';
 
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
@@ -99,8 +99,43 @@ export function issueCookie(user, secure) {
 }
 export const clearCookie = 'radar_s=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0';
 
-// Çerezden oturumdaki üye (rütbe ve özellikleriyle) ya da null.
+// Salt okunur API anahtarları (ToolJet, Grafana, Excel gibi dış araçlar için). Anahtar yalnızca üretilirken
+// gösterilir; diskte SHA-256 özeti durur. Biçim: rdr_<kimlik>_<gizli>. Anahtarla yalnızca GET istekleri yapılır.
+const sha = x => createHash('sha256').update(x).digest('hex');
+export function createToken(uid, name) {
+  const all = users(); const u = all.find(x => x.id === uid);
+  if (!u) throw new Error('Üye bulunamadı');
+  u.tokens ||= [];
+  if (u.tokens.length >= 5) throw new Error('En fazla 5 anahtar; önce birini sil');
+  const id = randomBytes(4).toString('hex'), secret = randomBytes(24).toString('base64url');
+  u.tokens.push({ id, name: String(name || 'araç').slice(0, 40), hash: sha(secret), created: Date.now(), last: null });
+  saveUsers(all);
+  return `rdr_${id}_${secret}`;
+}
+export function deleteToken(uid, id) {
+  const all = users(); const u = all.find(x => x.id === uid);
+  if (u?.tokens) { u.tokens = u.tokens.filter(t => t.id !== id); saveUsers(all); }
+}
+export const listTokens = uid => (users().find(x => x.id === uid)?.tokens || []).map(({ hash, ...t }) => t);
+function tokenUser(header) {
+  const m = /^Bearer\s+rdr_([0-9a-f]{8})_([A-Za-z0-9_-]{20,})$/.exec(header || '');
+  if (!m) return null;
+  const all = users();
+  for (const u of all) {
+    const t = u.tokens?.find(x => x.id === m[1]);
+    if (!t) continue;
+    const a = Buffer.from(sha(m[2])), b = Buffer.from(t.hash);
+    if (u.disabled || a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    if (!t.last || Date.now() - t.last > 60e3) { t.last = Date.now(); saveUsers(all); }
+    const R = ranks();
+    return { id: u.id, ad: u.ad, rank: u.rank, rutbe: R[u.rank] || R.temel, readonly: true };
+  }
+  return null;
+}
+
+// Çerezden (ya da "Authorization: Bearer rdr_..." başlığından) oturumdaki üye; rütbe ve özellikleriyle, yoksa null.
 export function currentUser(req) {
+  if (req.headers.authorization) return tokenUser(req.headers.authorization);
   const m = /(?:^|;\s*)radar_s=([^;]+)/.exec(req.headers.cookie || '');
   if (!m) return null;
   const parts = m[1].split('.');
