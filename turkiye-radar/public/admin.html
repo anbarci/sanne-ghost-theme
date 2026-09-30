@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Radar Yönetim</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/admin.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><h1>Türkiye <span>Radar</span></h1><span class="stamp">yönetim</span></div>
+    <a class="btn" href="/">Panoya dön</a>
+    <button class="btn ghost" id="btn-theme" type="button">Tema</button>
+    <button class="btn ghost" id="btn-logout" type="button" hidden>Çıkış</button>
+  </div>
+</header>
+
+<div class="center" id="auth" hidden>
+  <form class="panel auth form" id="auth-form">
+    <h2 id="auth-title">Giriş</h2>
+    <label id="token-wrap" hidden>Kurulum anahtarı (sunucu konsolunda yazıyor)<input id="token" autocomplete="off"></label>
+    <label>Şifre<input type="password" id="pw" autocomplete="current-password" required minlength="10"></label>
+    <button class="btn primary" type="submit">Devam</button>
+    <p class="small err" id="auth-err"></p>
+  </form>
+</div>
+
+<main class="wrap" id="app" hidden>
+  <section class="panel">
+    <header><h2>Yapay zeka sağlayıcıları</h2><span class="small muted">Tek çağrıda üç bakış açısı üretilir</span></header>
+    <div class="scroll-x"><table id="providers"></table></div>
+    <form class="form" id="prov-form">
+      <h3 class="small muted">Sağlayıcı ekle / güncelle</h3>
+      <div class="row">
+        <label>Hazır ayar<select id="preset"></select></label>
+        <label>Ad<input id="p-name" required></label>
+        <label>Tür<select id="p-kind"><option value="anthropic">anthropic</option><option value="openai">openai uyumlu</option><option value="gemini">gemini</option></select></label>
+      </div>
+      <div class="row">
+        <label>Base URL<input id="p-url" placeholder="https://.../v1"></label>
+        <label>Model<input id="p-model" list="model-list" required placeholder="ör. claude-opus-5-5"><datalist id="model-list"></datalist></label>
+        <label>API anahtarı<input id="p-key" type="password" autocomplete="off" placeholder="değişmeyecekse boş bırak"></label>
+      </div>
+      <div class="row">
+        <label>Efor (sadece Claude)<select id="p-effort"><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option></select></label>
+        <label>Azami çıktı token<input id="p-max" type="number" min="1000" max="32000" value="6000"></label>
+        <input type="hidden" id="p-id">
+        <div class="inline"><button class="btn primary" type="submit">Kaydet</button><button class="btn ghost" type="reset" id="p-reset">Temizle</button></div>
+      </div>
+      <p class="small muted">Yerel ve tamamen gizli çalışmak için Ollama veya LM Studio seçin: veri makinenizden çıkmaz. Maliyeti düşürmek için efor "low" ya da daha küçük bir model seçebilirsiniz.</p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <header><h2>API anahtarları</h2><span class="small muted">Diskte AES-256-GCM ile şifreli durur; .env değerleri önceliklidir</span></header>
+    <div class="form" id="secrets"></div>
+  </section>
+
+  <section class="panel">
+    <header><h2>Veri kaynakları</h2><button class="btn" id="btn-sweep" type="button">Şimdi tara</button></header>
+    <div class="scroll-x"><table id="sources"></table></div>
+  </section>
+
+  <section class="panel">
+    <header><h2>Genel ayarlar</h2></header>
+    <form class="form" id="set-form">
+      <div class="row">
+        <label>Tarama aralığı (dk)<input type="number" id="s-int" min="5" max="240"></label>
+        <label>AI en sık (dk)<input type="number" id="s-aiint" min="10" max="1440"></label>
+        <label>AI tetik eşiği (değişim puanı)<input type="number" id="s-aimin" min="0" max="100"></label>
+        <label>Tam metni çekilecek haber<input type="number" id="s-art" min="0" max="150"></label>
+      </div>
+      <label>İzleme listesi (Yahoo sembolleri, virgülle; BIST için .IS)<input id="s-watch"></label>
+      <label>EVDS serileri (virgülle)<input id="s-evds"></label>
+      <fieldset class="form"><legend class="small muted">Türkiye Etki Skoru ağırlıkları</legend><div class="row" id="weights"></div></fieldset>
+      <div><button class="btn primary" type="submit">Kaydet</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <header><h2>Telegram uyarıları</h2></header>
+    <form class="form" id="tg-form">
+      <div class="row">
+        <label class="inline"><input type="checkbox" id="tg-on"> Uyarıları gönder (FLASH + PRIORITY)</label>
+        <label class="inline"><input type="checkbox" id="tg-ai"> Her yeni analizi de gönder</label>
+        <label>Chat ID<input id="tg-chat"></label>
+      </div>
+      <div class="inline"><button class="btn primary" type="submit">Kaydet</button><button class="btn" type="button" id="tg-test">Test mesajı</button></div>
+      <p class="small muted">Bot token'ı "API anahtarları" bölümünden TELEGRAM_BOT_TOKEN olarak girin.</p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <header><h2>RSS kaynakları</h2><span class="small muted" id="feed-n"></span></header>
+    <div class="scroll-x feeds"><table id="feeds"></table></div>
+    <div class="inline more"><button class="btn" type="button" id="feed-add">Satır ekle</button><button class="btn primary" type="button" id="feed-save">Kaydet</button></div>
+    <p class="small muted">Yayın çizgisi etiketleri analizde dengeyi sağlamak için kullanılır; kendi değerlendirmenize göre değiştirin. Kaynak listesinin çıkış noktası: github.com/bakinazik/rss.</p>
+  </section>
+
+  <section class="panel">
+    <header><h2>Analiz geçmişi ve maliyet</h2></header>
+    <div class="scroll-x"><table id="hist"></table></div>
+  </section>
+
+  <section class="panel">
+    <header><h2>Şifre değiştir</h2></header>
+    <form class="form row" id="pw-form">
+      <label>Mevcut<input type="password" id="pw-old" autocomplete="current-password" required></label>
+      <label>Yeni (en az 10)<input type="password" id="pw-new" autocomplete="new-password" minlength="10" required></label>
+      <div><button class="btn" type="submit">Değiştir</button></div>
+    </form>
+  </section>
+</main>
+</body>
+</html>
