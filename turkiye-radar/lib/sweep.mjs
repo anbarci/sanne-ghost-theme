@@ -10,6 +10,7 @@ import { loadUniverse, MARKETS } from '../sources/bist.mjs';
 import { fold } from './rss.mjs';
 import { catalysts, gundemScore } from './catalysts.mjs';
 import { runChecks } from './checks.mjs';
+import { corroborate } from './verify.mjs';
 
 const state = readJSON('state.json', { sources: {} }); // kaynak başına son sonuç + zaman + hata
 let running = null;
@@ -147,6 +148,8 @@ export async function sweep({ force = false, onDone } = {}) {
     const moves = { brent: mk.BRENT?.chg, usdtry: mk.USDTRY?.chg, vix: mk.VIX?.chg, xu100: mk.XU100?.chg };
     const rawNews = [...(d('rss')?.items || []), ...(d('gdelt')?.items || [])];
     const news = await enrichNews(rawNews, settings, moves);
+    // Tek kaynaklı mı, yaygın mı, yalanlanmış mı? (Google News arama RSS'i; hata taramayı durdurmaz)
+    const verify = settings.verifyTop > 0 ? await corroborate(news, { top: settings.verifyTop }).catch(e => ({ error: e.message })) : null;
 
     const crypto = d('btcturk') || {};
     // USDT/TRY ile resmi kur arasındaki makas: dövize kaçış baskısının gayriresmî göstergesi.
@@ -164,7 +167,7 @@ export async function sweep({ force = false, onDone } = {}) {
       world: news.filter(n => n.impact.world >= 25 && Date.now() - n.ts < 48 * 36e5).sort((a, b) => b.impact.world - a.impact.world || b.ts - a.ts).slice(0, 80).map(slim),
       screeners: Object.fromEntries(Object.keys(MARKETS).map(m => [m, runScreener(m, news, mk)])),
       feedStatus: d('rss')?.status,
-      articleStats: news.stats,
+      articleStats: news.stats, verifyStats: verify,
       sources: sourceList(settings),
     };
     snap.screener = snap.screeners.tr; // AI özeti ve eski istemciler Türkiye tarayıcısını buradan okur
@@ -178,7 +181,7 @@ export async function sweep({ force = false, onDone } = {}) {
   try { return await running; } finally { running = null; }
 }
 
-const slim = n => ({ id: n.id, title: n.title, link: n.link, ts: n.ts, src: n.src, srcName: n.srcName, srcs: n.srcs, also: n.also, stance: n.stance, cat: n.cat, lang: n.lang, lead: n.lead || n.summary?.slice(0, 280), impact: n.impact, check: n.check, misleading: n.misleading });
+const slim = n => ({ id: n.id, title: n.title, link: n.link, ts: n.ts, src: n.src, srcName: n.srcName, srcs: n.srcs, also: n.also, stance: n.stance, cat: n.cat, lang: n.lang, lead: n.lead || n.summary?.slice(0, 280), impact: n.impact, check: n.check, misleading: n.misleading, teyit: n.teyit });
 
 // Hızlı yenileme: tam tarama (haber, tarayıcı) 15 dk'da bir; fiyat şeridi arada birkaç dakikada bir.
 // Yahoo verisi zaten 15 dk gecikmeli olduğundan daha sık çekmek hem boşa hem de 429 riskini artırır.

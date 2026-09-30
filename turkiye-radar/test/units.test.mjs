@@ -346,3 +346,16 @@ test('Veri kontrolleri: kaynaklar arası fark ve bayat veri yakalanır', async (
   assert.equal(c['Vadeli kontrat devri'].ok, false);
   assert.match(c['Fiyatların tazeliği'].detay, /BRENT \(100 sa\)/);
 });
+
+test('Çapraz teyit: benzer başlık, kendi kaynağı sayılmaz, ajans kopyası ve yalanlama', async () => {
+  const { judge, queryOf, parseGoogleNews } = await import('../lib/verify.mjs');
+  const xml = ['Brent petrol 96 doların altına geriledi - Dünya Gazetesi|Dünya Gazetesi', 'Brent petrol 96 doların altına geriledi - Mynet|Mynet',
+    'Brent petrolün varili 96 doların altına geriledi - Ekotürk|ekotürk', 'Altın fiyatları rekor kırdı - Sözcü|Sözcü',
+    'Brent petrol geriledi iddiası asılsız çıktı - Teyit|Teyit']
+    .map(x => { const [t, s] = x.split('|'); return `<item><title>${t}</title><link>https://news.google.com/x</link><pubDate>Tue, 29 Sep 2026 10:00:00 GMT</pubDate><source url="https://x">${s}</source></item>`; }).join('');
+  const r = judge({ title: 'Brent petrol 96 doların altına geriledi', srcName: 'Dünya' }, parseGoogleNews(xml));
+  assert.deepEqual(r.ornek.map(o => o.src).sort(), ['Mynet', 'Teyit', 'ekotürk']);
+  assert.equal(r.ozgun, 2); // Mynet aynı başlık: ajans kopyası
+  assert.equal(r.durum, 'yalanlama');
+  assert.equal(queryOf("İran'dan Körfez enerji altyapısına saldırı tehdidi"), 'İran Körfez enerji altyapısına saldırı tehdidi');
+});

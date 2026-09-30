@@ -90,7 +90,7 @@ function schedule() {
   }, 60e3);
 }
 
-const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'sources', 'telegram'];
+const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'sources', 'telegram'];
 
 async function admin(req, res, path, body) {
   const s = loadSettings();
@@ -100,6 +100,7 @@ async function admin(req, res, path, body) {
     case 'POST /api/admin/settings': {
       for (const k of SETTABLE) if (k in body) s[k] = body[k];
       s.intervalMin = Math.max(5, +s.intervalMin || 15);
+      s.verifyTop = Math.min(40, Math.max(0, +s.verifyTop || 0));
       s.watchlist = (s.watchlist || []).map(x => String(x).trim().toUpperCase()).filter(x => /^[A-Z0-9.^=-]{1,15}$/.test(x)).slice(0, 30);
       saveSettings(s); schedule();
       return send(res, 200, { ok: true });

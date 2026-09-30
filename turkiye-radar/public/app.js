@@ -244,13 +244,23 @@ function renderNews(s) {
   $('#news-more').hidden = list.length <= shown;
 }
 
+// Çapraz teyit rozeti: kaç başka yayıncı verdi, yalanlama var mı (üzerine gelince örnekler).
+const TEYIT = { yaygın: ['acc', 'yaygın'], birkaç: ['', 'birkaç kaynak'], az: ['', '1 kaynak daha'], tek: ['warn', 'tek kaynak'], yalanlama: ['bad', 'yalanlama başlığı'] };
+function teyitTag(n) {
+  const t = n.teyit;
+  if (!t || (t.durum === 'tek' && n.also)) return '';
+  const [cls, label] = TEYIT[t.durum] || ['', t.durum];
+  const tip = [...(t.yalanlama || []).map(x => `Yalanlama: ${x.title} (${x.src})`), ...(t.ornek || []).map(x => `${x.src}: ${x.title}`)].join('\n') || `Google News'te benzer haber bulunamadı (sorgu: ${t.q})`;
+  return `<span class="tag ${cls}" title="${esc(tip)}">${t.kaynak >= 2 && t.durum !== 'yalanlama' ? '✓ ' : ''}${esc(label)}${t.kaynak > 1 ? ` ${t.kaynak}` : ''}</span>`;
+}
+
 function newsItem(n, key = 'score') {
   const sc = n.impact[key] ?? 0;
   const ch = n.impact.channels.slice(0, 3).map(c => `<span class="tag">${CH_LABEL[c] || c}</span>`).join(' ');
   const warn = n.misleading ? `<div class="warn">Başlık içerikle zayıf örtüşüyor (uyum %${n.check?.score ?? '?'}${n.check?.numMiss ? `, başlıktaki ${n.check.numMiss} rakam metinde yok` : ''}).</div>` : '';
   return `<li><div class="score ${sc >= 60 ? 'hi' : ''}" title="${key === 'world' ? 'Küresel etki skoru' : 'Türkiye Etki Skoru'}">${sc}</div><div>
     <h3><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a></h3>
-    <div class="src"><span>${esc(n.srcName)}</span><span class="tag">${esc(STANCE_LABEL[n.stance] || n.stance || '')}</span>${n.also ? `<span class="tag acc">+${n.also} kaynak</span>` : ''}${ch}<span>${ago(n.ts)}</span>${key === 'world' && n.impact.score ? `<span class="small">TR etkisi ${n.impact.score}</span>` : ''}</div>
+    <div class="src"><span>${esc(n.srcName)}</span>${teyitTag(n)}<span class="tag">${esc(STANCE_LABEL[n.stance] || n.stance || '')}</span>${n.also ? `<span class="tag acc">+${n.also} kaynak</span>` : ''}${ch}<span>${ago(n.ts)}</span>${key === 'world' && n.impact.score ? `<span class="small">TR etkisi ${n.impact.score}</span>` : ''}</div>
     ${n.lead ? `<p class="lead">${esc(n.lead)}</p>` : ''}${warn}</div></li>`;
 }
 

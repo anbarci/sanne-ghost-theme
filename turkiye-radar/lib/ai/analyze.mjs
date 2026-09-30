@@ -47,7 +47,7 @@ Görev: Türkiye ekonomisi ve piyasaları (dolar/TL, euro/TL, gram altın, BIST,
 Kurallar:
 1. Her "dayanak" maddesi özetteki somut bir veriye atıf yapmalı (rakam, kaynak adı ya da haber başlığı). Atıf yapamıyorsan o maddeyi yazma.
 2. kotumser.olasilik + iyimser.olasilik <= 100 olsun; kalan kısım "baz senaryo"dur.
-3. [UYUMSUZ] etiketli haberlerin başlığı içerikle örtüşmüyor; başlığa değil özetteki içeriğe güven.
+3. [UYUMSUZ] etiketli haberlerin başlığı içerikle örtüşmüyor; başlığa değil özetteki içeriğe güven. [TEK KAYNAK] haberi başka yayıncı henüz vermemiş: tek başına güçlü sonuç çıkarma. [YALANLAMA?] haberi için başka bir yayıncıda yalanlama/doğrulama başlığı bulundu: haberi kesin kabul etme, bunu belirt.
 4. Haberlerin yayın çizgisi etiketli (resmi, iktidara-yakın, muhalif, bağımsız, uluslararası, dünya). Tek bir çizginin anlatısına yaslanma; çelişki varsa belirt.
 5. varliklar: her varlık için en fazla 1 kayıt, vade_gun 1-30 arası. yukari = vade sonunda +%0,5'ten fazla, asagi = -%0,5'ten fazla düşüş, yatay = arada. olasilik 0-100 kalibre edilmiş olsun: emin değilsen 50-60 civarı ver.
 6. fikirler: en fazla 5, kişisel kullanım içindir. Hisse fikri verirken TARAYICI satırlarına dayan ve o stratejinin geçmiş karnesini (endekse göre getiri, isabet) yaz; karne zayıfsa bunu açıkça söyle, "kesin yükselir" deme. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
@@ -98,7 +98,8 @@ export function buildDigest(s, prev) {
   if (s.resmiGazete?.items?.length) L.push('RESMİ GAZETE: ' + s.resmiGazete.items.slice(0, 5).map(x => x.title.slice(0, 90)).join(' ; '));
   L.push('HABERLER (etki 0-100 | kanallar | kaynak/çizgi):');
   for (const n of balancedNews(s.news || [])) {
-    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 130) : ''}`);
+    const ty = n.teyit ? (n.teyit.durum === 'yalanlama' ? ' [YALANLAMA?]' : n.teyit.durum === 'tek' && !n.also ? ' [TEK KAYNAK]' : n.teyit.kaynak >= 2 ? ` [teyit ${n.teyit.kaynak}]` : '') : '';
+    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''}${ty} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 130) : ''}`);
   }
   const sc = s.screener;
   if (sc?.rows?.length) {
