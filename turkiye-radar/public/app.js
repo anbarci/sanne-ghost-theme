@@ -271,10 +271,11 @@ document.addEventListener('click', e => {
 const HERO = [['USDTRY', 'Dolar/TL', 4], ['XU100', 'BIST 100', 0], ['GRAM_ALTIN', 'Gram altın', 0], ['BRENT', 'Brent $', 2]];
 function renderHero(s, a) {
   const m = s.markets || {};
-  const lagTxt = x => (x?.delaySec == null ? '' : x.delaySec < 90 ? 'canlı' : x.delaySec < 3600 ? `${Math.round(x.delaySec / 60)} dk gecikmeli` : 'piyasa kapalı');
+  const lagTxt = x => (x?.delaySec == null ? '' : x.delaySec < 90 ? 'canlı' : x.delaySec < 3600 ? `${Math.round(x.delaySec / 60)} dk gecikme` : 'kapalı');
   const kpis = HERO.filter(([k]) => m[k]).map(([k, l, d]) => { const x = m[k]; return `<button type="button" class="kpi" data-open="${k}" title="Grafikte aç">
-    <span class="kpi-l">${esc(l)}<i class="lag ${x.delaySec < 90 ? 'on' : ''}">${lagTxt(x)}</i></span>
-    <b class="kpi-v num">${nf(x.price, d)}</b><span class="kpi-c">${chg(x.chg)}</span>${spark(x.spark, 'kpi-s')}</button>`; }).join('');
+    <span class="kpi-l"><span>${esc(l)}</span><i class="lag ${x.delaySec < 90 ? 'on' : ''}">${lagTxt(x)}</i></span>
+    <span class="kpi-row"><b class="kpi-v num">${nf(x.price, d)}</b><span class="kpi-c">${chg(x.chg)}</span></span>
+    ${spark(x.spark, 'kpi-s')}</button>`; }).join('');
   const r = a?.result;
   const anom = Object.values(m).filter(x => x.anomaly).length;
   const hot = (s.news || []).filter(n => n.impact.score >= 70).length;

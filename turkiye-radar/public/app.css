@@ -494,3 +494,39 @@ button.kpi:hover { transform: translateY(-2px); border-color: var(--accent); }
   .fab span { display: none; } .fab { padding: 14px; }
 }
 @media (prefers-reduced-motion: reduce) { .hero-radar .sweep { animation: none; } }
+
+/* Gündem özeti v2: üstte dört eşit kart, altta tek sıra senaryo şeridi. Kartların yüksekliği sabit,
+   kıvılcım grafik kartın altında tam genişlikte (sayıların üzerine binmez). */
+.hero { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.hero .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { grid-template-rows: auto auto 40px; align-content: start; gap: 6px; padding: 14px 16px 12px; min-height: 0; }
+.kpi-l { align-items: baseline; }
+.kpi-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.kpi-v { font-size: 1.6rem; line-height: 1.1; }
+.kpi-c { font-size: .85rem; font-family: var(--mono); }
+.kpi-s { position: static; width: 100%; height: 40px; opacity: 1; }
+.hero-side { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: 16px; padding: 12px 16px; }
+.hero-side .scen { margin: 6px 0 0; }
+.hero-side .counters { gap: 8px; }
+.hero-side .ctr { padding: 8px 10px; }
+.hero-cat { align-self: stretch; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pf-hero .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pf-hero .kpi { grid-template-rows: auto auto auto; }
+@media (max-width: 1100px) {
+  .hero-side { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .hero .kpis, .pf-hero .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi { grid-template-rows: auto auto 30px; padding: 12px; }
+  .kpi-s { display: block; height: 30px; }
+  .kpi-v { font-size: 1.25rem; }
+}
+.kpi-s polyline { vector-effect: non-scaling-stroke; stroke-width: 1.8; }
+.kpi-l > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.kpi .lag { white-space: nowrap; flex: none; }
+@media (max-width: 720px) { .kpi-l { font-size: .72rem; } .kpi .lag { font-size: .6rem; } }
+@media (max-width: 720px) {
+  .kpi-row { flex-wrap: nowrap; gap: 6px; min-width: 0; }
+  .kpi-v { font-size: 1.1rem; }
+  .kpi-c { font-size: .72rem; white-space: nowrap; }
+}

@@ -100,7 +100,10 @@ export const markets = {
     if (out.ONS && out.USDTRY) {
       const g = out.ONS.price * out.USDTRY.price / 31.1035;
       const gPrev = (out.ONS.price / (1 + out.ONS.chg / 100)) * (out.USDTRY.price / (1 + out.USDTRY.chg / 100)) / 31.1035;
-      out.GRAM_ALTIN = { sym: 'hesaplanan', price: round(g), chg: round((g / gPrev - 1) * 100, 2), derived: true };
+      // Kıvılcım grafik için ons ve dolar/TL serileri gün gün çarpılır (uzunluklar eşleşiyorsa).
+      const os = out.ONS.spark || [], us = out.USDTRY.spark || [], n = Math.min(os.length, us.length);
+      const spark = n > 1 ? Array.from({ length: n }, (_, i) => round(os[os.length - n + i] * us[us.length - n + i] / 31.1035)) : undefined;
+      out.GRAM_ALTIN = { sym: 'hesaplanan', price: round(g), chg: round((g / gPrev - 1) * 100, 2), derived: true, spark };
     }
     return out;
   },
