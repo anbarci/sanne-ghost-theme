@@ -456,3 +456,15 @@ test('Web araması: yerel ağ adresleri açılmaz', async () => {
     assert.equal(isPublicUrl(u), false, u);
   assert.equal(isPublicUrl('https://www.aa.com.tr/tr/ekonomi/x'), true);
 });
+
+test('API anahtarı kontrolü: adres, boşluk ve yanlış önek yakalanır', async () => {
+  const { checkKey } = await import('../lib/keycheck.mjs');
+  const ds = { baseUrl: 'https://api.deepseek.com', kind: 'openai' };
+  assert.match(checkKey('https://api.deepseek.com', ds), /adres girilmiş/);
+  assert.match(checkKey('api.deepseek.com', ds), /adres girilmiş/);
+  assert.match(checkKey('sk-abc def', ds), /boşluk/);
+  assert.match(checkKey('abc123', ds), /sk-/);
+  assert.equal(checkKey('sk-1234567890abcdef', ds), null);
+  assert.equal(checkKey('', ds), null);
+  assert.match(checkKey('sk-123', { kind: 'anthropic', baseUrl: '' }), /sk-ant-/);
+});

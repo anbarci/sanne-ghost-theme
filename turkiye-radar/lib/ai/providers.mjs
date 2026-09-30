@@ -111,6 +111,8 @@ async function openaiCompat(p, key, system, user, json = true) {
     delete body.response_format; delete body.thinking; delete body.reasoning_effort;
     r = await post(url, headers, body);
   }
+  if (r.status === 401) throw new Error(`${p.name || 'sağlayıcı'}: API anahtarı geçersiz (HTTP 401). Yönetim → yapay zeka sağlayıcısı → "Düzenle" ile anahtarı yeniden yapıştırın; anahtar alanına adres yazılmadığından emin olun. Ayrıntı: ${(await r.text()).slice(0, 200)}`);
+  if (r.status === 402) throw new Error(`${p.name || 'sağlayıcı'}: hesap bakiyesi yetersiz (HTTP 402). Sağlayıcının sitesinden bakiye yükleyin.`);
   if (!r.ok) throw new Error(`${p.name || 'sağlayıcı'} HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const j = await r.json();
   const c = j.choices?.[0];

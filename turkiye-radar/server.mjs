@@ -16,6 +16,7 @@ import { loadFeeds } from './sources/news.mjs';
 import { yahooDaily, loadUniverse, MARKETS } from './sources/bist.mjs';
 import { CORE } from './sources/markets.mjs';
 import { sma, rsi } from './lib/ta.mjs';
+import { checkKey } from './lib/keycheck.mjs';
 
 // .env dosyası varsa yükle (dotenv bağımlılığı olmadan).
 try {
@@ -122,6 +123,11 @@ async function admin(req, res, path, body) {
     case 'POST /api/admin/provider': {
       const p = { id: body.id || randomUUID().slice(0, 8), name: String(body.name || 'Sağlayıcı').slice(0, 60), kind: ['anthropic', 'openai', 'gemini'].includes(body.kind) ? body.kind : 'openai', baseUrl: String(body.baseUrl || ''), model: String(body.model || '').trim(), effort: ['low', 'medium', 'high', 'xhigh'].includes(body.effort) ? body.effort : 'medium', thinking: body.thinking === 'on' ? 'on' : 'off', maxTokens: Math.min(32000, Math.max(1000, +body.maxTokens || 6000)) };
       if (!p.model) return send(res, 400, { error: 'Model adı gerekli' });
+      // Yapıştırırken gelen boşluk/tırnak temizlenir; anahtar alanına adres girilmişse kaydedilmez.
+      const key = String(body.key || '').trim().replace(/^["'`]+|["'`]+$/g, '');
+      const keyErr = checkKey(key, p);
+      if (keyErr) return send(res, 400, { error: keyErr });
+      body.key = key;
       s.providers = [...s.providers.filter(x => x.id !== p.id), p];
       if (body.key) setSecret(s, `AI_KEY_${p.id}`, body.key);
       if (!s.activeProvider) s.activeProvider = p.id;
