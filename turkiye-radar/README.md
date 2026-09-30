@@ -236,6 +236,47 @@ docker compose up -d
 
 Panel sadece bu makineden erişilebilir (`127.0.0.1`). Telefondan erişmek istersen önüne HTTPS'li bir ters vekil koy (Caddy, Tailscale Serve vb.). Portu doğrudan internete açma.
 
+## Canlıya alma (VDS)
+
+Hazır dosyalar `deploy/` klasöründe: `Caddyfile` (HTTPS), `turkiye-radar.service` (systemd), `yedek.sh` (günlük yedek). Ubuntu 24.04 / Debian 12 için adımlar:
+
+```bash
+# 1) Sistem, güvenlik duvarı, Node 22, Caddy
+sudo apt update && sudo apt -y upgrade
+sudo apt -y install ufw curl git
+sudo ufw allow OpenSSH && sudo ufw allow 80,443/tcp && sudo ufw enable
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt -y install nodejs
+sudo apt -y install debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt -y install caddy
+
+# 2) Uygulama: ayrı kullanıcı, /opt/turkiye-radar
+sudo useradd --system --home /opt/turkiye-radar --shell /usr/sbin/nologin radar
+# turkiye-radar klasörünü buraya kopyala (scp/rsync ya da git), sonra:
+cd /opt/turkiye-radar && sudo npm ci --omit=dev
+sudo mkdir -p runtime && sudo chown -R radar:radar runtime && sudo chmod 700 runtime
+
+# 3) Servis ve HTTPS
+sudo cp deploy/turkiye-radar.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now turkiye-radar
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile   # içindeki alan adını düzelt
+sudo systemctl reload caddy
+
+# 4) Yönetici hesabı (şifre gizli sorulur, kabuk geçmişine yazılmaz)
+sudo -u radar node scripts/sifre.mjs admin
+```
+
+Alan adının DNS `A` kaydı sunucunun IP'sini göstermeli; yoksa Caddy sertifika alamaz. Günlükler: `journalctl -u turkiye-radar -f`.
+
+**Yerel verini taşımak:** kendi bilgisayarındaki `runtime/` klasörünü (üyeler, ayarlar, analiz arşivi, hafıza) sunucuya kopyalarsan her şey aynen gelir. `.master.key` dosyası da gelmeli, yoksa kayıtlı API anahtarları çözülemez; o durumda anahtarları panelden yeniden gir.
+
+**Güncelleme:** yeni dosyaları kopyala, `sudo npm ci --omit=dev`, `sudo systemctl restart turkiye-radar`. `runtime/` klasörüne dokunulmaz.
+
+**Yedek:** `sudo crontab -e` ile `30 3 * * * /opt/turkiye-radar/deploy/yedek.sh` ekle. Yedekler `/var/backups/radar` altında 14 gün durur. Sunucu dışına da kopyala; disk giderse sunucudaki yedek de gider.
+
+Docker tercih edersen `docker compose up -d` yeterli; `.env` içine `RADAR_TRUST_PROXY=1` yaz ve Caddy'yi yine makinenin kendisine kur. Compose portu yalnızca `127.0.0.1`'e açar; Docker'ın UFW kurallarını atlayan port açma davranışı bu yüzden sorun olmaz.
+
 ## Yapay zeka sağlayıcıları
 
 Yönetim panelinde "Hazır ayar" listesinden seçip anahtarı girmen yeterli. Üç adaptör bütün pazarı kapsıyor:

@@ -251,6 +251,11 @@ function gateResult(r, R) {
 }
 
 const isSecure = req => req.headers['x-forwarded-proto'] === 'https';
+// Ters vekil (Caddy/nginx) arkasında bütün istekler 127.0.0.1'den gelir; o zaman giriş denemesi sınırı
+// herkese ortak olur. RADAR_TRUST_PROXY=1 iken gerçek adres, vekilin eklediği son X-Forwarded-For girdisidir.
+// Vekil yokken bu başlığa güvenilmez (istemci istediğini yazabilir).
+const TRUST_PROXY = process.env.RADAR_TRUST_PROXY === '1';
+const clientIp = req => (TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',').pop().trim()) || req.socket.remoteAddress;
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -272,7 +277,7 @@ const server = createServer(async (req, res) => {
       catch (e) { return send(res, 400, { error: e.message }); }
     }
     if (path === '/api/login' && req.method === 'POST') {
-      const r = M.login(body.ad || 'admin', body.password, req.socket.remoteAddress);
+      const r = M.login(body.ad || 'admin', body.password, clientIp(req));
       if (!r.ok) return send(res, 401, { error: r.wait ? `Çok fazla deneme. ${r.wait} sn bekleyin.` : 'Kullanıcı adı ya da şifre yanlış' });
       return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(r.user, isSecure(req)) });
     }
