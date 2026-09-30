@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { complete, parseJSON, costUSD } from './providers.mjs';
 import { readJSON, writeJSON, getSecret } from '../store.mjs';
-import { memoryLines, addLesson, noteLines } from './memory.mjs';
+import { memoryLines, addLesson, ownerNoteLines } from './memory.mjs';
 import { archive } from './memtree.mjs';
 
 // Veri özetinin kişisel/hafıza kuyruğu: "veri değişti mi?" kontrolüne ve sohbetteki güncel veri kopyasına girmez.
@@ -153,7 +153,7 @@ export function buildDigest(s, prev) {
   if (bad.length) L.push('KONTROL (geçmeyen): ' + bad.map(c => `${c.ad}: ${c.detay}`).join(' ; '));
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
   // KULLANICI NOTLARI, HAFIZA ve ÖNCEKİ ANALİZLER hep en sonda: "veri değişti mi?" kontrolüne (hash) girmezler.
-  const notes = noteLines();
+  const notes = ownerNoteLines();
   if (notes.length) L.push('KULLANICI NOTLARI (eylem ve korunma önerilerini buna göre kişiselleştir):', ...notes.map(x => `- ${x}`));
   const mem = memoryLines();
   if (mem.length) L.push('HAFIZA (ölçülmüş isabet ve kendi derslerin):', ...mem.map(x => `- ${x}`));

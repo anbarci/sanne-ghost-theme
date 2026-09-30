@@ -45,9 +45,43 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 - **Günlük bütçe.** Günlük dolar ve token sınırı var (varsayılan 1 $ ve 300 bin token). Dolunca analiz durur, elle tetiklense bile.
 - **Uyarılar.** Deprem (M4,5 ve üstü), olağandışı piyasa hareketi ve yüksek etkili haber Telegram'a gider.
 
+## Üyelik ve rütbeler
+
+Panel birden çok kişiyle kullanılabilir. Açık kayıt yok; yönetici bir **davet kodu** (ya da `/giris?davet=...` bağlantısı) üretir, kişi o kodla hesap açar ve rütbesi koddan gelir. Yönetici üyeleri doğrudan da ekleyebilir, rütbe değiştirebilir, hesabı kapatabilir, şifre sıfırlayabilir.
+
+| Özellik | Temel | Pro | Elit | Yönetici |
+|---|---|---|---|---|
+| Gündem, haberler, şerit, harita, takvim, Dünya | ✓ | ✓ | ✓ | ✓ |
+| Analizin özeti ve bakış açıları | ✓ | ✓ | ✓ | ✓ |
+| Analizin tamamı (eylem planı, korunma, beklentiler, fikirler) | | ✓ | ✓ | ✓ |
+| Trade (tarayıcı, grafik, katalizörler) | | ✓ | ✓ | ✓ |
+| Geçmiş analizler ve kaynak kaydı | | ✓ | ✓ | ✓ |
+| Portföy tablosu | | ✓ | ✓ | ✓ |
+| Kişisel notlar, sohbette web araması | | ✓ | ✓ | ✓ |
+| Günlük sohbet mesajı | | 30 | 150 | sınırsız |
+| "Şimdi tara", günlük elle analiz | | | ✓, 5 | ✓ |
+| Yönetim paneli | | | | ✓ |
+
+Rütbe adları, aç/kapa özellikleri ve günlük sınırlar yönetim panelindeki matristen değiştirilir. Yöneticinin panel erişimi kapatılamaz, son yönetici düşürülemez ya da silinemez.
+
+Ayrıntılar:
+- Şifreler scrypt ile saklanır; 5 hatalı denemeden sonra IP bazında giderek uzayan bekleme vardır. Kullanıcı yoksa da aynı süre harcanır (kullanıcı adı tahmini zamanlamadan anlaşılmasın).
+- Oturum çerezi kullanıcı kimliği ve kullanıcının sürüm sayacıyla imzalanır; şifre ya da rütbe değişince veya hesap kapatılınca o kişinin açık oturumları düşer.
+- Sohbetler, notlar ve portföy kişiye özeldir. Ortak analize yalnızca yönetici üyelerin notları girer (bir üyenin portföy notu başkasının gördüğü analize sızmasın).
+- Kilitli bölümler arayüzde gizlenmez; kilit simgesiyle gösterilir ve Üyelik sayfasına yönlendirir. Asıl denetim sunucudadır: rütbenin açmadığı veri API'den hiç gönderilmez.
+- Eski tek kullanıcılı kurulumdan geçiş kendiliğindendir: kullanıcı adı `admin`, şifre aynı.
+
+**Hukuki uyarı (üyeliği para karşılığı ya da başkalarına açacaksan önce oku):** Türkiye'de başkalarına ücret karşılığı ya da düzenli olarak kişiye özel yatırım önerisi vermek "yatırım danışmanlığı" sayılır ve SPK izni gerektirir (6362 sayılı Sermaye Piyasası Kanunu). Bu paneldeki "Ne yaparsam kârlı çıkarım", işlem fikirleri ve tarayıcı listeleri kişisel kullanım için tasarlandı. Üyelere açarken bu bölümleri kapatmak (rütbe matrisinden "Analizin tamamı" ve "Trade") ve açık bir "yatırım tavsiyesi değildir" metni koymak gerekir; ücretli üyelik düşünüyorsan bir hukukçuya danış. Üye verisi (kullanıcı adı, sohbetler, portföy) KVKK kapsamında kişisel veridir: aydınlatma metni ve silme talebi süreci gerekir. Ödeme altyapısı (iyzico, Stripe vb.) bilerek eklenmedi.
+
+## Portföy
+
+Pro ve üstü rütbelerde "Portföy" sekmesi bir tablo gibi çalışır: hücreye yaz, Enter ile alt satıra in; değişiklikler kendiliğinden kaydedilir. Kod olarak dolar/euro/gram altın/BTC ya da üç piyasadaki herhangi bir hisse yazılabilir. Her satır canlı fiyatla değerlenir (şeritteki gecikme geçerli), hissenin para birimi (₺, $, €) kendiliğinden bilinir ve toplamlar TL'ye çevrilir. Üstte toplam değer, bugünkü değişim, toplam kâr/zarar ve dolar bazında değer; altta dağılım çubuğu (renk körlüğü testinden geçmiş kategorik palet, her dilimde etiket ve yüzde).
+
+[Univer](https://github.com/dream-num/univer) (tam bir tablo/ofis SDK'sı) incelendi ama gömülmedi: çekirdek paketleri 118 MB bağımlılık ve ~7 MB tarayıcı kodu getiriyor, React ve derleme adımı istiyor. Tüm radar arayüzü ~200 KB. Portföy için gereken (düzenlenebilir hücre, canlı hesap, toplam, dağılım) bu ağırlık olmadan yazıldı. İleride formül, çoklu sayfa ya da Excel içe/dışa aktarma gerekirse Univer ayrı, isteğe bağlı bir sayfa olarak eklenebilir.
+
 ## Görünümler
 
-Üstteki sekmelerle (ya da 1-4 tuşlarıyla) geçilir. Adres çubuğu görünümü tutar, yer imi olarak kaydedilebilir.
+Üstteki sekmelerle, 1-5 tuşlarıyla ya da **Ctrl+K komut paletiyle** geçilir (paletten hisse adı yazıp grafiğe, komut yazıp taramaya da gidilir). Sohbet her sayfada sağ alttaki düğmeden ya da C tuşuyla açılan çekmecededir. Gündem'in üstünde dört temel gösterge (kıvılcım grafikli, gecikmesiyle), senaryo dengesi çubuğu ve durum sayaçları (olağandışı hareket, yüksek etkili haber, geçmeyen kontrol) vardır; analiz kartı sekmelidir (Bakış açıları / Ne yapmalı / Beklentiler ve fikirler). Adres çubuğu görünümü tutar, yer imi olarak kaydedilebilir.
 
 | Sekme | İçerik |
 |---|---|

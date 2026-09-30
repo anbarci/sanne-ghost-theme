@@ -48,12 +48,12 @@ function analysisText(a) {
   return L.join('\n');
 }
 
-export function buildContext(a, snap, hist = readJSON('analyses.json', [])) {
+export function buildContext(a, snap, hist = readJSON('analyses.json', []), uid = null) {
   const L = [`BAĞLAM`, `ANALİZ (${when(a.at)}, ${a.provider} · ${a.model}):`, analysisText(a)];
   // Eski bir analiz seçildiyse o anki veri de verilir: "o gün ne biliyordun?" sorusu cevaplanabilsin.
   if (hist[0] && hist[0].at !== a.at && a.provenance?.digest) L.push('', `ANALİZ ANINDAKİ VERİ ÖZETİ (${when(a.at)}):`, a.provenance.digest.replace(TAIL, ''));
   if (snap) L.push('', `ŞU ANKİ GERÇEK VERİ (${when(snap.at)}):`, buildDigest(snap).replace(TAIL, ''));
-  const notes = noteLines();
+  const notes = noteLines(uid);
   if (notes.length) L.push('', 'KULLANICI NOTLARI:', ...notes.map(x => `- ${x}`));
   const mem = memoryLines();
   if (mem.length) L.push('', 'HAFIZA:', ...mem.map(x => `- ${x}`));
@@ -117,8 +117,10 @@ export function retrieve(q, snap) {
   return L.length ? `SORUYLA İLGİLİ VERİ (${when(snap.at)}):\n${L.join('\n')}` : '';
 }
 
-const chatKey = at => String(at);
-export const loadChat = at => readJSON('chats.json', {})[chatKey(at)]?.turns || [];
+// Sohbet üyeye özeldir: anahtar "<üye>:<analiz zamanı>".
+const chatKey = (at, uid) => `${uid || 'u'}:${at}`;
+export const loadChat = (at, uid) => readJSON('chats.json', {})[chatKey(at, uid)]?.turns || [];
+const ownChats = uid => Object.fromEntries(Object.entries(readJSON('chats.json', {})).filter(([k]) => k.startsWith(`${uid || 'u'}:`)));
 
 const NOTE_CMD = /^\s*(hatırla|hatirla|not al|unutma|aklında tut)\s*[:,]?\s*/i;
 // Son dakika / güncellik isteyen sorularda web araması soru anında yapılır (modelin ayrıca istemesi beklenmez).
@@ -139,14 +141,15 @@ export function compactHistory(turns, keep = 8) {
   return { summary: `BU SOHBETİN ÖNCEKİ KISMI (özet, ${old.length} mesaj):\n${L.slice(-15).join('\n')}`, recent };
 }
 
-export async function runTools(lines, { settings, lang = 'tr' }) {
+export async function runTools(lines, { settings, lang = 'tr', uid = null, web = true }) {
   const out = [], used = [];
   for (const [, kind, arg] of lines.slice(0, 3)) {
+    if (/^ARA$/i.test(kind) && !web) { out.push('WEB ARAMASI: bu üyelikte kapalı.'); continue; }
     if (/^ARA$/i.test(kind)) {
       const r = await webSearch(arg, { lang, searxng: settings.searxngUrl }).catch(e => ({ q: arg, results: [], errors: [e.message] }));
       out.push(webText(r)); used.push(`web: ${arg} (${r.results.length} sonuç)`);
     } else if (/^BUL$/i.test(kind)) {
-      out.push(searchMemory(arg)); used.push(`hafızada arama: ${arg}`);
+      out.push(searchMemory(arg, undefined, ownChats(uid))); used.push(`hafızada arama: ${arg}`);
     } else {
       out.push(readNode(arg).slice(0, 3500)); used.push(`hafıza: ${arg}`);
     }
@@ -154,19 +157,19 @@ export async function runTools(lines, { settings, lang = 'tr' }) {
   return { text: out.join('\n\n'), used };
 }
 
-export async function chat(at, q, settings, { web = true } = {}) {
+export async function chat(at, q, settings, { web = true, uid = null } = {}) {
   q = String(q || '').trim().slice(0, 1500);
   if (!q) throw new Error('Soru boş');
   const hist = readJSON('analyses.json', []);
   const a = hist.find(x => x.at === +at) || hist[0];
   if (!a) throw new Error('Önce bir analiz gerekli');
   const chats = readJSON('chats.json', {});
-  const c = (chats[chatKey(a.at)] ||= { at: a.at, turns: [] });
+  const c = (chats[chatKey(a.at, uid)] ||= { at: a.at, uid, turns: [] });
   const save = turn => { c.turns.push({ role: 'user', content: q, at: Date.now() }, turn); c.turns = c.turns.slice(-60); writeJSON('chats.json', chats); return turn; };
   // "hatırla: portföyümde THYAO var" → kalıcı not; model çağrılmaz.
   if (NOTE_CMD.test(q)) {
     const text = q.replace(NOTE_CMD, '');
-    return save({ role: 'assistant', content: addNote(text) ? `Not kaydedildi: "${text}". Bundan sonraki analizlerde ve sohbetlerde dikkate alınacak. Hafıza panelinden silebilirsin.` : 'Not boş olduğu için kaydedilmedi.', at: Date.now(), tools: ['not'] });
+    return save({ role: 'assistant', content: addNote(text, uid) ? `Not kaydedildi: "${text}". Bundan sonraki sohbetlerinde dikkate alınacak. Hafıza panelinden silebilirsin.` : 'Not boş olduğu için kaydedilmedi.', at: Date.now(), tools: ['not'] });
   }
   const p = activeProvider(settings);
   if (!p) throw new Error('Yapay zeka sağlayıcısı tanımlı değil (yönetim paneli)');
@@ -176,7 +179,7 @@ export async function chat(at, q, settings, { web = true } = {}) {
   const snap = readJSON('latest.json', null);
   const { summary, recent } = compactHistory(c.turns);
   // Bağlam sistem metnine gömülür: aynı sohbet içinde değişmediği sürece sağlayıcının önbelleğinden okunur.
-  const context = buildContext(a, snap, hist) + (summary ? `\n\n${summary}` : '');
+  const context = buildContext(a, snap, hist, uid) + (summary ? `\n\n${summary}` : '');
   const system = `${CHAT_SYSTEM}\n\n${context}`;
   // Soru anında eklenen veri: sorudaki hisse/varlık/haber + tarih ifadelerinin hafıza düğümleri + (gerekirse) web.
   const used = [];
@@ -197,7 +200,7 @@ export async function chat(at, q, settings, { web = true } = {}) {
   // En fazla bir araç turu: model ARA/OKU istediyse çalıştır, sonuçlarla bir kez daha sor.
   const lines = [...r.text.matchAll(TOOL_LINE)];
   if (lines.length && r.text.replace(TOOL_LINE, '').trim().length < 40) {
-    const t = await runTools(lines, { settings });
+    const t = await runTools(lines, { settings, uid, web });
     used.push(...t.used); toolText = t.text;
     msgs.push({ role: 'assistant', content: r.text.trim() }, { role: 'user', content: `ARAÇ SONUÇLARI:\n${t.text}\n\nŞimdi soruyu cevapla. Artık ARA ya da OKU yazma.` });
     r = await complete(opts, p.key, system, msgs);
@@ -208,8 +211,8 @@ export async function chat(at, q, settings, { web = true } = {}) {
     unverified: unverifiedNumbers(answer, `${context}\n${extra}\n${toolText}\n${q}`), used: extra ? extra.split('\n').length - 1 : 0 });
 }
 
-export function clearChat(at) {
+export function clearChat(at, uid) {
   const chats = readJSON('chats.json', {});
-  delete chats[chatKey(at)];
+  delete chats[chatKey(at, uid)];
   writeJSON('chats.json', chats);
 }

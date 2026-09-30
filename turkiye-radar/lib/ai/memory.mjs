@@ -40,20 +40,28 @@ export const loadMemory = () => ({ dersler: [], notlar: [], ...readJSON('memory.
 
 // Kullanıcı notları: sohbette "hatırla: ..." ya da Hafıza panelinden. Portföy, risk tercihi, hedef gibi
 // kalıcı bilgiler; her analize ve sohbete girer, böylece öneriler kişiye göre olur.
-export function addNote(text, at = Date.now()) {
+// Notlar üyeye aittir (uid). Ortak analize yalnızca yönetici üyelerin notları girer; bir üyenin portföy
+// notu başka üyelerin gördüğü analize sızmasın.
+export function addNote(text, uid, at = Date.now()) {
   text = String(text || '').trim().slice(0, 300);
   if (text.length < 3) return false;
   const m = loadMemory();
-  m.notlar = [{ at, text }, ...m.notlar.filter(n => n.text !== text)].slice(0, 30);
+  const mine = m.notlar.filter(n => n.uid === uid && n.text !== text);
+  m.notlar = [{ at, text, uid }, ...mine.slice(0, 29), ...m.notlar.filter(n => n.uid !== uid)];
   writeJSON('memory.json', m);
   return true;
 }
-export function deleteNote(at) {
+export function deleteNote(at, uid) {
   const m = loadMemory();
-  m.notlar = m.notlar.filter(n => n.at !== at);
+  m.notlar = m.notlar.filter(n => !(n.at === at && n.uid === uid));
   writeJSON('memory.json', m);
 }
-export const noteLines = () => loadMemory().notlar.slice(0, 15).map(n => n.text);
+export const myNotes = uid => loadMemory().notlar.filter(n => n.uid === uid);
+export const noteLines = uid => myNotes(uid).slice(0, 15).map(n => n.text);
+export function ownerNoteLines() {
+  const admins = new Set(readJSON('users.json', []).filter(u => u.rank === 'yonetici').map(u => u.id));
+  return loadMemory().notlar.filter(n => !n.uid || admins.has(n.uid)).slice(0, 15).map(n => n.text);
+}
 
 export function addLesson(text, at = Date.now()) {
   text = String(text || '').trim().slice(0, 240);

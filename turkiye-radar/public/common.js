@@ -12,7 +12,7 @@ export async function api(path, body, method) {
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
   });
-  if (r.status === 401 && !location.pathname.startsWith('/admin')) { location.href = '/admin'; throw new Error('Giriş gerekli'); }
+  if (r.status === 401 && location.pathname !== '/giris') { location.href = `/giris?geri=${encodeURIComponent(location.pathname + location.hash)}`; throw new Error('Giriş gerekli'); }
   const j = await r.json().catch(() => ({}));
   if (!r.ok && j.error) throw new Error(j.error);
   return j;

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Türkiye Radar · Giriş</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#020617">
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/giris.js"></script>
+</head>
+<body class="auth-page">
+<main class="auth-wrap">
+  <section class="auth-hero" aria-hidden="true">
+    <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 12l5-4"/></svg></span><h1>Türkiye Radar</h1></div>
+    <p class="hero-lead">Türkiye merkezli piyasa, haber ve risk paneli.</p>
+    <ul class="hero-points">
+      <li><b>Canlı şerit</b><span>Döviz saniyeler içinde, BIST 15 dk gecikmeyle</span></li>
+      <li><b>Teyitli haber</b><span>Her önemli haber başka yayıncılarda aranır</span></li>
+      <li><b>Hafızalı yapay zeka</b><span>Tahminlerini gerçek fiyatlarla puanlar, hatasından ders çıkarır</span></li>
+    </ul>
+    <svg class="hero-radar" viewBox="0 0 200 200"><circle cx="100" cy="100" r="90"/><circle cx="100" cy="100" r="60"/><circle cx="100" cy="100" r="30"/><path class="sweep" d="M100 100 L100 10 A90 90 0 0 1 178 55 Z"/></svg>
+  </section>
+
+  <section class="panel auth-card">
+    <div class="seg" role="tablist" id="auth-tabs">
+      <button type="button" role="tab" data-t="login" aria-pressed="true">Giriş</button>
+      <button type="button" role="tab" data-t="register" aria-pressed="false">Davetle kayıt</button>
+    </div>
+
+    <form class="form" id="f-login">
+      <label>Kullanıcı adı<input id="l-ad" autocomplete="username" required autocapitalize="none" spellcheck="false"></label>
+      <label>Şifre<input type="password" id="l-pw" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">Giriş yap</button>
+      <p class="small muted">Eski kurulumdan geliyorsan kullanıcı adın <b>admin</b>, şifren aynı.</p>
+    </form>
+
+    <form class="form" id="f-register" hidden>
+      <label>Davet kodu<input id="r-code" required autocomplete="off" spellcheck="false"></label>
+      <label>Kullanıcı adı<input id="r-ad" autocomplete="username" required pattern="[a-z0-9._\-]{3,32}" autocapitalize="none" spellcheck="false" placeholder="küçük harf, rakam, nokta, tire"></label>
+      <label>Şifre (en az 10 karakter)<input type="password" id="r-pw" autocomplete="new-password" required minlength="10"></label>
+      <button class="btn primary" type="submit">Hesap oluştur</button>
+      <p class="small muted">Davet kodunu yöneticiden alırsın; rütben koda göre belirlenir.</p>
+    </form>
+
+    <form class="form" id="f-setup" hidden>
+      <h2>İlk kurulum</h2>
+      <p class="small muted">Sunucuyu başlattığın terminalde "İlk kurulum anahtarı" yazıyor. Bu hesap yönetici olur.</p>
+      <label>Kurulum anahtarı<input id="s-token" required autocomplete="off" spellcheck="false"></label>
+      <label>Kullanıcı adı<input id="s-ad" value="admin" required pattern="[a-z0-9._\-]{3,32}" autocapitalize="none"></label>
+      <label>Şifre (en az 10 karakter)<input type="password" id="s-pw" autocomplete="new-password" required minlength="10"></label>
+      <button class="btn primary" type="submit">Yöneticiyi oluştur</button>
+    </form>
+    <p class="small err" id="auth-err" role="alert"></p>
+  </section>
+</main>
+</body>
+</html>

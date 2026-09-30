@@ -14,27 +14,73 @@ const STANCES = ['resmi', 'iktidara-yakın', 'muhalif', 'bağımsız', 'ana-akı
 
 async function boot() {
   const a = await api('/api/auth');
-  if (!a.authed) {
-    $('#auth').hidden = false;
-    $('#token-wrap').hidden = !a.setup;
-    $('#auth-title').textContent = a.setup ? 'İlk kurulum: şifre belirleyin' : 'Giriş';
-    $('#pw').autocomplete = a.setup ? 'new-password' : 'current-password';
-    $('#auth-form').onsubmit = async e => {
-      e.preventDefault();
-      try {
-        await api(a.setup ? '/api/setup' : '/api/login', { password: $('#pw').value, token: $('#token').value.trim() });
-        location.reload();
-      } catch (err) { $('#auth-err').textContent = err.message; }
-    };
-    return;
-  }
-  $('#app').hidden = false; $('#btn-logout').hidden = false;
+  if (!a.authed) { location.href = '/giris?geri=/admin'; return; }
+  $('#btn-logout').hidden = false;
+  $('#who').textContent = `${a.user.ad} · ${a.user.rutbe.ad}`;
+  if (!a.user.rutbe.admin) { $('#noadmin').hidden = false; return; }
+  $('#app').hidden = false;
   await refresh();
 }
 
+// Üyeler, davetler, rütbe matrisi
+let MB = null;
+async function renderMembers() {
+  MB = await api('/api/admin/members');
+  const rankOpts = sel => Object.entries(MB.ranks).map(([k, r]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(r.ad)}</option>`).join('');
+  $('#mem-n').textContent = `${MB.users.length} üye`;
+  $('#members').innerHTML = `<thead><tr><th>Üye</th><th>Rütbe</th><th>Durum</th><th>Son giriş</th><th class="n">Bugün sohbet</th><th></th></tr></thead><tbody>${MB.users.map(u => `<tr data-id="${esc(u.id)}">
+    <td><b>${esc(u.ad)}</b><div class="small muted">${new Date(u.created).toLocaleDateString('tr-TR')}</div></td>
+    <td><select data-f="rank" aria-label="Rütbe">${rankOpts(u.rank)}</select></td>
+    <td>${u.disabled ? '<span class="err">kapalı</span>' : '<span class="ok">aktif</span>'}</td>
+    <td class="small">${u.lastLogin ? ago(u.lastLogin) : '—'}</td>
+    <td class="n">${u.usage?.sohbet || 0}</td>
+    <td><div class="inline"><button class="btn sm" data-act="toggle">${u.disabled ? 'Aç' : 'Kapat'}</button><button class="btn sm" data-act="pw">Şifre sıfırla</button><button class="btn sm danger" data-act="del">Sil</button></div></td></tr>`).join('')}</tbody>`;
+  $('#i-rank').innerHTML = rankOpts('pro').replace(/<option value="yonetici"[^>]*>[^<]*<\/option>/, '');
+  $('#m-rank').innerHTML = rankOpts('temel');
+  $('#invites').innerHTML = MB.invites.length ? `<thead><tr><th>Kod</th><th>Rütbe</th><th class="n">Kullanım</th><th>Bitiş</th><th></th></tr></thead><tbody>${MB.invites.map(i => `<tr><td class="small num">${esc(i.code.slice(0, 4))}…</td><td>${esc(MB.ranks[i.rank]?.ad || i.rank)}</td><td class="n">${i.used}/${i.uses}</td><td class="small">${new Date(i.exp).toLocaleDateString('tr-TR')}</td><td><button class="btn sm danger" data-inv="${esc(i.code)}">İptal</button></td></tr>`).join('')}</tbody>` : '';
+  const feats = Object.entries(MB.features);
+  $('#ranks').innerHTML = `<thead><tr><th>Özellik</th>${Object.entries(MB.ranks).map(([k, r]) => `<th><input data-rk="${k}" data-f="ad" value="${esc(r.ad)}" aria-label="Rütbe adı" class="rk-name"></th>`).join('')}</tr></thead><tbody>${feats.map(([f, label]) => `<tr><td>${esc(label)}</td>${Object.entries(MB.ranks).map(([k, r]) => `<td class="c">${typeof r[f] === 'number' ? `<input type="number" min="0" max="100000" data-rk="${k}" data-f="${f}" value="${r[f]}" aria-label="${esc(label)}">` : `<input type="checkbox" data-rk="${k}" data-f="${f}" ${r[f] ? 'checked' : ''} ${k === 'yonetici' && f === 'admin' ? 'disabled' : ''} aria-label="${esc(label)}">`}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+$('#members').addEventListener('change', async e => {
+  const s = e.target.closest('select[data-f=rank]'); if (!s) return;
+  try { await api('/api/admin/member', { id: s.closest('tr').dataset.id, rank: s.value }); toast('Rütbe değişti; üyenin oturumu yenilenir'); } catch (x) { toast(x.message, 5000); }
+  renderMembers();
+});
+$('#members').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('tr').dataset.id, u = MB.users.find(x => x.id === id);
+  try {
+    if (b.dataset.act === 'toggle') await api('/api/admin/member', { id, disabled: !u.disabled });
+    if (b.dataset.act === 'pw') { const pw = prompt(`${u.ad} için yeni şifre (en az 10 karakter)`); if (!pw) return; await api('/api/admin/member', { id, password: pw }); toast('Şifre sıfırlandı'); }
+    if (b.dataset.act === 'del') { if (!confirm(`${u.ad} silinsin mi? Notları ve sohbetleri kalır ama hesaba girilemez.`)) return; await api('/api/admin/member/delete', { id }); }
+  } catch (x) { toast(x.message, 5000); }
+  renderMembers();
+});
+$('#inv-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    const { code } = await api('/api/admin/invite', { rank: $('#i-rank').value, uses: +$('#i-uses').value, days: +$('#i-days').value });
+    const link = `${location.origin}/giris?davet=${encodeURIComponent(code)}`;
+    $('#inv-out').hidden = false;
+    $('#inv-out').innerHTML = `Kod: <b class="num">${esc(code)}</b> · Bağlantı: <span class="num">${esc(link)}</span> <button class="btn sm" type="button" id="inv-copy">Kopyala</button><br><span class="small muted">Kod yalnızca şimdi tam gösterilir.</span>`;
+    $('#inv-copy').onclick = () => navigator.clipboard?.writeText(link).then(() => toast('Kopyalandı'));
+    renderMembers();
+  } catch (x) { toast(x.message, 5000); }
+});
+$('#invites').addEventListener('click', async e => { const b = e.target.closest('[data-inv]'); if (!b) return; await api('/api/admin/invite/delete', { code: b.dataset.inv }); renderMembers(); });
+$('#mk-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api('/api/admin/member/create', { ad: $('#m-ad').value.trim().toLowerCase(), password: $('#m-pw').value, rank: $('#m-rank').value }); e.target.reset(); toast('Üye eklendi'); renderMembers(); } catch (x) { toast(x.message, 5000); }
+});
+$('#ranks-save').addEventListener('click', async () => {
+  const out = {};
+  document.querySelectorAll('#ranks [data-rk]').forEach(i => { (out[i.dataset.rk] ||= {})[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.type === 'number' ? +i.value : i.value; });
+  try { await api('/api/admin/ranks', { ranks: out }); toast('Rütbeler kaydedildi'); renderMembers(); } catch (x) { toast(x.message, 5000); }
+});
+
 async function refresh() {
   S = await api('/api/admin/settings');
-  renderProviders(); renderSecrets(); renderSources(); renderSettings(); renderFeeds(); renderHistory();
+  renderProviders(); renderSecrets(); renderSources(); renderSettings(); renderFeeds(); renderHistory(); renderMembers();
 }
 
 function renderProviders() {
@@ -174,8 +220,8 @@ async function renderHistory() {
 
 $('#pw-form').addEventListener('submit', async e => {
   e.preventDefault();
-  try { await api('/api/admin/password', { old: $('#pw-old').value, new: $('#pw-new').value }); e.target.reset(); toast('Şifre değişti'); } catch (err) { toast(err.message); }
+  try { await api('/api/me/password', { old: $('#pw-old').value, new: $('#pw-new').value }); e.target.reset(); toast('Şifre değişti'); } catch (err) { toast(err.message); }
 });
-$('#btn-logout').addEventListener('click', async () => { await api('/api/logout', {}); location.reload(); });
+$('#btn-logout').addEventListener('click', async () => { await api('/api/logout', {}); location.href = '/giris'; });
 
 boot().catch(e => toast(e.message));

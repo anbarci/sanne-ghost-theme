@@ -2,7 +2,9 @@ import { $, esc, safeUrl, api, nf, pct, dir, ago, toast, initTheme } from './com
 import { createChart, CandlestickSeries, LineSeries, HistogramSeries, LineStyle, CrosshairMode } from '/vendor/lwc.mjs';
 
 let data = null, map = null, world = null, shown = 30;
-const ui = { view: 'gundem', market: 'tr', preset: 'gundem', sel: 'XU100', range: 252, showAll: false };
+const ui = { view: 'gundem', market: 'tr', preset: 'gundem', sel: 'XU100', range: 252, showAll: false, aiTab: 'bakis', chatAt: null };
+let me = null; // oturumdaki üye: { ad, rank, rutbe: { özellik: değer } }
+const can = f => !!me?.rutbe?.[f];
 const filt = { cat: '', stance: '', min: 15, bad: false, q: '' };
 const lastPrice = {};
 const fold = s => String(s || '').toLocaleLowerCase('tr').replace(/ı/g, 'i');
@@ -108,6 +110,7 @@ function renderCats(sc) {
   $('#cats').innerHTML = list.map(t => catHTML(t)).join('') || '<p class="empty">Şu an yönü belli bir gündem teması yok. Tema, ya ilgili fiyat eşiği aştığında ya da en az iki haber aynı yönü gösterdiğinde doğar.</p>';
 }
 function renderCatMini(s) {
+  if (!can('trade')) { $('#cat-mini').innerHTML = '<div class="locked"><b>Pro ve üstü üyeliklerde</b><span>Hangi gelişmenin hangi hisseyi etkilediği.</span><a class="btn sm" href="#uyelik">Üyelikler</a></div>'; return; }
   const list = s.screeners?.tr?.catalysts || [];
   $('#cat-mini').innerHTML = list.slice(0, 4).map(t => catHTML(t, true)).join('') || '<p class="empty">Şu an hisseye bağlanan belirgin bir gündem yok.</p>';
 }
@@ -209,8 +212,18 @@ function renderDetail(kod, row, d) {
 }
 
 // Yapay zeka
+// Senaryo dengesi: kötümser / baz / iyimser olasılıkları tek çubukta.
+function scenarioBar(r) {
+  const k = +r.kotumser?.olasilik || 0, i = +r.iyimser?.olasilik || 0, b = Math.max(0, 100 - k - i);
+  if (!k && !i) return '';
+  return `<div class="scen" role="img" aria-label="Kötümser %${k}, baz %${b}, iyimser %${i}">
+    <div class="scen-bar"><i class="bear" data-w="${k}"></i><i class="base" data-w="${b}"></i><i class="bull" data-w="${i}"></i></div>
+    <div class="scen-lab"><span><i class="dot bear"></i>Kötümser %${k}</span><span><i class="dot base"></i>Baz %${b}</span><span><i class="dot bull"></i>İyimser %${i}</span></div></div>`;
+}
+const setWidths = root => root.querySelectorAll('[data-w]').forEach(i => { i.style.width = `${i.dataset.w}%`; });
+
 function renderAI(a, body = $('#ai-body'), meta = $('#ai-meta')) {
-  if (!a?.result) return;
+  if (!a?.result) { body.innerHTML = `<div class="empty-state"><b>Henüz analiz yok</b><span>${can('admin') ? 'Yönetimden bir yapay zeka sağlayıcısı (ör. DeepSeek) ekleyip analiz başlat.' : 'Yönetici ilk analizi başlattığında burada görünecek.'}</span></div>`; return; }
   const r = a.result;
   const view = (cls, title, v, extra = '') => `<div class="pov ${cls}"><h3><span><i class="dot"></i>${title}</span>${v.olasilik != null ? `<span class="num">%${esc(v.olasilik)}</span>` : ''}</h3><p>${esc(v.yorum)}</p><ul>${(v.dayanak || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>${extra}</div>`;
   const izle = r.tarafsiz.izle?.length ? `<p class="small muted">İzlenecekler: ${r.tarafsiz.izle.map(esc).join(' · ')}</p>` : '';
@@ -223,19 +236,61 @@ function renderAI(a, body = $('#ai-body'), meta = $('#ai-meta')) {
     + (r.eylem?.length ? `<div class="card"><h3>Ne yaparsam kârlı çıkarım</h3><ol>${r.eylem.map(e => `<li><b>${esc(e.adim)}</b><div class="small">${esc(e.neden)}</div><div class="small muted">Risk: ${esc(e.risk)}</div></li>`).join('')}</ol></div>` : '');
   const ders = r.ders ? `<p class="small muted">Bu analizde kendi hatalarından çıkardığı ders: ${esc(r.ders)}</p>` : '';
   const bad = r.dogrulanamayan?.length ? `<p class="alert">Veri özetinde bulunamayan rakamlar: ${r.dogrulanamayan.map(esc).join(', ')}. Bu rakamlara güvenmeyin.</p>` : '';
+  // Sekmeler: bakış açıları / ne yapmalı / varlıklar ve fikirler. Temel üyelikte son ikisi kilitli.
+  const lock = r.kilitli ? `<div class="locked"><b>Bu bölüm Pro ve üstü üyeliklerde açık.</b><span>Eylem planı, korunma önerileri, varlık beklentileri ve işlem fikirleri.</span><a class="btn sm" href="#uyelik">Üyelikleri karşılaştır</a></div>` : '';
+  const tabs = [['bakis', 'Bakış açıları'], ['yap', 'Ne yapmalı'], ['varlik', 'Beklentiler ve fikirler']];
+  const tab = tabs.some(([k]) => k === ui.aiTab) ? ui.aiTab : 'bakis';
   body.innerHTML = `
     <p class="lead-sum">${esc(r.ozet)}</p>
-    <div class="povs">${view('bear', 'Kötümser', r.kotumser)}${view('bull', 'İyimser', r.iyimser)}${view('base', 'Tarafsız', r.tarafsiz, izle)}</div>
-    ${frame}
-    ${acts ? `<div class="cards">${acts}</div>` : ''}
-    ${bad}${eksik}${ders}
-    <div class="subgrid">
-      <div><h3>Varlık beklentileri</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Yön</th><th class="n">Vade</th><th class="n">Olas.</th><th>Neden</th></tr></thead><tbody>${assets}</tbody></table></div></div>
-      <div><h3>Fikirler (kişisel)</h3><div class="ideas">${ideas || '<p class="empty">Fikir yok.</p>'}</div></div>
+    ${scenarioBar(r)}
+    <div class="seg ai-tabs" role="tablist" aria-label="Analiz bölümleri">${tabs.map(([k, l]) => `<button type="button" role="tab" data-aitab="${k}" aria-pressed="${k === tab}">${l}</button>`).join('')}</div>
+    <div class="ai-pane" data-pane="bakis" ${tab === 'bakis' ? '' : 'hidden'}>
+      <div class="povs">${view('bear', 'Kötümser', r.kotumser)}${view('bull', 'İyimser', r.iyimser)}${view('base', 'Tarafsız', r.tarafsiz, izle)}</div>
+      ${frame}
     </div>
-    <p class="note">Model çıktısıdır, yatırım tavsiyesi değildir. Güven: ${esc(r.guven)}. Beklentiler karnede gerçek fiyatlarla puanlanır.</p>`;
+    <div class="ai-pane" data-pane="yap" ${tab === 'yap' ? '' : 'hidden'}>${lock || (acts ? `<div class="cards">${acts}</div>` : '<p class="empty">Bu analizde öneri yok.</p>')}</div>
+    <div class="ai-pane" data-pane="varlik" ${tab === 'varlik' ? '' : 'hidden'}>${lock || `<div class="subgrid">
+      <div><h3>Varlık beklentileri</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Yön</th><th class="n">Vade</th><th class="n">Olas.</th><th>Neden</th></tr></thead><tbody>${assets || '<tr><td colspan="5" class="empty">Beklenti yok.</td></tr>'}</tbody></table></div></div>
+      <div><h3>Fikirler (kişisel)</h3><div class="ideas">${ideas || '<p class="empty">Fikir yok.</p>'}</div></div>
+    </div>`}</div>
+    ${bad}${eksik}${ders}
+    <p class="note">Model çıktısıdır, yatırım tavsiyesi değildir. Güven: ${esc(GUVEN[r.guven] || r.guven)}. Beklentiler karnede gerçek fiyatlarla puanlanır.</p>`;
   const cost = a.cost != null ? ` · $${a.cost.toFixed(4)}` : '';
   meta.textContent = `${a.provider} · ${a.model} · ${ago(a.at)} · ${a.usage.in + (a.usage.cacheRead || 0)}→${a.usage.out} token${cost}`;
+  setWidths(body);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-aitab]'); if (!t) return;
+  ui.aiTab = t.dataset.aitab;
+  const root = t.closest('.ai-tabs').parentElement;
+  root.querySelectorAll('[data-aitab]').forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+  root.querySelectorAll('.ai-pane').forEach(p => { p.hidden = p.dataset.pane !== ui.aiTab; });
+});
+
+// Gündem özeti: dört temel gösterge (kıvılcım grafikli), senaryo dengesi ve durum sayaçları.
+const HERO = [['USDTRY', 'Dolar/TL', 4], ['XU100', 'BIST 100', 0], ['GRAM_ALTIN', 'Gram altın', 0], ['BRENT', 'Brent $', 2]];
+function renderHero(s, a) {
+  const m = s.markets || {};
+  const lagTxt = x => (x?.delaySec == null ? '' : x.delaySec < 90 ? 'canlı' : x.delaySec < 3600 ? `${Math.round(x.delaySec / 60)} dk gecikmeli` : 'piyasa kapalı');
+  const kpis = HERO.filter(([k]) => m[k]).map(([k, l, d]) => { const x = m[k]; return `<button type="button" class="kpi" data-open="${k}" title="Grafikte aç">
+    <span class="kpi-l">${esc(l)}<i class="lag ${x.delaySec < 90 ? 'on' : ''}">${lagTxt(x)}</i></span>
+    <b class="kpi-v num">${nf(x.price, d)}</b><span class="kpi-c">${chg(x.chg)}</span>${spark(x.spark, 'kpi-s')}</button>`; }).join('');
+  const r = a?.result;
+  const anom = Object.values(m).filter(x => x.anomaly).length;
+  const hot = (s.news || []).filter(n => n.impact.score >= 70).length;
+  const badChk = (s.checks || []).filter(c => !c.ok).length;
+  const top = s.screeners?.tr?.catalysts?.[0];
+  $('#hero').innerHTML = `<div class="kpis">${kpis}</div>
+    <div class="hero-side">
+      ${r ? `<div class="hero-scen"><span class="kpi-l">Senaryo dengesi · güven ${esc(GUVEN[r.guven] || r.guven || '—')}</span>${scenarioBar(r)}</div>` : ''}
+      <div class="counters">
+        <span class="ctr ${anom ? 'warn' : ''}"><b class="num">${anom}</b>olağandışı hareket</span>
+        <span class="ctr ${hot ? 'acc' : ''}"><b class="num">${hot}</b>yüksek etkili haber</span>
+        <span class="ctr ${badChk ? 'bad' : ''}"><b class="num">${badChk}</b>geçmeyen kontrol</span>
+      </div>
+      ${top ? `<button type="button" class="hero-cat" data-go="#trade">${yonTxt(top.yon)} <b>${esc(top.ad)}</b> <span class="muted">${esc(top.neden)}</span> → ${top.etkiler.slice(0, 3).map(e => `${esc(e.kod)}${e.yon > 0 ? '▲' : '▼'}`).join(' ')}</button>` : ''}
+    </div>`;
+  setWidths($('#hero'));
 }
 
 // Sohbet: seçili analiz hakkında soru sor; cevaplar radarın gerçek verisine dayanır.
@@ -248,8 +303,7 @@ function turnHTML(t) {
   return `<div class="msg ai">${md(t.content)}${warn}<div class="small muted">${esc(meta)}</div></div>`;
 }
 async function mountChat(el, at) {
-  el.innerHTML = `<h3 class="more">Analizle sohbet</h3>
-    <div class="chips sugg">${SUGGEST.map(q => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+  el.innerHTML = `<div class="chips sugg">${SUGGEST.map(q => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
     <div class="msgs" aria-live="polite"></div>
     <form class="ask"><textarea rows="2" maxlength="1500" placeholder="Soru sor (Enter gönderir, Shift+Enter yeni satır)" aria-label="Soru"></textarea><div class="inline"><button class="btn primary" type="submit">Sor</button><label class="inline small"><input type="checkbox" data-web checked> web'de ara</label><button class="btn ghost sm" type="button" data-clear>Sohbeti temizle</button></div></form>
     <p class="note">Cevaplar bu analize, radarın şu anki verisine, hafızaya ve gerekirse web aramasına (Google News, tanımlıysa SearXNG) dayanır. "hatırla: ..." ile başlayan mesaj kalıcı not olarak kaydedilir. Günlük bütçeye sayılır.</p>`;
@@ -353,6 +407,7 @@ const fmtDT = t => new Date(t).toLocaleString('tr-TR', { timeZone: 'Europe/Istan
 const GUVEN = { dusuk: 'düşük', orta: 'orta', yuksek: 'yüksek' };
 async function renderHistory(at) {
   renderMemory();
+  if (!can('gecmis')) return;
   const list = await api('/api/analyses');
   $('#alist-sub').textContent = `${list.length} kayıt`;
   const cur = at || list[0]?.at;
@@ -368,8 +423,7 @@ async function renderHistory(at) {
     <ol class="prov">${pv.haberler.map(n => `<li><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span class="small muted">${esc(n.src)} · etki ${esc(n.etki ?? '—')}${n.teyit ? ` · teyit: ${esc(n.teyit)}` : ''}${n.uyumsuz ? ' · başlık uyumsuz' : ''}</span></li>`).join('')}</ol>
     ${pv.kontroller.length ? `<p class="small err">Geçmeyen veri kontrolleri: ${pv.kontroller.map(esc).join(' ; ')}</p>` : ''}
     <details class="digest"><summary class="small">Modele giden veri özetinin tamamı (${pv.digest.length} karakter)</summary><pre>${esc(pv.digest)}</pre></details>`);
-  $('#adet').insertAdjacentHTML('beforeend', '<div id="chat-a"></div>');
-  mountChat($('#chat-a'), a.at);
+  ui.chatAt = a.at; // sohbet çekmecesi bu analize bağlanır
   const preds = a.predictions || [];
   if (preds.length) $('#adet').insertAdjacentHTML('beforeend', `<h3 class="more">Tahminlerin sonucu</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Tahmin</th><th class="n">Olas.</th><th>Vade</th><th>Sonuç</th></tr></thead><tbody>${preds.map(p => `<tr><td>${esc(p.kod)}</td><td>${esc(p.yon)}</td><td class="n">%${Math.round(p.p * 100)}</td><td class="small">${esc(fmtDT(p.due))}</td><td>${p.done ? `<span class="${p.hit ? 'ok' : 'err'}">${p.hit ? 'tuttu' : 'tutmadı'}</span> <span class="small muted">${pct(p.chg)}</span>` : '<span class="muted">bekliyor</span>'}</td></tr>`).join('')}</tbody></table></div>`);
 }
@@ -378,13 +432,13 @@ async function renderHistory(at) {
 async function renderMemory() {
   const m = await api('/api/memory').catch(() => null);
   if (!m) return;
-  $('#mem').innerHTML = `<h3>Senin notların</h3>
+  $('#mem').innerHTML = `${m.notlarAcik ? `<h3>Senin notların</h3>
     <form class="note-add inline"><input type="text" maxlength="300" placeholder="ör. Portföyümde THYAO ve altın var, riskten kaçınırım" aria-label="Not" class="grow"><button class="btn sm" type="submit">Ekle</button></form>
-    ${m.notlar.length ? `<ul class="list small">${m.notlar.map(n => `<li><span>${esc(n.text)}</span><button type="button" class="btn ghost sm" data-delnote="${n.at}" aria-label="Notu sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Not yok. Sohbette "hatırla: ..." yazarak da ekleyebilirsin.</p>'}
+    ${m.notlar.length ? `<ul class="list small">${m.notlar.map(n => `<li><span>${esc(n.text)}</span><button type="button" class="btn ghost sm" data-delnote="${n.at}" aria-label="Notu sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Not yok. Sohbette "hatırla: ..." yazarak da ekleyebilirsin.</p>'}` : ''}
     <h3 class="more">Ölçülmüş isabet</h3>
     ${m.olcum.length ? `<ul class="list small">${m.olcum.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul>` : '<p class="empty">Ölçüm için en az 3 sonuçlanmış tahmin gerekiyor.</p>'}
     <h3 class="more">Kendi çıkardığı dersler</h3>
-    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span><button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}
+    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span>${m.yonetici ? `<button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button>` : ''}</li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}
     <details class="digest"><summary class="small">Hafıza ağacı (${m.arsiv} analiz arşivde)</summary><pre>${esc(m.agac || 'Arşiv boş.')}</pre></details>`;
 }
 
@@ -441,33 +495,177 @@ function renderStatus(st) {
   else if (data?.snap) $('#stamp').textContent = `güncellendi ${ago(data.snap.at)}${st?.lastAnalysisNote ? ' · ' + st.lastAnalysisNote : ''}`;
 }
 
-// Görünümler: adres çubuğundaki #gundem / #trade / #dunya / #analizler / #analiz/<zaman>.
+// Görünümler: adres çubuğundaki #gundem / #trade / #portfoy / #dunya / #analizler / #analiz/<zaman> / #uyelik.
+const VIEWS = ['gundem', 'trade', 'portfoy', 'dunya', 'analizler', 'uyelik'];
+const TAB_FEATURE = { gundem: 'gundem', trade: 'trade', portfoy: 'portfoy', dunya: 'dunya', analizler: 'gecmis' };
 function route() {
   const h = location.hash.slice(1);
   const [v, arg] = h.split('/');
-  ui.view = v === 'analiz' ? 'analizler' : ['gundem', 'trade', 'dunya', 'analizler'].includes(v) ? v : 'gundem';
+  ui.view = v === 'analiz' ? 'analizler' : VIEWS.includes(v) ? v : 'gundem';
+  const need = TAB_FEATURE[ui.view];
+  if (me && need && !can(need)) { toast(`${document.querySelector(`.tabs a[data-v="${ui.view}"]`)?.textContent || 'Bu bölüm'} üyeliğinde açık değil`, 4000); ui.view = 'uyelik'; }
   document.querySelectorAll('.view').forEach(el => { el.hidden = el.dataset.view !== ui.view; });
   document.querySelectorAll('.tabs a').forEach(a => a.setAttribute('aria-current', a.dataset.v === ui.view ? 'page' : 'false'));
   render(v === 'analiz' ? +arg : null);
 }
 
 function render(at) {
+  if (ui.view === 'uyelik') { renderMembership().catch(e => toast(e.message)); if (data?.snap) renderTape(data.snap); return; }
   if (ui.view === 'analizler') { renderHistory(at).catch(e => toast(e.message)); return; }
+  ui.chatAt = null; // diğer görünümlerde sohbet son analize bağlanır
   if (!data?.snap) return;
   renderTape(data.snap);
+  if (ui.view === 'portfoy') { renderPortfolio().catch(e => toast(e.message)); return; }
   if (ui.view === 'gundem') {
-    if (data.analysis?.at && $('#chat-g').dataset.at !== String(data.analysis.at)) { $('#chat-g').dataset.at = data.analysis.at; mountChat($('#chat-g'), data.analysis.at); }
+    renderHero(data.snap, data.analysis);
     renderNews(data.snap); renderSide(data.snap); renderAI(data.analysis); renderScore(data.score); renderMap(data.snap); renderCatMini(data.snap); }
   else if (ui.view === 'trade') { renderScreener(); if (!chartData || !chart) selectSymbol(ui.sel); }
   else if (ui.view === 'dunya') renderWorld(data.snap);
 }
 
+// Rütbeye göre arayüz: kilitli sekmeler, gizli düğmeler, kullanıcı rozeti.
+function applyPerms() {
+  if (!me) return;
+  $('#u-ad').textContent = me.ad; $('#u-rank').textContent = me.rutbe.ad; $('#u-av').textContent = me.ad[0].toUpperCase();
+  $('#user-menu').dataset.rank = me.rank;
+  $('#m-admin').hidden = !can('admin');
+  $('#btn-sweep').hidden = !can('tara');
+  $('#btn-ai').hidden = !can('analizTetik');
+  $('#fab-chat').hidden = !can('sohbet');
+  document.querySelectorAll('[data-open-chat]').forEach(b => { b.hidden = !can('sohbet'); });
+  document.querySelectorAll('.tabs a[data-f]').forEach(a => { const ok = can(a.dataset.f); a.classList.toggle('locked', !ok); a.title = ok ? '' : 'Üyeliğinde kapalı: Üyelik sayfasına bak'; });
+}
+
 async function load() {
   data = await api('/api/data');
+  me = data.user; applyPerms();
   if (!data.snap) { $('#stamp').textContent = 'ilk tarama sürüyor…'; return; }
   renderStatus(data.status);
   render();
 }
+
+// Portföy: tablo gibi düzenlenir (hücreye yaz → otomatik kayıt), canlı fiyatlarla değerlenir.
+// Fiyat kaynağı: piyasa şeridi (USDTRY, GRAM_ALTIN…), kripto (BTCTRY) ya da üç piyasanın tarayıcı satırları.
+let pf = null, pfTimer = null;
+function priceOf(kod) {
+  const s = data?.snap || {}, m = s.markets || {};
+  // Önce tarayıcı satırları: hangi piyasada (dolayısıyla hangi para biriminde) olduğunu kesin bilirler.
+  for (const [mk, sc] of Object.entries(s.screeners || {})) {
+    const r = sc?.rows?.find(x => x.kod === kod);
+    if (r) return { p: r.price, chg: r.r1 * 100, cur: mk === 'tr' ? 'TRY' : mk === 'us' ? 'USD' : 'EUR', ad: r.ad };
+  }
+  if (s.crypto?.[kod]) return { p: s.crypto[kod].price, chg: s.crypto[kod].chg, cur: 'TRY', ad: kod };
+  const x = m[kod];
+  if (!x) return null;
+  // Şerit: BIST sembolleri (.IS), TL paritleri ve gram altın TL; Avrupa endeksleri EUR; diğerleri USD.
+  const cur = /\.IS$/.test(x.sym || '') || /TRY$|^GRAM_ALTIN$|^XU|^XBANK$/.test(kod) ? 'TRY' : /^(DAX|STOXX50)$/.test(kod) ? 'EUR' : 'USD';
+  return { p: x.price, chg: x.chg, cur, ad: NAMES[kod] || kod };
+}
+const toTRY = (v, cur) => { const m = data?.snap?.markets || {}; return cur === 'TRY' ? v : cur === 'USD' ? v * (m.USDTRY?.price || NaN) : v * (m.EURTRY?.price || NaN); };
+const CUR = { TRY: '₺', USD: '$', EUR: '€' };
+async function renderPortfolio() {
+  if (!pf) pf = (await api('/api/portfolio')).items;
+  const codes = new Set(['USDTRY', 'EURTRY', 'GRAM_ALTIN', 'ONS', 'BRENT', 'BTCTRY', 'ETHTRY']);
+  for (const sc of Object.values(data?.snap?.screeners || {})) for (const r of sc?.rows || []) codes.add(r.kod);
+  $('#pf-codes').innerHTML = [...codes].map(c => `<option value="${esc(c)}">`).join('');
+  paintPortfolio(true);
+}
+function paintPortfolio(full = false) {
+  if (!pf || ui.view !== 'portfoy') return;
+  const rows = pf.map(x => {
+    const q = priceOf(x.kod);
+    const val = q ? q.p * x.adet : null, cost = x.maliyet * x.adet;
+    const pl = q && x.maliyet ? val - cost : null;
+    return { ...x, q, val, valTRY: q ? toTRY(val, q.cur) : null, pl, plTRY: pl != null ? toTRY(pl, q.cur) : null, plPct: pl != null && cost ? (pl / cost) * 100 : null, dayTRY: q && val != null ? toTRY(val * (q.chg / 100) / (1 + q.chg / 100), q.cur) : null };
+  });
+  const tot = rows.reduce((a, r) => ({ v: a.v + (r.valTRY || 0), pl: a.pl + (r.plTRY || 0), c: a.c + (r.plTRY != null ? toTRY(r.maliyet * r.adet, r.q.cur) : 0), d: a.d + (r.dayTRY || 0) }), { v: 0, pl: 0, c: 0, d: 0 });
+  const f0 = x => (x == null || !Number.isFinite(x) ? '—' : nf(x, Math.abs(x) >= 1000 ? 0 : 2));
+  if (full) {
+    $('#pf').innerHTML = `<thead><tr><th>Kod</th><th class="n">Adet</th><th class="n">Birim maliyet</th><th class="n">Son fiyat</th><th class="n">Günlük</th><th class="n">Değer (₺)</th><th class="n">Kâr/zarar (₺)</th><th class="n">K/Z %</th><th class="n">Pay</th><th>Not</th><th></th></tr></thead><tbody></tbody>
+      <tfoot><tr><th>Toplam</th><td></td><td></td><td></td><td class="n" data-t="d"></td><td class="n" data-t="v"></td><td class="n" data-t="pl"></td><td class="n" data-t="plp"></td><td class="n">100%</td><td></td><td></td></tr></tfoot>`;
+    $('#pf tbody').innerHTML = rows.map((r, i) => `<tr data-i="${i}">
+      <td><input class="cell code" list="pf-codes" data-k="kod" value="${esc(r.kod)}" aria-label="Kod" spellcheck="false"><div class="small muted" data-c="ad"></div></td>
+      <td class="n"><input class="cell n" type="number" step="any" min="0" data-k="adet" value="${r.adet || ''}" aria-label="Adet"></td>
+      <td class="n"><input class="cell n" type="number" step="any" min="0" data-k="maliyet" value="${r.maliyet || ''}" aria-label="Birim maliyet"></td>
+      <td class="n" data-c="p"></td><td class="n" data-c="chg"></td><td class="n" data-c="v"></td><td class="n" data-c="pl"></td><td class="n" data-c="plp"></td><td class="n" data-c="pay"></td>
+      <td><input class="cell" data-k="not" value="${esc(r.not || '')}" maxlength="80" aria-label="Not"></td>
+      <td><button type="button" class="btn ghost sm" data-del-row aria-label="Satırı sil">×</button></td></tr>`).join('') || '';
+    if (!rows.length) $('#pf tbody').innerHTML = '<tr><td colspan="11" class="empty">Portföy boş. "Satır ekle" ile başla ya da USDTRY, GRAM_ALTIN, THYAO gibi bir kod yaz.</td></tr>';
+  }
+  // Hesaplanan hücreler (her canlı fiyatta yeniden boyanır; girişler yerinde kalır)
+  rows.forEach((r, i) => {
+    const tr = $(`#pf tr[data-i="${i}"]`); if (!tr) return;
+    const set = (c, h) => { const el = tr.querySelector(`[data-c="${c}"]`); if (el) el.innerHTML = h; };
+    set('ad', r.q ? esc(r.q.ad) : r.kod ? '<span class="err">fiyat bulunamadı</span>' : '');
+    set('p', r.q ? `${CUR[r.q.cur]}${f0(r.q.p)}` : '—');
+    set('chg', r.q ? chg(r.q.chg) : '—');
+    set('v', f0(r.valTRY));
+    set('pl', r.plTRY == null ? '—' : `<span class="${dir(r.plTRY)}">${r.plTRY > 0 ? '+' : ''}${f0(r.plTRY)}</span>`);
+    set('plp', r.plPct == null ? '—' : chg(r.plPct));
+    set('pay', tot.v && r.valTRY ? `%${nf((r.valTRY / tot.v) * 100, 1)}` : '—');
+  });
+  const ft = $('#pf tfoot');
+  if (ft) {
+    ft.querySelector('[data-t=v]').textContent = f0(tot.v);
+    ft.querySelector('[data-t=d]').innerHTML = tot.d ? `<span class="${dir(tot.d)}">${tot.d > 0 ? '+' : ''}${f0(tot.d)}</span>` : '—';
+    ft.querySelector('[data-t=pl]').innerHTML = tot.c ? `<span class="${dir(tot.pl)}">${tot.pl > 0 ? '+' : ''}${f0(tot.pl)}</span>` : '—';
+    ft.querySelector('[data-t=plp]').innerHTML = tot.c ? chg((tot.pl / tot.c) * 100) : '—';
+  }
+  // Özet kartları ve dağılım çubuğu (kategorik renkler sabit sırayla: aynı kod hep aynı renk)
+  $('#pf-hero').innerHTML = `<div class="kpis">
+    <div class="kpi"><span class="kpi-l">Toplam değer</span><b class="kpi-v num">₺${f0(tot.v)}</b><span class="kpi-c">${rows.length} kalem</span></div>
+    <div class="kpi"><span class="kpi-l">Bugünkü değişim</span><b class="kpi-v num ${dir(tot.d)}">${tot.d > 0 ? '+' : ''}₺${f0(tot.d)}</b><span class="kpi-c">${tot.v ? chg((tot.d / (tot.v - tot.d)) * 100) : '—'}</span></div>
+    <div class="kpi"><span class="kpi-l">Toplam kâr/zarar</span><b class="kpi-v num ${dir(tot.pl)}">${tot.pl > 0 ? '+' : ''}₺${f0(tot.pl)}</b><span class="kpi-c">${tot.c ? chg((tot.pl / tot.c) * 100) : 'maliyet girilmemiş'}</span></div>
+    <div class="kpi"><span class="kpi-l">Dolar bazında</span><b class="kpi-v num">$${f0(tot.v / (data?.snap?.markets?.USDTRY?.price || NaN))}</b><span class="kpi-c">USDTRY ${nf(data?.snap?.markets?.USDTRY?.price, 4)}</span></div></div>`;
+  const parts = rows.filter(r => r.valTRY > 0).sort((a, b) => b.valTRY - a.valTRY);
+  $('#pf-alloc').innerHTML = parts.length ? `<div class="alloc-bar">${parts.map((r, i) => `<i class="c${i % 8}" data-w="${((r.valTRY / tot.v) * 100).toFixed(2)}" title="${esc(r.kod)} %${nf((r.valTRY / tot.v) * 100, 1)}"></i>`).join('')}</div>
+    <div class="alloc-lab">${parts.map((r, i) => `<span><i class="sw c${i % 8}"></i>${esc(r.kod)} <b class="num">%${nf((r.valTRY / tot.v) * 100, 1)}</b></span>`).join('')}</div>` : '';
+  setWidths($('#pf-alloc'));
+}
+function savePortfolio() {
+  clearTimeout(pfTimer);
+  $('#pf-state').textContent = 'kaydediliyor…';
+  pfTimer = setTimeout(async () => {
+    try { pf = (await api('/api/portfolio', { items: pf })).items; $('#pf-state').textContent = 'kaydedildi'; } catch (e) { $('#pf-state').textContent = e.message; }
+  }, 600);
+}
+$('#pf').addEventListener('input', e => {
+  const c = e.target.closest('[data-k]'); if (!c) return;
+  const i = +c.closest('tr').dataset.i, k = c.dataset.k;
+  pf[i][k] = k === 'kod' ? c.value.toUpperCase().trim() : k === 'not' ? c.value : +c.value || 0;
+  paintPortfolio(); savePortfolio();
+});
+$('#pf').addEventListener('keydown', e => { // Enter bir alt satırdaki aynı sütuna iner (tablo gibi)
+  if (e.key !== 'Enter') return;
+  const c = e.target.closest('[data-k]'); if (!c) return;
+  e.preventDefault();
+  const next = c.closest('tr').nextElementSibling?.querySelector(`[data-k="${c.dataset.k}"]`);
+  if (next) next.focus(); else { $('#pf-add').click(); }
+});
+$('#pf').addEventListener('click', e => { const b = e.target.closest('[data-del-row]'); if (!b) return; pf.splice(+b.closest('tr').dataset.i, 1); paintPortfolio(true); savePortfolio(); });
+$('#pf-add').addEventListener('click', () => { pf.push({ kod: '', adet: 0, maliyet: 0, not: '' }); paintPortfolio(true); $(`#pf tr[data-i="${pf.length - 1}"] [data-k=kod]`)?.focus(); });
+
+// Üyelik: rütbe kartı, günlük kullanım, rütbe karşılaştırması, şifre değişikliği.
+async function renderMembership() {
+  const r = await api('/api/me');
+  me = r.user; applyPerms();
+  const R = me.rutbe, u = r.usage;
+  const meter = (used, lim) => `<span class="meter"><i data-w="${lim ? Math.min(100, (used / lim) * 100) : 0}"></i></span>`;
+  const lim = x => (x >= 100000 ? 'sınırsız' : x || 'yok');
+  $('#me-card').innerHTML = `<div class="me-head"><span class="avatar lg">${esc(me.ad[0].toUpperCase())}</span><div><h2>${esc(me.ad)}</h2><span class="rank-badge r-${esc(me.rank)}">${esc(R.ad)}</span></div></div>
+    <h3 class="more">Bugünkü kullanım</h3>
+    <dl class="kv"><dt>Sohbet mesajı</dt><dd>${u.sohbet} / ${lim(R.sohbet)}</dd></dl>${R.sohbet && R.sohbet < 100000 ? meter(u.sohbet, R.sohbet) : ''}
+    <dl class="kv"><dt>Elle analiz</dt><dd>${u.analizTetik} / ${lim(R.analizTetik)}</dd></dl>${R.analizTetik && R.analizTetik < 100000 ? meter(u.analizTetik, R.analizTetik) : ''}
+    <p class="note">Sayaçlar İstanbul saatiyle gece yarısı sıfırlanır.</p>`;
+  const ranks = Object.entries(r.ranks).sort((a, b) => a[1].sira - b[1].sira);
+  $('#rank-table').innerHTML = `<thead><tr><th>Özellik</th>${ranks.map(([k, x]) => `<th class="c ${k === me.rank ? 'cur' : ''}">${esc(x.ad)}${k === me.rank ? '<div class="small">senin</div>' : ''}</th>`).join('')}</tr></thead>
+    <tbody>${Object.entries(r.features).map(([f, l]) => `<tr><td>${esc(l)}</td>${ranks.map(([k, x]) => `<td class="c ${k === me.rank ? 'cur' : ''}">${typeof x[f] === 'number' ? (x[f] ? `<b class="num">${lim(x[f])}</b>` : '<span class="muted">—</span>') : x[f] ? '<span class="ok" aria-label="var">✓</span>' : '<span class="muted" aria-label="yok">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  setWidths($('#me-card'));
+}
+$('#me-pw').addEventListener('submit', async e => {
+  e.preventDefault();
+  try { await api('/api/me/password', { old: $('#me-old').value, new: $('#me-new').value }); e.target.reset(); toast('Şifre değişti'); } catch (x) { toast(x.message, 5000); }
+});
 
 // Olaylar
 $('#tape').addEventListener('click', e => { const b = e.target.closest('button.tick'); if (!b) return; if (ui.view !== 'trade') location.hash = '#trade'; selectSymbol(b.dataset.k); });
@@ -488,6 +686,54 @@ document.addEventListener('click', e => {
   selectSymbol(kod);
 });
 window.addEventListener('hashchange', route);
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) location.hash = g.dataset.go; });
+$('#btn-logout').addEventListener('click', async () => { await api('/api/logout', {}); location.href = '/giris'; });
+document.addEventListener('click', e => { const m = $('#user-menu'); if (m.open && !m.contains(e.target)) m.open = false; });
+
+// Sohbet çekmecesi: Analizler'de seçili analize, diğer görünümlerde son analize bağlanır.
+function openChat() {
+  const at = ui.chatAt || data?.analysis?.at;
+  if (!at) { toast('Önce bir analiz gerekli'); return; }
+  $('#drawer').hidden = false; document.body.classList.add('drawer-open');
+  $('#drawer-sub').textContent = `${ui.chatAt ? 'seçili' : 'son'} analiz · ${fmtDT(at)}${me?.rutbe?.sohbet < 100000 ? ` · günlük ${me.rutbe.sohbet} mesaj` : ''}`;
+  if ($('#chat-d').dataset.at !== String(at)) { $('#chat-d').dataset.at = at; mountChat($('#chat-d'), at); }
+  setTimeout(() => $('#chat-d textarea')?.focus(), 50);
+}
+const closeChat = () => { $('#drawer').hidden = true; document.body.classList.remove('drawer-open'); };
+document.addEventListener('click', e => { if (e.target.closest('[data-open-chat]')) openChat(); });
+$('#drawer-x').addEventListener('click', closeChat);
+
+// Komut paleti (Ctrl/Cmd+K): görünümler, hisseler ve komutlar tek listede, klavyeyle.
+function paletteItems() {
+  const it = [
+    ...[['gundem', 'Gündem'], ['trade', 'Trade'], ['portfoy', 'Portföy'], ['dunya', 'Dünya'], ['analizler', 'Analizler'], ['uyelik', 'Üyeliğim']]
+      .filter(([v]) => !TAB_FEATURE[v] || can(TAB_FEATURE[v])).map(([v, l]) => ({ l, k: 'görünüm', run: () => { location.hash = `#${v}`; } })),
+    can('sohbet') && { l: 'Analizle sohbet', k: 'komut', run: openChat },
+    can('tara') && { l: 'Şimdi tara', k: 'komut', run: () => $('#btn-sweep').click() },
+    can('analizTetik') && { l: 'Analiz et', k: 'komut', run: () => $('#btn-ai').click() },
+    { l: 'Tema değiştir', k: 'komut', run: () => $('#btn-theme').click() },
+    can('admin') && { l: 'Yönetim paneli', k: 'komut', run: () => { location.href = '/admin'; } },
+  ].filter(Boolean);
+  if (can('trade')) for (const [m, sc] of Object.entries(data?.snap?.screeners || {})) for (const r of sc?.rows || []) it.push({ l: `${r.kod} · ${r.ad}`, k: sc.ad, run: () => { ui.market = m; location.hash = '#trade'; selectSymbol(r.kod); } });
+  return it;
+}
+let palSel = 0, palList = [];
+function renderPalette() {
+  const q = fold($('#cmdk-q').value.trim());
+  palList = paletteItems().filter(x => !q || fold(`${x.l} ${x.k}`).includes(q)).slice(0, 12);
+  palSel = Math.min(palSel, Math.max(0, palList.length - 1));
+  $('#cmdk-list').innerHTML = palList.map((x, i) => `<li role="option" aria-selected="${i === palSel}" data-i="${i}"><span>${esc(x.l)}</span><span class="small muted">${esc(x.k)}</span></li>`).join('') || '<li class="empty">Sonuç yok</li>';
+}
+function openPalette() { $('#cmdk-q').value = ''; palSel = 0; renderPalette(); $('#cmdk').showModal(); $('#cmdk-q').focus(); }
+const runPal = i => { const x = palList[i]; if (!x) return; $('#cmdk').close(); x.run(); };
+$('#btn-cmd').addEventListener('click', openPalette);
+$('#cmdk-q').addEventListener('input', () => { palSel = 0; renderPalette(); });
+$('#cmdk-q').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); palSel = (palSel + (e.key === 'ArrowDown' ? 1 : -1) + palList.length) % Math.max(1, palList.length); renderPalette(); }
+  else if (e.key === 'Enter') { e.preventDefault(); runPal(palSel); }
+});
+$('#cmdk-list').addEventListener('click', e => { const li = e.target.closest('[data-i]'); if (li) runPal(+li.dataset.i); });
+$('#cmdk').addEventListener('click', e => { if (e.target === $('#cmdk')) $('#cmdk').close(); });
 $('#mem').addEventListener('click', async e => {
   const b = e.target.closest('[data-del], [data-delnote]'); if (!b) return;
   if (b.dataset.del) await api('/api/memory/delete', { at: +b.dataset.del }); else await api('/api/memory/note/delete', { at: +b.dataset.delnote });
@@ -516,10 +762,13 @@ $('#btn-ai').addEventListener('click', async () => {
 initTheme($('#btn-theme'));
 $('#btn-theme').addEventListener('click', () => { if (chart) buildChart(); if (data?.snap) render(); });
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); return; }
+  if (e.key === 'Escape' && !$('#drawer').hidden) { closeChat(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)) return;
   const k = e.key.toLowerCase();
   if (k === '/') { e.preventDefault(); if (ui.view !== 'gundem') location.hash = '#gundem'; $('#q').focus(); }
-  else if (['1', '2', '3', '4'].includes(k)) location.hash = ['#gundem', '#trade', '#dunya', '#analizler'][+k - 1];
+  else if (['1', '2', '3', '4', '5'].includes(k)) location.hash = ['#gundem', '#trade', '#portfoy', '#dunya', '#analizler'][+k - 1];
+  else if (k === 'c' && can('sohbet')) openChat();
   else if (k === 'r') $('#btn-sweep').click();
   else if (k === 'a') $('#btn-ai').click();
   else if (k === 't') $('#btn-theme').click();
@@ -530,7 +779,13 @@ es.onmessage = e => {
   const m = JSON.parse(e.data);
   if (m.type === 'status') { if (data) data.status = m.status; renderStatus(m.status); }
   if (m.type === 'update') load();
-  if (m.type === 'quotes' && data?.snap) { Object.assign(data.snap, { markets: m.markets, crypto: m.crypto, usdtPremium: m.usdtPremium ?? data.snap.usdtPremium }); renderTape(data.snap); if (ui.view === 'dunya') renderWorld(data.snap); }
+  if (m.type === 'quotes' && data?.snap) {
+    Object.assign(data.snap, { markets: m.markets, crypto: m.crypto, usdtPremium: m.usdtPremium ?? data.snap.usdtPremium });
+    renderTape(data.snap);
+    if (ui.view === 'dunya') renderWorld(data.snap);
+    if (ui.view === 'gundem') renderHero(data.snap, data.analysis);
+    if (ui.view === 'portfoy') paintPortfolio();
+  }
 };
 setInterval(() => data && renderStatus(data.status), 60e3);
 route();

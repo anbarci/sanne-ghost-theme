@@ -4,11 +4,11 @@ import { readFile } from 'node:fs/promises';
 import { join, normalize, extname } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { ROOT, readJSON, writeJSON, loadSettings, saveSettings, setSecret, publicSettings } from './lib/store.mjs';
-import { hasAdmin, setPassword, checkPassword, issueCookie, isAuthed, clearCookie } from './lib/auth.mjs';
+import * as M from './lib/members.mjs';
 import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
 import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA, normalizeResult } from './lib/ai/analyze.mjs';
 import { chat, loadChat, clearChat } from './lib/ai/chat.mjs';
-import { loadMemory, deleteLesson, statLessons, addNote, deleteNote } from './lib/ai/memory.mjs';
+import { loadMemory, deleteLesson, statLessons, addNote, deleteNote, myNotes } from './lib/ai/memory.mjs';
 import { toc, loadArchive } from './lib/ai/memtree.mjs';
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
@@ -29,7 +29,7 @@ try {
 const HOST = process.env.HOST || '127.0.0.1';
 const PORT = +process.env.PORT || 3120;
 const PUB = join(ROOT, 'public');
-const SETUP_TOKEN = hasAdmin() ? null : randomBytes(9).toString('base64url');
+const SETUP_TOKEN = M.hasAnyUser() ? null : randomBytes(9).toString('base64url');
 const clients = new Set();
 let status = { sweeping: false, analyzing: false, lastError: null, lastAnalysisNote: null };
 
@@ -100,7 +100,7 @@ function schedule() {
 
 const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'searxngUrl', 'aiAutoHours', 'sources', 'telegram'];
 
-async function admin(req, res, path, body) {
+async function admin(req, res, path, body, user) {
   const s = loadSettings();
   switch (`${req.method} ${path}`) {
     case 'GET /api/admin/settings':
@@ -157,10 +157,38 @@ async function admin(req, res, path, body) {
       writeJSON('feeds.json', feeds);
       return send(res, 200, { ok: true, n: feeds.length });
     }
-    case 'POST /api/admin/password':
-      if (!checkPassword(body.old, req.socket.remoteAddress).ok) return send(res, 403, { error: 'Mevcut şifre yanlış' });
-      setPassword(body.new);
-      return send(res, 200, { ok: true }, { 'set-cookie': issueCookie(isSecure(req)) });
+    // Üyelik yönetimi
+    case 'GET /api/admin/members':
+      return send(res, 200, { users: M.listUsers(), invites: M.listInvites(), ranks: M.ranks(s), features: M.FEATURES });
+    case 'POST /api/admin/member':
+      try { M.updateUser(body.id, { rank: body.rank, disabled: body.disabled, password: body.password || undefined }, user); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+    case 'POST /api/admin/member/create':
+      try { M.createUser({ ad: body.ad, password: body.password, rank: body.rank }); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+    case 'POST /api/admin/member/delete':
+      try { M.deleteUser(body.id, user); return send(res, 200, { ok: true }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+    case 'POST /api/admin/invite':
+      try { return send(res, 200, { code: M.createInvite(body, user) }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+    case 'POST /api/admin/invite/delete':
+      M.deleteInvite(body.code); return send(res, 200, { ok: true });
+    case 'POST /api/admin/ranks': {
+      // Yalnızca bilinen rütbe ve özellikler; sayılar 0-100000, diğerleri aç/kapa.
+      const out = {};
+      for (const [k, def] of Object.entries(M.DEFAULT_RANKS)) {
+        out[k] = {};
+        for (const f of Object.keys(M.FEATURES)) {
+          const v = body.ranks?.[k]?.[f];
+          if (v === undefined) continue;
+          out[k][f] = typeof def[f] === 'number' ? Math.max(0, Math.min(100000, +v || 0)) : !!v;
+        }
+        if (typeof body.ranks?.[k]?.ad === 'string') out[k].ad = body.ranks[k].ad.slice(0, 24);
+      }
+      s.ranks = out; saveSettings(s);
+      return send(res, 200, { ok: true });
+    }
     case 'POST /api/admin/telegram-test':
       try { await sendTelegram(s, '✅ Türkiye Radar test mesajı'); return send(res, 200, { ok: true }); } catch (e) { return send(res, 200, { ok: false, error: e.message }); }
   }
@@ -184,6 +212,13 @@ async function chartData(key) {
   return { kod: s.kod, ad: s.ad, adjusted: s.adjusted || null, t: s.t, o: s.o.map(r2), h: s.h.map(r2), l: s.l.map(r2), c: s.c.map(r2), v: s.v, sma50: sma(s.c, 50).map(r2), sma200: sma(s.c, 200).map(r2), rsi: rsi(s.c, 14).map(r2) };
 }
 
+// Temel üyelik analizin özetini ve bakış açılarını görür; eylem planı, fikirler ve beklentiler kilitli.
+function gateResult(r, R) {
+  if (R.analizTam) return r;
+  const { ozet, kotumser, iyimser, tarafsiz, cerceve, guven, dogrulanamayan } = r;
+  return { ozet, kotumser, iyimser, tarafsiz, cerceve, guven, dogrulanamayan, kilitli: true };
+}
+
 const isSecure = req => req.headers['x-forwarded-proto'] === 'https';
 
 const server = createServer(async (req, res) => {
@@ -195,23 +230,31 @@ const server = createServer(async (req, res) => {
     const body = req.method === 'POST' ? await readBody(req) : {};
 
     if (path === '/api/health') return send(res, 200, { ok: true });
-    if (path === '/api/auth') return send(res, 200, { setup: !hasAdmin(), authed: isAuthed(req) });
+    const user = M.currentUser(req);
+    if (path === '/api/auth') return send(res, 200, { setup: !M.hasAnyUser(), authed: !!user, user });
     if (path === '/api/setup' && req.method === 'POST') {
-      if (hasAdmin()) return send(res, 403, { error: 'Kurulum zaten yapılmış' });
+      if (M.hasAnyUser()) return send(res, 403, { error: 'Kurulum zaten yapılmış' });
       if (body.token !== SETUP_TOKEN) return send(res, 403, { error: 'Kurulum anahtarı yanlış (sunucu konsoluna bakın)' });
-      setPassword(body.password);
-      return send(res, 200, { ok: true }, { 'set-cookie': issueCookie(isSecure(req)) });
+      try { const u = M.setupFirst({ ad: body.ad, password: body.password }); return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(u, isSecure(req)) }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
     }
     if (path === '/api/login' && req.method === 'POST') {
-      const r = checkPassword(body.password, req.socket.remoteAddress);
-      if (!r.ok) return send(res, 401, { error: r.wait ? `Çok fazla deneme. ${r.wait} sn bekleyin.` : 'Şifre yanlış' });
-      return send(res, 200, { ok: true }, { 'set-cookie': issueCookie(isSecure(req)) });
+      const r = M.login(body.ad || 'admin', body.password, req.socket.remoteAddress);
+      if (!r.ok) return send(res, 401, { error: r.wait ? `Çok fazla deneme. ${r.wait} sn bekleyin.` : 'Kullanıcı adı ya da şifre yanlış' });
+      return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(r.user, isSecure(req)) });
     }
-    if (path === '/api/logout') return send(res, 200, { ok: true }, { 'set-cookie': clearCookie });
+    if (path === '/api/register' && req.method === 'POST') {
+      try { const u = M.register(body); return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(u, isSecure(req)) }); }
+      catch (e) { return send(res, 400, { error: e.message }); }
+    }
+    if (path === '/api/logout') return send(res, 200, { ok: true }, { 'set-cookie': M.clearCookie });
 
     // Statik dosyalar herkese açık (içlerinde veri yok); tüm /api ve /events oturum ister.
     if (path.startsWith('/api/') || path === '/events') {
-      if (!isAuthed(req)) return send(res, 401, { error: 'Giriş gerekli' });
+      if (!user) return send(res, 401, { error: 'Giriş gerekli' });
+      const R = user.rutbe;
+      // Rütbenin açmadığı özellik: 403 + hangi özelliğin gerektiği (arayüz yükseltme ipucu gösterir).
+      const deny = f => send(res, 403, { error: `Bu özellik üyeliğinde yok: ${M.FEATURES[f]}`, feature: f });
       if (path === '/events') {
         res.writeHead(200, { ...SEC, 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
         res.write(`data: ${JSON.stringify({ type: 'status', status })}\n\n`);
@@ -220,20 +263,34 @@ const server = createServer(async (req, res) => {
         req.on('close', () => { clients.delete(res); clearInterval(ping); });
         return;
       }
+      if (path === '/api/me' && req.method === 'GET') return send(res, 200, { user, usage: M.usage(user.id), ranks: M.ranks(), features: M.FEATURES });
+      if (path === '/api/me/password' && req.method === 'POST') {
+        try { const u = M.changeOwnPassword(user.id, body.old, body.new); return send(res, 200, { ok: true }, { 'set-cookie': M.issueCookie(u, isSecure(req)) }); }
+        catch (e) { return send(res, 400, { error: e.message }); }
+      }
       if (path === '/api/data') {
         const snap = readJSON('latest.json', null);
         const analyses = readJSON('analyses.json', []);
         // Eski (normalizasyondan önce kaydedilmiş) analizler de okunurken düzeltilir.
-        const last = analyses[0] ? { ...analyses[0], result: normalizeResult({ ...analyses[0].result }) } : null;
-        return send(res, 200, { snap, analysis: last, status, score: scorecard() });
+        const last = analyses[0] ? { ...analyses[0], result: gateResult(normalizeResult({ ...analyses[0].result }), R) } : null;
+        const view = snap && !R.trade ? { ...snap, screeners: null, screener: null } : snap;
+        if (last && !R.analizTam) delete last.provenance;
+        return send(res, 200, { snap: view, analysis: last, status, score: scorecard(), user, usage: M.usage(user.id) });
       }
-      if (path === '/api/chart') return send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100'));
+      if (path === '/api/chart') return R.trade ? send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100')) : deny('trade');
+      if ((path === '/api/analyses' || path === '/api/analysis') && !R.gecmis) return deny('gecmis');
       if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, hash, provenance, ...m }) => ({ ...m, ozet: result?.ozet, guven: result?.guven, kotumser: result?.kotumser?.olasilik, iyimser: result?.iyimser?.olasilik })));
       if (path === '/api/analysis') {
         const at = +url.searchParams.get('at');
         const a = readJSON('analyses.json', []).find(x => x.at === at);
         const preds = readJSON('predictions.json', []).filter(p => p.at === at);
         return a ? send(res, 200, { ...a, result: normalizeResult({ ...a.result }), predictions: preds }) : send(res, 404, { error: 'Analiz bulunamadı' });
+      }
+      if (path === '/api/sweep' && req.method === 'POST' && !R.tara) return deny('tara');
+      if (path === '/api/analyze' && req.method === 'POST') {
+        if (!R.analizTetik) return deny('analizTetik');
+        const q = M.useQuota(user, 'analizTetik');
+        if (!q.ok) return send(res, 429, { error: `Günlük elle analiz hakkın doldu (${q.limit})` });
       }
       if (path === '/api/sweep' && req.method === 'POST') { cycle({ force: true, forceAI: !!body.ai }); return send(res, 202, { ok: true }); }
       if (path === '/api/analyze' && req.method === 'POST') {
@@ -244,17 +301,32 @@ const server = createServer(async (req, res) => {
         catch (e) { return send(res, 200, { error: e.message }); }
         finally { status.analyzing = false; broadcast({ type: 'status', status }); }
       }
-      if (path === '/api/chat' && req.method === 'GET') return send(res, 200, { turns: loadChat(url.searchParams.get('at')) });
+      if (path.startsWith('/api/chat') && !R.sohbet) return deny('sohbet');
+      if (path === '/api/chat' && req.method === 'GET') return send(res, 200, { turns: loadChat(url.searchParams.get('at'), user.id), usage: M.usage(user.id), limit: R.sohbet });
       if (path === '/api/chat' && req.method === 'POST') {
-        try { return send(res, 200, await chat(body.at, body.q, loadSettings(), { web: body.web !== false })); }
+        const isNote = /^\s*(hatırla|hatirla|not al|unutma|aklında tut)/i.test(body.q || '');
+        if (isNote && !R.notlar) return deny('notlar');
+        if (!isNote) { const q = M.useQuota(user, 'sohbet'); if (!q.ok) return send(res, 200, { error: `Günlük sohbet hakkın doldu (${q.limit} mesaj). Yarın yenilenir ya da üyeliğini yükselt.` }); }
+        try { return send(res, 200, await chat(body.at, body.q, loadSettings(), { web: body.web !== false && R.web, uid: user.id })); }
         catch (e) { return send(res, 200, { error: e.message }); }
       }
-      if (path === '/api/chat/clear' && req.method === 'POST') { clearChat(body.at); return send(res, 200, { ok: true }); }
-      if (path === '/api/memory' && req.method === 'GET') { const m = loadMemory(); return send(res, 200, { dersler: m.dersler, notlar: m.notlar, olcum: statLessons(readJSON('predictions.json', [])), agac: toc(), arsiv: loadArchive().length }); }
-      if (path === '/api/memory/note' && req.method === 'POST') return send(res, 200, { ok: addNote(body.text) });
-      if (path === '/api/memory/note/delete' && req.method === 'POST') { deleteNote(+body.at); return send(res, 200, { ok: true }); }
-      if (path === '/api/memory/delete' && req.method === 'POST') { deleteLesson(+body.at); return send(res, 200, { ok: true }); }
-      if (path.startsWith('/api/admin/')) return admin(req, res, path, body);
+      if (path === '/api/chat/clear' && req.method === 'POST') { clearChat(body.at, user.id); return send(res, 200, { ok: true }); }
+      if (path === '/api/memory' && req.method === 'GET') { const m = loadMemory(); return send(res, 200, { dersler: m.dersler, notlar: R.notlar ? myNotes(user.id) : [], olcum: statLessons(readJSON('predictions.json', [])), agac: R.gecmis ? toc() : '', arsiv: loadArchive().length, notlarAcik: R.notlar, yonetici: R.admin }); }
+      if (path.startsWith('/api/memory/note') && !R.notlar) return deny('notlar');
+      if (path === '/api/memory/note' && req.method === 'POST') return send(res, 200, { ok: addNote(body.text, user.id) });
+      if (path === '/api/memory/note/delete' && req.method === 'POST') { deleteNote(+body.at, user.id); return send(res, 200, { ok: true }); }
+      if (path === '/api/memory/delete' && req.method === 'POST') { if (!R.admin) return deny('admin'); deleteLesson(+body.at); return send(res, 200, { ok: true }); }
+      if (path.startsWith('/api/portfolio') && !R.portfoy) return deny('portfoy');
+      if (path === '/api/portfolio' && req.method === 'GET') return send(res, 200, { items: readJSON('portfolio.json', {})[user.id] || [] });
+      if (path === '/api/portfolio' && req.method === 'POST') {
+        // Satır: kod (piyasa ya da hisse kodu), adet, birim maliyet (TL ya da hissenin para birimi), not.
+        const items = (Array.isArray(body.items) ? body.items : []).slice(0, 100).map(x => ({
+          kod: String(x.kod || '').toUpperCase().replace(/[^A-Z0-9_.]/g, '').slice(0, 15), adet: Math.max(0, +x.adet || 0), maliyet: Math.max(0, +x.maliyet || 0), not: String(x.not || '').slice(0, 80),
+        })).filter(x => x.kod);
+        const all = readJSON('portfolio.json', {}); all[user.id] = items; writeJSON('portfolio.json', all);
+        return send(res, 200, { ok: true, items });
+      }
+      if (path.startsWith('/api/admin/')) return R.admin ? admin(req, res, path, body, user) : deny('admin');
       return send(res, 404, { error: 'Bulunamadı' });
     }
 
@@ -263,7 +335,7 @@ const server = createServer(async (req, res) => {
       const js = await readFile(join(ROOT, 'node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs'));
       return send(res, 200, js, { 'content-type': MIME['.js'], 'cache-control': 'max-age=86400' });
     }
-    const rel = path === '/' ? 'index.html' : path === '/admin' ? 'admin.html' : path.slice(1);
+    const rel = path === '/' ? 'index.html' : path === '/admin' ? 'admin.html' : path === '/giris' ? 'giris.html' : path.slice(1);
     const file = normalize(join(PUB, rel));
     if (!file.startsWith(PUB + '/')) return send(res, 403, 'yasak');
     const data = await readFile(file).catch(() => null);
@@ -278,7 +350,7 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`\n  Türkiye Radar → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   if (HOST !== '127.0.0.1' && HOST !== 'localhost') console.log('  UYARI: sunucu yerel ağ dışına açık. Önüne HTTPS ters vekil koyun.');
-  if (SETUP_TOKEN) console.log(`  İlk kurulum anahtarı: ${SETUP_TOKEN}\n  (Tarayıcıda /admin sayfasında bu anahtar ile şifre belirleyin.)\n`);
+  if (SETUP_TOKEN) console.log(`  İlk kurulum anahtarı: ${SETUP_TOKEN}\n  (Tarayıcıda /giris sayfasında bu anahtarla ilk yönetici hesabını oluşturun.)\n`);
   schedule();
   cycle();
 });

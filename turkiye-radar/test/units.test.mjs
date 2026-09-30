@@ -9,7 +9,7 @@ const { parseFeed, stripTags } = await import('../lib/rss.mjs');
 const { extractArticle, titleCheck, isMisleading, lead } = await import('../lib/extract.mjs');
 const { impact, dedupe } = await import('../lib/impact.mjs');
 const { encrypt, decrypt, loadSettings } = await import('../lib/store.mjs');
-const { setPassword, checkPassword, issueCookie, isAuthed } = await import('../lib/auth.mjs');
+const M = await import('../lib/members.mjs');
 const { parseJSON } = await import('../lib/ai/providers.mjs');
 
 const W = loadSettings().weights;
@@ -121,23 +121,45 @@ test('Şifreleme: gidiş-dönüş ve kurcalamaya karşı', () => {
   assert.throws(() => decrypt(bad));
 });
 
-test('Admin: kurulumdan önce sahte çerez geçmez', async () => {
-  const { createHmac } = await import('node:crypto');
-  const payload = `${Date.now() + 1e7}.x`;
-  const forged = `radar_s=${payload}.${createHmac('sha256', Buffer.alloc(0)).update(payload).digest('base64url')}`;
-  assert.ok(!isAuthed({ headers: { cookie: forged } }));
+test('Üyelik: eski admin şifresi taşınır, sahte/eski çerez geçmez, deneme sınırı', async () => {
+  const { createHmac, scryptSync, randomBytes } = await import('node:crypto');
+  const { writeJSON } = await import('../lib/store.mjs');
+  // Eski tek kullanıcılı kurulum: admin.json'daki şifre "admin" yöneticisine taşınmalı.
+  const salt = randomBytes(16);
+  writeJSON('admin.json', { salt: salt.toString('base64'), hash: scryptSync('eski-guclu-sifre', salt, 64, { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }).toString('base64'), sessionKey: randomBytes(32).toString('base64') });
+  const r0 = M.login('admin', 'eski-guclu-sifre', '1.1.1.1');
+  assert.ok(r0.ok && r0.user.rank === 'yonetici');
+  const cookie = M.issueCookie(r0.user, false).split(';')[0];
+  const me = M.currentUser({ headers: { cookie } });
+  assert.equal(me.ad, 'admin'); assert.equal(me.rutbe.admin, true);
+  assert.equal(M.currentUser({ headers: { cookie: cookie.slice(0, -2) + 'xx' } }), null);
+  const payload = `${Date.now() + 1e7}.u1.1.x`;
+  assert.equal(M.currentUser({ headers: { cookie: `radar_s=${payload}.${createHmac('sha256', Buffer.alloc(0)).update(payload).digest('base64url')}` } }), null);
+  // Şifre değişince eski oturum düşer.
+  M.updateUser('u1', { password: 'yeni-guclu-sifre-1' }, null);
+  assert.equal(M.currentUser({ headers: { cookie } }), null);
+  for (let i = 0; i < 5; i++) M.login('admin', 'yanlis', '2.2.2.2');
+  const r = M.login('admin', 'yeni-guclu-sifre-1', '2.2.2.2');
+  assert.ok(!r.ok && r.wait > 0, 'kilitlenmeli');
+  assert.throws(() => M.createUser({ ad: 'x', password: 'uzun-sifre-123' }), /Kullanıcı adı/);
+  assert.throws(() => M.createUser({ ad: 'ali', password: 'kısa' }), /10 karakter/);
 });
 
-test('Admin: şifre, çerez imzası ve deneme sınırı', () => {
-  assert.throws(() => setPassword('kısa'));
-  setPassword('uzun-ve-guclu-sifre');
-  assert.ok(checkPassword('uzun-ve-guclu-sifre', '1.1.1.1').ok);
-  const cookie = issueCookie(false).split(';')[0];
-  assert.ok(isAuthed({ headers: { cookie } }));
-  assert.ok(!isAuthed({ headers: { cookie: cookie.slice(0, -2) + 'xx' } }));
-  for (let i = 0; i < 5; i++) checkPassword('yanlis', '2.2.2.2');
-  const r = checkPassword('uzun-ve-guclu-sifre', '2.2.2.2');
-  assert.ok(!r.ok && r.wait > 0, 'kilitlenmeli');
+test('Üyelik: davet kodu, rütbe özellikleri, günlük kota, son yönetici korunur', () => {
+  const code = M.createInvite({ rank: 'pro', uses: 1, days: 3 }, { ad: 'admin' });
+  assert.throws(() => M.createInvite({ rank: 'yonetici' }), /yönetici/);
+  const u = M.register({ ad: 'ayse', password: 'ayse-guclu-sifre', code });
+  assert.equal(u.rank, 'pro');
+  assert.throws(() => M.register({ ad: 'mehmet', password: 'mehmet-guclu-sifre', code }), /geçersiz/);
+  const me = M.currentUser({ headers: { cookie: M.issueCookie(u, false).split(';')[0] } });
+  assert.equal(me.rutbe.trade, true); assert.equal(me.rutbe.admin, false); assert.equal(me.rutbe.sohbet, 30);
+  const low = { ...me, rutbe: { ...me.rutbe, sohbet: 2 } };
+  assert.ok(M.useQuota(low, 'sohbet').ok); assert.ok(M.useQuota(low, 'sohbet').ok);
+  assert.equal(M.useQuota(low, 'sohbet').ok, false);
+  assert.throws(() => M.updateUser('u1', { rank: 'temel' }, { id: 'baska' }), /Son yönetici/);
+  assert.throws(() => M.deleteUser('u1', { id: 'baska' }), /Son yönetici/);
+  M.updateUser(u.id, { disabled: true }, { id: 'u1' });
+  assert.equal(M.login('ayse', 'ayse-guclu-sifre', '3.3.3.3').ok, false);
 });
 
 test('parseJSON: kod bloğu içindeki JSON', () => {

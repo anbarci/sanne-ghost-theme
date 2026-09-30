@@ -16,21 +16,45 @@
     <div class="brand"><h1>Türkiye <span>Radar</span></h1><span class="stamp">yönetim</span></div>
     <a class="btn" href="/">Panoya dön</a>
     <button class="btn ghost" id="btn-theme" type="button">Tema</button>
+    <span class="stamp" id="who"></span>
     <button class="btn ghost" id="btn-logout" type="button" hidden>Çıkış</button>
   </div>
 </header>
 
-<div class="center" id="auth" hidden>
-  <form class="panel auth form" id="auth-form">
-    <h2 id="auth-title">Giriş</h2>
-    <label id="token-wrap" hidden>Kurulum anahtarı (sunucu konsolunda yazıyor)<input id="token" autocomplete="off"></label>
-    <label>Şifre<input type="password" id="pw" autocomplete="current-password" required minlength="10"></label>
-    <button class="btn primary" type="submit">Devam</button>
-    <p class="small err" id="auth-err"></p>
-  </form>
-</div>
+<div class="center" id="noadmin" hidden><section class="panel auth"><h2>Yönetim paneli</h2><p>Bu bölüm yalnızca <b>Yönetici</b> rütbesine açık.</p><a class="btn primary" href="/">Panoya dön</a></section></div>
 
 <main class="wrap" id="app" hidden>
+  <section class="panel" id="members-p">
+    <header><h2>Üyeler</h2><span class="small muted" id="mem-n"></span></header>
+    <div class="scroll-x"><table id="members"></table></div>
+    <form class="form" id="inv-form">
+      <h3 class="small muted">Davet kodu oluştur (kayıt yalnızca davetle)</h3>
+      <div class="row">
+        <label>Rütbe<select id="i-rank"></select></label>
+        <label>Kaç kişi kullanabilir<input type="number" id="i-uses" min="1" max="100" value="1"></label>
+        <label>Geçerlilik (gün)<input type="number" id="i-days" min="1" max="90" value="7"></label>
+        <div><button class="btn primary" type="submit">Kod üret</button></div>
+      </div>
+      <p class="invite-out" id="inv-out" hidden></p>
+    </form>
+    <div class="scroll-x"><table id="invites"></table></div>
+    <form class="form" id="mk-form">
+      <h3 class="small muted">Doğrudan üye ekle</h3>
+      <div class="row">
+        <label>Kullanıcı adı<input id="m-ad" required pattern="[a-z0-9._\-]{3,32}" autocapitalize="none"></label>
+        <label>Geçici şifre (en az 10)<input id="m-pw" type="password" autocomplete="new-password" minlength="10" required></label>
+        <label>Rütbe<select id="m-rank"></select></label>
+        <div><button class="btn" type="submit">Ekle</button></div>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <header><h2>Rütbeler ve özellikler</h2><span class="small muted">Sayılar günlük sınırdır; 0 = kapalı</span></header>
+    <div class="scroll-x"><table class="matrix" id="ranks"></table></div>
+    <div class="inline more"><button class="btn primary" type="button" id="ranks-save">Kaydet</button><span class="small muted">Yönetici rütbesinin panel erişimi kapatılamaz.</span></div>
+  </section>
+
   <section class="panel">
     <header><h2>Yapay zeka sağlayıcıları</h2><span class="small muted">Tek çağrıda üç bakış açısı üretilir</span></header>
     <div class="scroll-x"><table id="providers"></table></div>
