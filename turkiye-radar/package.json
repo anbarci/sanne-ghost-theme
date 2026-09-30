@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
     "@mozilla/readability": "^0.6.0",
+    "lightweight-charts": "^5.2.1",
     "linkedom": "^0.18.13"
   },
   "devDependencies": {

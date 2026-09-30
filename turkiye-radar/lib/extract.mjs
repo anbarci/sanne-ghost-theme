@@ -14,6 +14,15 @@ export function extractArticle(html) {
     } catch {}
   }
 
+  // Next.js / Nuxt siteleri makaleyi sayfaya gömülü JSON olarak koyar; HTML gövdesi boş olabilir (webclaw fikri).
+  const island = /<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i.exec(html)?.[1] || /window\.__NUXT__\s*=\s*(\{[\s\S]*?\});?\s*<\/script>/i.exec(html)?.[1];
+  if (island) {
+    try {
+      const body = longestText(JSON.parse(island));
+      if (body.length > 300) return { text: tidy(stripTags(body)), via: 'gömülü-json' };
+    } catch {}
+  }
+
   try {
     const { document } = parseHTML(html);
     const r = new Readability(document, { charThreshold: 200 }).parse();
@@ -30,6 +39,18 @@ export function extractArticle(html) {
   if (og) return { text: tidy(decodeEntities(og)), via: 'meta' };
   // Gövde boş ama sayfa betik dolu: içerik tarayıcıda JS ile yükleniyor.
   return { text: '', via: (html.match(/<script/gi) || []).length > 15 ? 'js-sayfa' : 'boş' };
+}
+
+// Gömülü JSON'da makale metni olabilecek en uzun metin alanını bulur (derinlik ve düğüm sayısı sınırlı).
+function longestText(o) {
+  let best = '', seen = 0;
+  const walk = (x, d) => {
+    if (!x || d > 12 || ++seen > 20000) return;
+    if (typeof x === 'string') { if (x.length > best.length && x.includes(' ') && !/^https?:/.test(x)) best = x; return; }
+    if (typeof x === 'object') for (const v of Array.isArray(x) ? x : Object.values(x)) walk(v, d + 1);
+  };
+  walk(o, 0);
+  return best;
 }
 
 function findKey(o, k, depth = 0) {

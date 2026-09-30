@@ -10,6 +10,9 @@ import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA } 
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
 import { loadFeeds } from './sources/news.mjs';
+import { yahooDaily, loadUniverse } from './sources/bist.mjs';
+import { CORE } from './sources/markets.mjs';
+import { sma, rsi } from './lib/ta.mjs';
 
 // .env dosyası varsa yükle (dotenv bağımlılığı olmadan).
 try {
@@ -143,6 +146,21 @@ async function admin(req, res, path, body) {
   return send(res, 404, { error: 'Bulunamadı' });
 }
 
+// Grafik verisi: BIST hisseleri ve endeks tarayıcının 2 yıllık önbelleğinden, diğer piyasa sembolleri
+// istek anında Yahoo'dan (20 dk önbellek). Sadece bilinen semboller kabul edilir.
+async function chartData(key) {
+  const k = String(key).toUpperCase().replace(/\.IS$/, '');
+  const store = readJSON('ohlc.json', null);
+  let s = store?.series?.[k];
+  if (!s) {
+    const sym = CORE[k] || (loadUniverse().some(u => u.kod === k) || k === 'XU100' ? `${k}.IS` : null);
+    if (!sym) return { error: 'Bilinmeyen sembol' };
+    try { s = { kod: k, ad: k, ...(await yahooDaily(sym, '2y')) }; } catch (e) { return { error: `Veri alınamadı: ${e.message}` }; }
+  }
+  const r2 = x => (x == null ? null : Math.round(x * 1e4) / 1e4);
+  return { kod: s.kod, ad: s.ad, adjusted: s.adjusted || null, t: s.t, o: s.o.map(r2), h: s.h.map(r2), l: s.l.map(r2), c: s.c.map(r2), v: s.v, sma50: sma(s.c, 50).map(r2), sma200: sma(s.c, 200).map(r2), rsi: rsi(s.c, 14).map(r2) };
+}
+
 const isSecure = req => req.headers['x-forwarded-proto'] === 'https';
 
 const server = createServer(async (req, res) => {
@@ -184,6 +202,7 @@ const server = createServer(async (req, res) => {
         const analyses = readJSON('analyses.json', []);
         return send(res, 200, { snap, analysis: analyses[0] || null, status, score: scorecard() });
       }
+      if (path === '/api/chart') return send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100'));
       if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, ...m }) => ({ ...m, ozet: result?.ozet })));
       if (path === '/api/sweep' && req.method === 'POST') { cycle({ force: true, forceAI: !!body.ai }); return send(res, 202, { ok: true }); }
       if (path === '/api/analyze' && req.method === 'POST') {
@@ -199,6 +218,10 @@ const server = createServer(async (req, res) => {
     }
 
     // Statik
+    if (path === '/vendor/lwc.mjs') {
+      const js = await readFile(join(ROOT, 'node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.mjs'));
+      return send(res, 200, js, { 'content-type': MIME['.js'], 'cache-control': 'max-age=86400' });
+    }
     const rel = path === '/' ? 'index.html' : path === '/admin' ? 'admin.html' : path.slice(1);
     const file = normalize(join(PUB, rel));
     if (!file.startsWith(PUB + '/')) return send(res, 403, 'yasak');

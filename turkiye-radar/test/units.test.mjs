@@ -220,3 +220,72 @@ test('Vadeli kontrat devri: sahte hareket yerine gerçek kontrat seçilir', asyn
   const hit = pickContract(front, [null, { sym: 'BZX26.NYM', price: 102.76 }, { sym: 'BZZ26.NYM', price: 96.33 }]);
   assert.equal(hit.sym, 'BZZ26.NYM');
 });
+
+test('BIST bedelsiz/bölünme düzeltmesi (KONTR 2025-12-01 gerçek değerleri)', async () => {
+  const { fixCorporateActions } = await import('../sources/bist.mjs');
+  const s = { t: ['2025-11-28', '2025-12-01', '2025-12-02'], o: [33, 16.8, 17.2], h: [34, 17.5, 17.6], l: [32.8, 16.7, 17], c: [33.4, 17.18, 17.4], v: [100, 210, 190] };
+  fixCorporateActions(s);
+  assert.deepEqual(s.adjusted, ['2025-12-01']);
+  assert.ok(Math.abs(s.c[1] / s.c[0] - 1) < 0.1, 'düzeltme sonrası günlük hareket marj içinde olmalı');
+  const real = { t: ['a', 'b'], o: [10, 9.1], h: [10, 9.2], l: [10, 9], c: [10, 9], v: [1, 1] };
+  fixCorporateActions(real);
+  assert.equal(real.adjusted, undefined, 'gerçek %10 taban düzeltilmemeli');
+});
+
+test('Tarayıcı: göstergeler ve skor sentetik trendde mantıklı', async () => {
+  const { sma, rsi, spearman } = await import('../lib/ta.mjs');
+  assert.deepEqual(sma([1, 2, 3, 4], 2), [null, 1.5, 2.5, 3.5]);
+  const up = Array.from({ length: 30 }, (_, i) => 100 + i);
+  assert.equal(rsi(up, 14).at(-1), 100);
+  assert.equal(spearman([1, 2, 3, 4], [10, 20, 30, 40]), 1);
+  assert.equal(spearman([1, 2, 3, 4], [4, 3, 2, 1]), -1);
+  const { prepare, screen, backtest, gapDays } = await import('../lib/screener.mjs');
+  assert.equal(gapDays('2026-09-28', '2026-09-30'), 1);
+  assert.equal(gapDays('2026-09-25', '2026-09-28'), 0, 'hafta sonu boşluk sayılmaz');
+  const mk = (kod, drift) => {
+    const t = [], c = [];
+    for (let i = 0; i < 320; i++) { const d = new Date(Date.UTC(2025, 0, 1) + i * 864e5); t.push(d.toISOString().slice(0, 10)); c.push(100 * (1 + drift) ** i * (1 + 0.01 * Math.sin(i))); }
+    return prepare({ kod, ad: kod, t, o: c, h: c.map(x => x * 1.01), l: c.map(x => x * 0.99), c, v: c.map(() => 1000) });
+  };
+  const P = [mk('YUKARI', 0.003), mk('YATAY', 0), mk('ASAGI', -0.003)];
+  const rows = screen(P, null);
+  const by = Object.fromEntries(rows.map(r => [r.kod, r.scores.trend.score]));
+  assert.ok(by.YUKARI > by.YATAY && by.YATAY >= by.ASAGI, JSON.stringify(by));
+  const bt = backtest(P, null);
+  assert.ok(bt.presets.trend && bt.presets.donus && bt.presets.sakin);
+});
+
+test('Rakam doğrulama: veride olmayan sayı yakalanır', async () => {
+  const { verifyNumbers } = await import('../lib/ai/analyze.mjs');
+  const digest = 'PİYASA: USDTRY 49 (+0,01%) | XU100 12.290,58 (-2,4%) | BRENT 96,33 (+0,17%)';
+  const r = { kotumser: { yorum: 'BIST 12.290 seviyesinde, %-2,4 düştü.', dayanak: ['Brent 96,3 dolar', 'USDTRY 52,7 olursa'] }, iyimser: { yorum: '', dayanak: [] }, tarafsiz: { yorum: '7 gün izlenmeli', dayanak: [] }, fikirler: [] };
+  assert.deepEqual(verifyNumbers(r, digest), ['52,7']);
+});
+
+test('Tarayıcı canlı takip: kayıt, vade ve endekse göre puan', async () => {
+  const { recordPicks, scorePicks, picksSummary } = await import('../lib/picks.mjs');
+  const { writeJSON } = await import('../lib/store.mjs');
+  writeJSON('picks.json', []);
+  const row = (kod, s, price) => ({ kod, price, scores: { trend: { score: s }, donus: { score: 100 - s }, sakin: { score: 50 } } });
+  const sc = { rows: [row('AAA', 90, 10), row('BBB', 10, 20)], index: { price: 1000 } };
+  const t0 = Date.parse('2026-09-01T09:00:00Z');
+  recordPicks(sc, t0);
+  recordPicks(sc, t0 + 3600e3); // aynı gün ikinci kez kaydedilmez
+  const series = { t: ['2026-09-01', '2026-09-15', '2026-09-16'] };
+  const ohlc = { series: { AAA: { ...series, c: [10, 11, 11] }, BBB: { ...series, c: [20, 19, 19] }, XU100: { ...series, c: [1000, 1020, 1020] } } };
+  const picks = scorePicks(ohlc);
+  assert.equal(picks.length, 6); // 3 strateji x 2 hisse (evrende 2 hisse var)
+  const s = picksSummary(picks);
+  assert.equal(s.trend.done, 2);
+  const aaa = picks.find(p => p.kod === 'AAA' && p.preset === 'trend');
+  assert.ok(Math.abs(aaa.excess - 0.08) < 1e-9, 'AAA %10, endeks %2 -> fark %8');
+});
+
+test('Tam metin: Next.js gömülü JSON (__NEXT_DATA__)', () => {
+  const body = '<p>Merkez Bankası rezervleri geçen hafta 3 milyar dolar arttı ve toplam brüt rezerv yeni zirveye ulaştı.</p>'.repeat(4);
+  const html = `<html><body><div id="__next"></div><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { article: { title: 'x', url: 'https://a.b/c', content: body } } } })}</script></body></html>`;
+  const r = extractArticle(html);
+  assert.equal(r.via, 'gömülü-json');
+  assert.match(r.text, /brüt rezerv/);
+  assert.doesNotMatch(r.text, /<p>/);
+});

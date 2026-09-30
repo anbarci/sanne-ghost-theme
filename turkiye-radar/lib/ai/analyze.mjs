@@ -49,7 +49,7 @@ Kurallar:
 3. [UYUMSUZ] etiketli haberlerin başlığı içerikle örtüşmüyor; başlığa değil özetteki içeriğe güven.
 4. Haberlerin yayın çizgisi etiketli (resmi, iktidara-yakın, muhalif, bağımsız, uluslararası, dünya). Tek bir çizginin anlatısına yaslanma; çelişki varsa belirt.
 5. varliklar: her varlık için en fazla 1 kayıt, vade_gun 1-30 arası. yukari = vade sonunda +%0,5'ten fazla, asagi = -%0,5'ten fazla düşüş, yatay = arada. olasilik 0-100 kalibre edilmiş olsun: emin değilsen 50-60 civarı ver.
-6. fikirler: en fazla 5, kişisel kullanım içindir. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
+6. fikirler: en fazla 5, kişisel kullanım içindir. Hisse fikri verirken TARAYICI satırlarına dayan ve o stratejinin geçmiş karnesini (endekse göre getiri, isabet) yaz; karne zayıfsa bunu açıkça söyle, "kesin yükselir" deme. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
 7. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
 8. Yalnızca şemaya uyan JSON döndür.`;
 
@@ -57,7 +57,7 @@ const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { m
 const sign = x => (x > 0 ? '+' : '') + f(x);
 
 // Farklı yayın çizgilerinden dengeli haber seçimi: en yüksek skorlulardan, çizgi başına sırayla.
-function balancedNews(news, n = 14) {
+function balancedNews(news, n = 12) {
   const by = {};
   for (const it of news.filter(x => x.impact?.score >= 20)) (by[it.stance] ||= []).push(it);
   const out = [];
@@ -93,11 +93,45 @@ export function buildDigest(s, prevSummary) {
   if (s.resmiGazete?.items?.length) L.push('RESMİ GAZETE: ' + s.resmiGazete.items.slice(0, 5).map(x => x.title.slice(0, 90)).join(' ; '));
   L.push('HABERLER (etki 0-100 | kanallar | kaynak/çizgi):');
   for (const n of balancedNews(s.news || [])) {
-    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 160) : ''}`);
+    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 130) : ''}`);
+  }
+  const sc = s.screener;
+  if (sc?.rows?.length) {
+    const bt = sc.backtest?.presets || {};
+    for (const [id, name] of [['trend', 'Trend'], ['donus', 'Toparlanma'], ['sakin', 'Sakin']]) {
+      const b = bt[id];
+      const top = [...sc.rows].sort((x, y) => y.scores[id].score - x.scores[id].score).slice(0, 3);
+      L.push(`TARAYICI ${name} [geçmiş 10g: endekse göre ${b ? sign(b.excess * 100) : '-'}%, isabet %${b ? Math.round(b.hit * 100) : '-'}, IC ${b ? f(b.ic, 3) : '-'}]: ` +
+        top.map(r => `${r.kod} ${r.scores[id].score} (${r.scores[id].setup}; RSI ${Math.round(r.rsi)}; 1a ${sign(r.r21 * 100)}%${r.news ? `; ${r.news.count} haber` : ''})`).join(' | '));
+    }
   }
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
   if (prevSummary) L.push('ÖNCEKİ ANALİZ ÖZETİ: ' + prevSummary);
   return L.join('\n');
+}
+
+// Modelin yazdığı rakamlar veri özetinde var mı? (Vibe-Trading'in "grounding gate" fikrinin sade hali.)
+// Türkçe (1.234,5) ve İngilizce (1234.5) biçimleri çözülür; %0,5 tolerans; gün sayısı ve yıl gibi küçük tamsayılar atlanır.
+const parseNum = s => {
+  let x = s.replace(/^[+−-]/, m => (m === '+' ? '' : '-'));
+  if (/,\d+$/.test(x)) x = x.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, '');
+  return Number(x);
+};
+const numsIn = t => (String(t).match(/[+−-]?\d[\d.,]*\d|\d/g) || []).map(parseNum).filter(Number.isFinite);
+export function verifyNumbers(result, digest) {
+  const known = numsIn(digest).map(Math.abs);
+  const texts = [
+    ...['kotumser', 'iyimser', 'tarafsiz'].flatMap(k => [result[k]?.yorum, ...(result[k]?.dayanak || [])]),
+    ...(result.fikirler || []).flatMap(f => [f.gerekce, f.risk, f.gecersiz_kilan]),
+  ].filter(Boolean);
+  const bad = new Set();
+  for (const t of texts) for (const n of numsIn(t)) {
+    const a = Math.abs(n);
+    if ((Number.isInteger(a) && a <= 31) || (a >= 2020 && a <= 2035)) continue;
+    if (!known.some(k => (k === 0 ? a === 0 : Math.abs(k - a) / k <= 0.005))) bad.add(String(n).replace('.', ','));
+  }
+  return [...bad].slice(0, 12);
 }
 
 export function activeProvider(settings) {
@@ -135,6 +169,7 @@ export async function analyze(snap, settings, { force = false } = {}) {
   const t0 = Date.now();
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
   const result = parseJSON(r.text);
+  result.dogrulanamayan = verifyNumbers(result, digest);
   const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result };
   writeJSON('analyses.json', [entry, ...hist].slice(0, 60));
   recordPredictions(entry, snap);

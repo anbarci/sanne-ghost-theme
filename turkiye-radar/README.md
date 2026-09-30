@@ -16,6 +16,36 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 - **Günlük bütçe.** Günlük dolar ve token sınırı var (varsayılan 1 $ ve 300 bin token). Dolunca analiz durur, elle tetiklense bile.
 - **Uyarılar.** Deprem (M4,5 ve üstü), olağandışı piyasa hareketi ve yüksek etkili haber Telegram'a gider.
 
+## Hisse tarayıcısı ve grafikler
+
+61 likit BIST hissesi (`data/bist-universe.json`) için 2 yıllık günlük veri çekilir ve üç stratejiyle sıralanır:
+
+| Strateji | Ne arar |
+|---|---|
+| Trend ve momentum | 50/200 günlük ortalamanın üstünde, son 3 ayda güçlü, endeksi geçen, RSI 50-68, hacim artışı, 52 hafta zirvesine yakın |
+| Düşüş sonrası toparlanma | Son 1 ayda en çok düşen ama 200 günlük ortalamanın üstünde kalan, aşırı satımda ve MACD'si dönen |
+| Sakin yükseliş | Oynaklığı düşük, uzun vadeli trendi yukarı |
+
+Her hisseye tıklayınca mum grafik (50 ve 200 günlük ortalama, hacim, RSI), skorun nedenleri, riskler ve hisseyi anan güncel haberler açılır. Piyasa şeridindeki kutular da (BIST 100, dolar, Brent…) tıklanınca grafiğe gelir.
+
+**Önemli: tarayıcı "yükselecek hisseyi" bilmez.** Her stratejinin geçmiş başarısı ölçülür ve panelde yanında gösterilir. 30 Eylül 2026'daki ölçüm (Ağustos 2025 – Eylül 2026, 10 işlem günü tutma, ~56 ölçüm):
+
+| Strateji | İlk %20'nin BIST 100'e göre getirisi | Endeksi geçme oranı | IC |
+|---|---|---|---|
+| Trend ve momentum | %-0,3 | %46 | 0,02 (anlamsız) |
+| Düşüş sonrası toparlanma | %-0,5 | %44 | 0,02 (anlamsız) |
+| Sakin yükseliş | %-0,4 | %45 | 0,01 (anlamsız) |
+
+Tek tek 10 teknik faktör de (momentum, göreli güç, RSI, 52 hafta zirvesi, hacim, oynaklık, MACD) ayrı ayrı test edildi. Hiçbiri istatistiksel olarak anlamlı değil ve verinin ilk yarısında görünen zayıf sinyaller ikinci yarıda kayboluyor. Yani bu dönemde kısa vadeli teknik göstergeler BIST'te güvenilir bir üstünlük sağlamadı. Panel bunu açıkça yazar, AI da hisse fikri verirken bu karneyi belirtmek zorundadır.
+
+Kanıtı zamanla biriktirmek için her gün her stratejinin ilk 5 hissesi kaydedilir ve 14 gün sonra BIST 100'e göre puanlanır ("Karne" paneli). Bu kısım sonradan ayarlanamaz; gerçek zamanlı ölçümdür.
+
+Ölçümün dürüst olması için:
+- Sinyal t günü kapanışında hesaplanır, işleme t+1 kapanışında girilir (ileriye bakma yok). Örnekler 5 günde bir alınır (çakışan pencereler sonucu şişirmesin).
+- Fiyatlar temettüye göre düzeltilir (Yahoo `adjclose`). Yahoo'nun kaçırdığı bedelsiz/bölünmeler, BIST'in ±%10 marjı kullanılarak yakalanır (ör. KONTR 2025-12-01).
+- Yahoo'nun boş bıraktığı günler ve seans içi kısmi bar işaretlenir; hacim oranı kısmi günden hesaplanmaz.
+- AI yanıtındaki rakamlar veri özetinde aranır; bulunamayanlar "doğrulanamayan rakam" olarak gösterilir.
+
 ## Kurulum
 
 **En kolay yol:** [Node.js](https://nodejs.org) 22.21 veya üstünü kur (LTS sürümü yeterli). Sonra klasördeki başlatma dosyasına çift tıkla:
@@ -173,6 +203,10 @@ Aşağıdakiler **geliştirme sırasında kullanıldı, repoya eklenmedi**:
 - RSS listesinin çıkış noktası: [bakinazik/rss](https://github.com/bakinazik/rss). Oradaki adresler kullanıldı; tasarım kodu kopyalanmadı, çünkü repoda lisans yok.
 - Fikir: [Crucix](https://github.com/calesthio/Crucix)
 - Olağandışı hareket eşiği fikri: [PanWatch](https://github.com/TNT-Likely/PanWatch)
+- Temettü düzeltmesi, IC ölçümü ve rakam doğrulama fikirleri: [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (MIT)
+- Pano yerleşimi için görsel referans: [sc-datav](https://github.com/knight-L/sc-datav)
+- `__NEXT_DATA__` gibi gömülü içerik fikri: [webclaw](https://github.com/0xMassi/webclaw) (AGPL; kod alınmadı)
+- Grafikler: [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) (Apache 2.0)
 - Anahtarsız piyasa uçları: [OpenTerminal](https://github.com/ErTasselli/OpenTerminal)
 - AFAD ve Kandilli'nin güncel biçimi: [orhanayd/kandilli-rasathanesi-api](https://github.com/orhanayd/kandilli-rasathanesi-api)
 - Tam metin: [Mozilla Readability](https://github.com/mozilla/readability) (Apache 2.0), [linkedom](https://github.com/WebReflection/linkedom) (ISC)

@@ -4,6 +4,10 @@ import { fetchx, pool } from './http.mjs';
 import { readJSON, writeJSON, loadSettings, getSecret } from './store.mjs';
 import { extractArticle, titleCheck, isMisleading, lead } from './extract.mjs';
 import { impact, dedupe } from './impact.mjs';
+import { prepare, screen, backtest } from './screener.mjs';
+import { recordPicks, scorePicks, picksSummary } from './picks.mjs';
+import { loadUniverse } from '../sources/bist.mjs';
+import { fold } from './rss.mjs';
 
 const state = readJSON('state.json', { sources: {} }); // kaynak başına son sonuç + zaman + hata
 let running = null;
@@ -23,10 +27,11 @@ async function runSource(src, settings, force) {
   if (!force && st.at && Date.now() - st.at < (src.ttlMin || 15) * 60e3 && st.ok) return; // taze veri varsa tekrar çekme
   const t0 = Date.now();
   try {
+    let timer;
     st.data = await Promise.race([
       src.run({ settings, secret: n => getSecret(settings, n) }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error(`zaman aşımı (${src.timeoutSec || 45} sn)`)), (src.timeoutSec || 45) * 1000)),
-    ]);
+      new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`zaman aşımı (${src.timeoutSec || 45} sn)`)), (src.timeoutSec || 45) * 1000); }),
+    ]).finally(() => clearTimeout(timer));
     Object.assign(st, { ok: true, error: null, at: Date.now(), ms: Date.now() - t0 });
   } catch (e) {
     Object.assign(st, { ok: false, error: e.message, at: Date.now(), ms: Date.now() - t0 }); // eski veri korunur
@@ -66,6 +71,31 @@ async function enrichNews(items, settings, moves) {
   writeJSON('articles.json', articles);
   list.stats = stats;
   return list.sort((a, b) => b.impact.score - a.impact.score || b.ts - a.ts);
+}
+
+// Tarayıcı: runtime/ohlc.json'daki fiyatlar + son haberlerde anılma. Geriye dönük ölçüm fiyat verisi
+// değişmedikçe tekrar hesaplanmaz.
+let btCache = { at: 0, res: null };
+function runScreener(news) {
+  const store = readJSON('ohlc.json', null);
+  if (!store?.series) return null;
+  const { XU100, ...rest } = store.series;
+  const uni = new Map(loadUniverse().map(u => [u.kod, u]));
+  const prepared = Object.values(rest).map(s => prepare(s));
+  const index = XU100 ? prepare(XU100) : null;
+  const texts = news.map(n => ({ t: fold(` ${n.title} ${n.lead || ''} `), n }));
+  const newsFor = kod => {
+    const keys = [kod.toLowerCase(), ...(uni.get(kod)?.anahtar || [])].map(fold);
+    const hits = texts.filter(x => keys.some(k => x.t.includes(k.length <= 5 ? ` ${k} ` : k)));
+    return hits.length ? { count: hits.length, titles: hits.slice(0, 3).map(x => ({ title: x.n.title, link: x.n.link, src: x.n.srcName })) } : null;
+  };
+  if (btCache.at !== store.at) btCache = { at: store.at, res: backtest(prepared, index) };
+  const rows = screen(prepared, index, newsFor).map(r => ({ ...r, news: newsFor(r.kod) }));
+  const res = { asOf: store.at, rows, backtest: btCache.res, index: index ? { price: index.c.at(-1), r21: index.c.at(-1) / index.c.at(-22) - 1 } : null, failed: readJSON('state.json', {}).sources?.bist?.data?.failed || [] };
+  scorePicks(store);
+  recordPicks(res);
+  res.live = picksSummary();
+  return res;
 }
 
 // Son taramadan bu yana değişimi puanlar; puan düşükse AI çağrılmaz.
@@ -115,6 +145,7 @@ export async function sweep({ force = false, onDone } = {}) {
       quakes: d('quakes'), fires: d('firms'), weather: d('weather'),
       macro: d('macro'), fred: d('fred'), ecb: d('ecb'), calendar: d('calendar'), tone: d('gdelt')?.tone,
       news: news.slice(0, 300).map(slim),
+      screener: runScreener(news),
       feedStatus: d('rss')?.status,
       articleStats: news.stats,
       sources: sourceList(settings),

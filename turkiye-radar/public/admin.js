@@ -96,7 +96,7 @@ $('#secrets').addEventListener('click', async e => {
   await api('/api/admin/secret', { name: k, value }); toast('Güncellendi'); refresh();
 });
 
-const VIA = { jsonld: 'JSON-LD', readability: 'Readability', paragraf: 'paragraf', meta: 'sadece meta özet', 'js-sayfa': 'JS ile yüklenen sayfa', boş: 'boş sayfa', ağ: 'ağ hatası' };
+const VIA = { jsonld: 'JSON-LD', 'gömülü-json': 'gömülü JSON', readability: 'Readability', paragraf: 'paragraf', meta: 'sadece meta özet', 'js-sayfa': 'JS ile yüklenen sayfa', boş: 'boş sayfa', ağ: 'ağ hatası' };
 function renderArtStats() {
   const st = Object.entries(S.articleStats || {}).sort((a, b) => b[1] - a[1]);
   $('#art-stats').textContent = st.length ? 'Haber tam metni: ' + st.map(([k, n]) => `${VIA[k] || k.replace('http-', 'HTTP ')} ${n}`).join(' · ') : '';
