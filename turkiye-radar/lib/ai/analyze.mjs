@@ -57,7 +57,7 @@ const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { m
 const sign = x => (x > 0 ? '+' : '') + f(x);
 
 // Farklı yayın çizgilerinden dengeli haber seçimi: en yüksek skorlulardan, çizgi başına sırayla.
-function balancedNews(news, n = 16) {
+function balancedNews(news, n = 14) {
   const by = {};
   for (const it of news.filter(x => x.impact?.score >= 20)) (by[it.stance] ||= []).push(it);
   const out = [];
@@ -72,7 +72,7 @@ export function buildDigest(s, prevSummary) {
   const m = s.markets || {};
   const L = [];
   const mk = ['USDTRY', 'EURTRY', 'GRAM_ALTIN', 'ONS', 'XU100', 'XBANK', 'BRENT', 'TTF', 'DXY', 'VIX', 'US10Y', 'SP500', 'TUR_ETF']
-    .filter(k => m[k]).map(k => `${k} ${f(m[k].price)} (${sign(m[k].chg)}%${m[k].anomaly ? ' OLAĞANDIŞI' : ''})`);
+    .filter(k => m[k]).map(k => `${k} ${f(m[k].price)} (${m[k].roll === 'şüpheli' ? 'kontrat devri, değişim bilinmiyor' : sign(m[k].chg) + '%'}${m[k].anomaly ? ' OLAĞANDIŞI' : ''})`);
   if (mk.length) L.push('PİYASA: ' + mk.join(' | '));
   if (s.crypto?.BTCTRY) L.push(`KRİPTO: BTCTRY ${f(s.crypto.BTCTRY.price, 0)} (${sign(s.crypto.BTCTRY.chg)}%) | USDT/TRY makası %${f(s.usdtPremium)}`);
   const w = Object.entries(m).filter(([k, v]) => v.sym?.endsWith?.('.IS') && !['XU100', 'XU030', 'XBANK'].includes(k));
@@ -93,7 +93,7 @@ export function buildDigest(s, prevSummary) {
   if (s.resmiGazete?.items?.length) L.push('RESMİ GAZETE: ' + s.resmiGazete.items.slice(0, 5).map(x => x.title.slice(0, 90)).join(' ; '));
   L.push('HABERLER (etki 0-100 | kanallar | kaynak/çizgi):');
   for (const n of balancedNews(s.news || [])) {
-    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 200) : ''}`);
+    L.push(`- [${n.impact.score}|${n.impact.channels.slice(0, 3).join(',')}|${n.srcName}/${n.stance}${n.also ? `,+${n.also} kaynak` : ''}]${n.misleading ? ' [UYUMSUZ]' : ''} ${n.title}${n.lead ? ' — ' + n.lead.slice(0, 160) : ''}`);
   }
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
   if (prevSummary) L.push('ÖNCEKİ ANALİZ ÖZETİ: ' + prevSummary);

@@ -9,17 +9,52 @@ export const CORE = {
   TUR_ETF: 'TUR', EEM: 'EEM',
 };
 
+// Yahoo bulut IP'lerine sık sık 429 verir. İlk 429'dan sonra 15 dk boyunca diğer sembolleri denemeyiz.
+let yahooBlockedUntil = 0;
+
+async function yahoo(sym) {
+  if (Date.now() < yahooBlockedUntil) throw new Error('Yahoo geçici olarak sınırladı (429)');
+  const j = await fetchx(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`, { ttl: 60_000, retries: 0 })
+    .catch(e => { if (e.status === 429) yahooBlockedUntil = Date.now() + 15 * 60e3; throw e; });
+  const r = j?.chart?.result?.[0];
+  if (!r) throw new Error('boş yanıt');
+  const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
+  return { closes, price: r.meta.regularMarketPrice ?? closes.at(-1), time: (r.meta.regularMarketTime || 0) * 1000 };
+}
+
 async function chart(sym) {
   try {
-    const j = await fetchx(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1mo&interval=1d`, { ttl: 60_000 });
-    const r = j?.chart?.result?.[0];
-    if (!r) throw new Error('boş yanıt');
-    const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
-    return stats(sym, closes, r.meta.regularMarketPrice ?? closes.at(-1), (r.meta.regularMarketTime || 0) * 1000, 'yahoo');
+    const f = await yahoo(sym);
+    const s = stats(sym, f.closes, f.price, f.time, 'yahoo');
+    return sym.endsWith('=F') && Math.abs(s.chg) > Math.max(2, 2 * s.vol) ? fixRoll(sym, s) : s;
   } catch (e) {
     if (!STOOQ[sym]) throw e;
     return stooq(sym);
   }
+}
+
+// Vadeli "=F" serisi vade dolunca bir sonraki kontrata geçer; eski kontratın kapanışıyla yenisinin fiyatı
+// arasındaki fark sahte bir hareket gibi görünür (2026-09-30: Brent gerçekte +%0,2 iken seri -%6,1 gösterdi).
+// Fiyatı eşleşen gerçek kontratı bulup değişimi onun kendi geçmişinden hesaplarız.
+const FUT_EX = { BZ: 'NYM', CL: 'NYM', NG: 'NYM', GC: 'CMX', SI: 'CMX' };
+const MONTHS = 'FGHJKMNQUVXZ';
+export function contractSymbols(root, now = new Date()) {
+  const ex = FUT_EX[root];
+  if (!ex) return [];
+  return [0, 1, 2, 3].map(i => {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + i, 1));
+    return `${root}${MONTHS[d.getUTCMonth()]}${String(d.getUTCFullYear() % 100).padStart(2, '0')}.${ex}`;
+  });
+}
+export function pickContract(front, candidates) {
+  return candidates.find(c => c && Math.abs(c.price / front.price - 1) < 0.002) || null;
+}
+async function fixRoll(sym, s) {
+  const syms = contractSymbols(sym.replace('=F', ''));
+  const cands = await Promise.all(syms.map(c => yahoo(c).then(r => ({ ...r, sym: c })).catch(() => null)));
+  const hit = pickContract(s, cands);
+  if (!hit) return { ...s, anomaly: false, roll: 'şüpheli' };
+  return { ...stats(sym, hit.closes, hit.price, hit.time, 'yahoo'), roll: hit.sym };
 }
 
 // Yahoo düşerse kur ve emtia için Stooq'un günlük CSV'si (anahtarsız).
@@ -45,12 +80,18 @@ export function stats(sym, closes, price, time, src) {
 }
 
 export const markets = {
-  id: 'markets', name: 'Piyasalar (Yahoo Finance)', group: 'piyasa', ttlMin: 5,
+  id: 'markets', name: 'Piyasalar (Yahoo; yedek: açık kur API, İş Yatırım)', group: 'piyasa', ttlMin: 5, timeoutSec: 100,
   async run({ settings }) {
     const syms = [...Object.entries(CORE), ...settings.watchlist.map(s => [s.replace('.IS', ''), s])];
     const res = await pool(syms, 6, async ([k, s]) => [k, await chart(s)]);
     const out = {};
     for (const r of res) if (Array.isArray(r)) out[r[0]] = r[1];
+    const missingWatch = settings.watchlist.filter(s => s.endsWith('.IS') && !out[s.replace('.IS', '')]);
+    const [fx, bist] = await Promise.allSettled([
+      ['USDTRY', 'EURTRY', 'ONS', 'GUMUS'].some(k => !out[k]) ? currencyApi() : {},
+      !out.XU100 || missingWatch.length ? isYatirim(missingWatch) : {},
+    ]);
+    for (const r of [fx, bist]) if (r.status === 'fulfilled') for (const [k, v] of Object.entries(r.value)) out[k] ||= v;
     if (!Object.keys(out).length) throw new Error(`hiçbir sembol alınamadı (${res[0]?.error || '?'})`);
     // Türetilmiş: gram altın = ons(USD) × USD/TRY / 31,1035
     if (out.ONS && out.USDTRY) {
@@ -61,6 +102,51 @@ export const markets = {
     return out;
   },
 };
+
+// fawazahmed0/currency-api: jsDelivr üzerinden günlük kur, altın (xau) ve gümüş (xag). Anahtarsız, sınırsız.
+// Günde bir güncellenir; gün içi hareket için değil, Yahoo yokken seviye göstermek için.
+const CUR = d => [`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${d}/v1/currencies/usd.json`, `https://${d}.currency-api.pages.dev/v1/currencies/usd.json`];
+async function usdRates(d) {
+  for (const u of CUR(d)) { try { return await fetchx(u, { as: 'json', ttl: 3600e3 }); } catch {} }
+  throw new Error('currency-api yanıt vermedi');
+}
+export function fromUsdRates(cur, prev) {
+  const pick = (j, f) => { const u = j?.usd; return u ? f(u) : null; };
+  const defs = { USDTRY: u => u.try, EURTRY: u => u.try / u.eur, ONS: u => 1 / u.xau, GUMUS: u => 1 / u.xag };
+  const out = {};
+  for (const [k, f] of Object.entries(defs)) {
+    const p = pick(cur, f), q = pick(prev, f);
+    if (Number.isFinite(p)) out[k] = { sym: k, price: round(p), chg: Number.isFinite(q) ? round((p / q - 1) * 100, 2) : 0, vol: null, anomaly: false, spark: [], time: Date.parse(cur.date), src: 'currency-api', daily: true };
+  }
+  return out;
+}
+async function currencyApi() {
+  const cur = await usdRates('latest');
+  const prevDay = new Date(Date.parse(cur.date) - 864e5).toISOString().slice(0, 10);
+  return fromUsdRates(cur, await usdRates(prevDay).catch(() => null));
+}
+
+// İş Yatırım'ın herkese açık hisse uç noktası; her satır BIST 100 değerini de (END_DEGER, endeks kodu 01) taşır.
+const dmy = d => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+export function fromIsYatirim(rows, key) {
+  const closes = rows.map(r => +r.HGDG_KAPANIS).filter(Number.isFinite);
+  const out = closes.length ? { [key]: stats(`${key}.IS`, closes, closes.at(-1), Date.now(), 'isyatirim') } : {};
+  const idx = rows.filter(r => String(r.END_ENDEKS_KODU) === '01').map(r => +r.END_DEGER).filter(Number.isFinite);
+  if (idx.length) out.XU100 = stats('XU100', idx, idx.at(-1), Date.now(), 'isyatirim');
+  return out;
+}
+async function isYatirim(watch) {
+  const list = (watch.length ? watch : ['THYAO.IS']).map(s => s.replace('.IS', ''));
+  const end = new Date(), start = new Date(Date.now() - 40 * 864e5);
+  const out = {};
+  await pool(list, 3, async t => {
+    const j = await fetchx(`https://www.isyatirim.com.tr/_layouts/15/Isyatirim.Website/Common/Data.aspx/HisseTekil?hisse=${encodeURIComponent(t)}&startdate=${dmy(start)}&enddate=${dmy(end)}`, { as: 'json', timeout: 25000, ttl: 300_000, browser: true });
+    const r = fromIsYatirim(j?.value || [], t);
+    if (!watch.length) delete r[t];
+    for (const [k, v] of Object.entries(r)) out[k] ||= v;
+  });
+  return out;
+}
 
 export const crypto = {
   id: 'btcturk', name: 'Kripto TRY (BtcTurk, yedek Binance)', group: 'piyasa', ttlMin: 5,

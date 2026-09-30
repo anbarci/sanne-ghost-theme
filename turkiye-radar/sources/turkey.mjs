@@ -63,10 +63,10 @@ export const resmiGazete = {
     const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), g = String(d.getDate()).padStart(2, '0');
     const url = `https://www.resmigazete.gov.tr/eskiler/${y}/${m}/${y}${m}${g}.htm`;
-    const html = await fetchx(url, { as: 'text' });
+    const html = await fetchx(url, { as: 'text', browser: true });
     const items = [];
     for (const a of html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
-      const t = stripTags(a[2]);
+      const t = stripTags(a[2]).replace(/^[\s\-–—]+/, '');
       if (t.length > 25 && /eskiler|\.pdf|\.htm/i.test(a[1])) items.push({ title: t.slice(0, 220), link: new URL(a[1], url).href });
     }
     return { date: `${g}.${m}.${y}`, url, items: items.slice(0, 40) };

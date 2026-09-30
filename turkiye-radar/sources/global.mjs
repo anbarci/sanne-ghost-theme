@@ -33,13 +33,13 @@ export function lastTwoCsv(csv) {
 }
 
 export const fred = {
-  id: 'fred', name: 'FRED (ABD Fed verileri, anahtarsız)', group: 'makro', ttlMin: 360,
+  id: 'fred', name: 'FRED (ABD Fed verileri, anahtarsız)', group: 'makro', ttlMin: 360, timeoutSec: 60,
   async run() {
     const series = { fedFaiz: 'DFF', abd10y: 'DGS10', dolarEndeksi: 'DTWEXBGS', yuksekGetiriSpread: 'BAMLH0A0HYM2', abdEnflasyonBeklenti5y: 'T5YIE' };
     const cosd = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
     const out = {};
-    await pool(Object.entries(series), 3, async ([k, id]) => {
-      const r = lastTwoCsv(await fetchx(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${cosd}`, { as: 'text', ttl: 3600e3 }));
+    await pool(Object.entries(series), 1, async ([k, id]) => { // sırayla: FRED paralel isteğe 429 veriyor
+      const r = lastTwoCsv(await fetchx(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${id}&cosd=${cosd}`, { as: 'text', ttl: 3600e3, retryWait: 3000 }));
       if (r) out[k] = r;
     });
     if (!Object.keys(out).length) throw new Error('FRED yanıt vermedi');

@@ -25,7 +25,7 @@ async function runSource(src, settings, force) {
   try {
     st.data = await Promise.race([
       src.run({ settings, secret: n => getSecret(settings, n) }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('zaman aşımı (45 sn)')), 45000)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error(`zaman aşımı (${src.timeoutSec || 45} sn)`)), (src.timeoutSec || 45) * 1000)),
     ]);
     Object.assign(st, { ok: true, error: null, at: Date.now(), ms: Date.now() - t0 });
   } catch (e) {
@@ -43,7 +43,7 @@ async function enrichNews(items, settings, moves) {
   const need = list.filter(i => !articles[i.id] && !/news\.google\./.test(i.link)).slice(0, settings.fetchArticles);
   await pool(need, 6, async it => {
     try {
-      const html = await fetchx(it.link, { as: 'text', timeout: 9000, retries: 0, maxBytes: 1_500_000 });
+      const html = await fetchx(it.link, { as: 'text', timeout: 9000, retries: 0, maxBytes: 1_500_000, browser: true });
       const { text, via } = extractArticle(html);
       articles[it.id] = { body: text.slice(0, 3000), via, t: Date.now() };
     } catch (e) { articles[it.id] = { body: '', via: e.status ? `http-${e.status}` : 'ağ', t: Date.now() }; }
@@ -58,7 +58,7 @@ async function enrichNews(items, settings, moves) {
       // Meta açıklaması zaten bir özet; başlıkla kıyaslamak yanlış alarm üretir.
       if (a.via !== 'meta') { it.check = titleCheck(it.title, a.body); it.misleading = isMisleading(it.check); }
       // Skor artık gövde metniyle de hesaplanıyor: başlık abartılıysa skor içerikle düzelir.
-      it.impact = impact(`${it.title} ${a.body.slice(0, 1500)}`, settings.weights, moves);
+      it.impact = impact(it.title, settings.weights, moves, a.body.slice(0, 1500));
     }
   }
   // 3 günden eski önbelleği temizle

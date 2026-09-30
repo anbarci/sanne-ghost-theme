@@ -34,7 +34,8 @@ globalThis.fetch = async (url, opts = {}) => {
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
   const text = (t, ct = 'text/xml') => new Response(t, { headers: { 'content-type': ct } });
   if (u.includes('finance.yahoo.com')) {
-    const sym = decodeURIComponent(u.split('/chart/')[1].split('?')[0]);
+    let sym = decodeURIComponent(u.split('/chart/')[1].split('?')[0]);
+    if (/^BZ[A-Z]\d\d\.NYM$/.test(sym)) sym = 'BZ=F'; // gerçek %7'lik hareket: kontrat aynı, devir yok
     return PRICES[sym] ? json(yahoo(...PRICES[sym])) : json({}, 404);
   }
   if (u.includes('btcturk')) return json({ data: [{ pair: 'USDTTRY', last: '42.5', dailyPercent: '0.9' }, { pair: 'BTCTRY', last: '4700000', dailyPercent: '-2.1' }] });

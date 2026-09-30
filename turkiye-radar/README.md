@@ -18,7 +18,7 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 
 ## Kurulum
 
-Node.js 22 veya üstü gerekir.
+Node.js 22.21 veya üstü gerekir. `npm start`, kurumsal ağlarda `HTTPS_PROXY` değişkenine uyması için Node'u `--use-env-proxy` bayrağıyla başlatır (Node'un yerleşik `fetch`'i bu değişkeni kendiliğinden okumaz).
 
 ```bash
 cd turkiye-radar
@@ -67,29 +67,29 @@ DeepSeek'in `deepseek-chat` ve `deepseek-reasoner` adları 24 Temmuz 2026'da kal
 
 ## Veri kaynakları
 
-Anahtar gerekmeyenler ilk açılışta çalışır. "Durum" sütunu şunu gösterir:
-- **✓**: Resmi dokümandan doğrulandı.
-- **~**: Bilinen uç nokta, ama geliştirme ortamının ağ kısıtı yüzünden canlı denenemedi. İlk çalıştırmada yönetim panelindeki "Veri kaynakları" tablosundan kontrol et.
+Anahtar gerekmeyenler ilk açılışta çalışır. "Durum" sütunundaki **canlı** işareti, kaynağın 30 Eylül 2026'da gerçek istekle denendiğini ve verinin ayrıştırıldığını gösterir.
 
 | Kaynak | Veri | Anahtar | Durum |
 |---|---|---|---|
-| Yahoo Finance | Dolar, euro, altın, Brent, BIST 100/30/Banka, VIX, DXY, izleme listesi (gecikmeli). Yedek: Stooq | yok | ~ |
-| BtcTurk | BTC/TL, USDT/TL (USDT makası buradan hesaplanır) | yok | ~ |
-| TCMB `today.xml` | Gösterge kurlar | yok | ~ |
-| TCMB EVDS3 | İstediğin seri: kur, TÜFE, rezerv… | ücretsiz | ✓ (anahtar HTTP başlığında) |
-| EPİAŞ Şeffaflık 2.0 | Elektrik piyasa takas fiyatı (PTF) | ücretsiz üyelik | ✓ (TGT girişi) |
-| Resmi Gazete | Günün mevzuat başlıkları | yok | ~ |
-| AFAD → Kandilli → EMSC → USGS | Depremler, kurumlar arası birleştirilmiş. AFAD'da sitenin kendi kullandığı `EventData/GetEventsByFilter` (POST), yedekte eski `apiv2`. Kandilli'de `son24saat.xml`, yedekte metin sayfası. | yok | ✓ biçim açık kaynak kodla doğrulandı |
-| 44 RSS akışı | Yerli + dünya basını, yayın çizgisi etiketli | yok | ~ |
-| GDELT | Dünya basınında Türkiye haberleri ve ton | yok | ~ |
-| Dünya Bankası + IMF | Enflasyon, büyüme, cari denge, işsizlik ve IMF tahminleri | yok | ~ |
-| FRED (grafik CSV) | Fed faizi, ABD 10 yıllık, dolar endeksi, yüksek getiri spreadi | **yok** | ~ |
-| ECB | EUR/TRY referans kuru (TCMB'den bağımsız ikinci kaynak) | yok | ~ |
-| Forex Factory | Ekonomik takvim: Fed, ECB, ABD TÜFE, Çin GSYH… (beklenti ve önceki değer) | yok | ~ |
-| Stooq | Yahoo düşerse dolar, euro, altın, gümüş yedeği | yok | ~ |
-| Binance | BtcTurk düşerse USDT/TRY ve BTC/TRY yedeği | yok | ~ |
-| NASA FIRMS | Türkiye'deki aktif yangınlar | ücretsiz | ~ |
-| Open-Meteo | 8 ilde hava ve fırtına/aşırı sıcak uyarısı | yok | ~ |
+| Yahoo Finance | Dolar, euro, altın, Brent, BIST 100/30/Banka, VIX, DXY, izleme listesi (gecikmeli). Yedek: Stooq | yok | canlı |
+| BtcTurk | BTC/TL, USDT/TL (USDT makası buradan hesaplanır) | yok | canlı |
+| TCMB `today.xml` | Gösterge kurlar | yok | canlı |
+| TCMB EVDS3 | İstediğin seri: kur, TÜFE, rezerv… | ücretsiz | anahtar gerekli; biçim resmi dokümandan, canlı denenmedi |
+| EPİAŞ Şeffaflık 2.0 | Elektrik piyasa takas fiyatı (PTF) | ücretsiz üyelik | üyelik gerekli; biçim dokümandan, canlı denenmedi |
+| Resmi Gazete | Günün mevzuat başlıkları | yok | canlı |
+| AFAD → Kandilli → EMSC → USGS | Depremler, kurumlar arası birleştirilmiş. AFAD'da sitenin kendi kullandığı `EventData/GetEventsByFilter` (POST), yedekte eski `apiv2`. Kandilli'de `son24saat.xml`, yedekte metin sayfası. | yok | canlı (AFAD, EMSC, USGS). Kandilli bu geliştirme ortamının izin listesinde değildi, denenemedi |
+| 44 RSS akışı | Yerli + dünya basını, yayın çizgisi etiketli | yok | canlı |
+| GDELT | Dünya basınında Türkiye haberleri ve ton | yok | denendi: bu ortamın IP'sine 429 verdi; saatte bir sorgulanır |
+| Dünya Bankası + IMF | Enflasyon, büyüme, cari denge, işsizlik ve IMF tahminleri | yok | canlı |
+| FRED (grafik CSV) | Fed faizi, ABD 10 yıllık, dolar endeksi, yüksek getiri spreadi | **yok** | canlı |
+| ECB | EUR/TRY referans kuru (TCMB'den bağımsız ikinci kaynak) | yok | canlı |
+| Forex Factory | Ekonomik takvim: Fed, ECB, ABD TÜFE, Çin GSYH… (beklenti ve önceki değer) | yok | canlı |
+| açık kur API (fawazahmed0, jsDelivr) | Yahoo düşerse dolar, euro, ons altın, gümüş (günlük) | yok | canlı |
+| İş Yatırım | Yahoo düşerse izleme listesi hisseleri ve BIST 100 (her satırda endeks değeri var) | yok | canlı, haberdeki kapanışla tutarlı |
+| Stooq | Son yedek | yok | bu ortamda bağlantıyı kesti |
+| Binance | BtcTurk düşerse USDT/TRY ve BTC/TRY yedeği | yok | canlı |
+| NASA FIRMS | Türkiye'deki aktif yangınlar | ücretsiz | anahtar gerekli; canlı denenmedi |
+| Open-Meteo | 8 ilde hava ve fırtına/aşırı sıcak uyarısı | yok | canlı |
 
 Yerelde erişilemeyen kaynaklar için kullanılan küresel alternatifler:
 
@@ -102,6 +102,16 @@ Yerelde erişilemeyen kaynaklar için kullanılan küresel alternatifler:
 | Kandilli | Resmi API yok, sayfa kazınıyor | AFAD ana kaynak, EMSC yedek |
 
 **Gram altın** hesaplanan bir değerdir: ons × USD/TRY / 31,1035. Kuyumcu ve Kapalıçarşı fiyatı makas ve işçilik yüzünden bundan farklı olur.
+
+## Gerçek veriyle doğrulamada bulunanlar
+
+Demo verisiyle geçen testler gerçek veride şu hataları ortaya çıkardı. Hepsi düzeltildi:
+
+- **Sahte tarayıcı kimliği API'leri kilitliyordu.** Yahoo 429 veriyor, FRED ve IMF isteği reddediyordu. API'lere artık dürüst bir kimlikle (`TurkiyeRadar/0.1`) gidiliyor; haber sayfaları ve RSS için tarayıcı kimliği korunuyor.
+- **Etki skoru doymuştu.** Tam metin geldikten sonra gövdedeki her kelime başlıktaki kadar sayılıyordu; bir tarım köşe yazısı 100 alıyordu. Başlık 0,6, gövde 0,15 ağırlıkla yeniden ayarlandı. 300 gerçek haberde 60 üstü 7 haber kaldı, en üstte İran-petrol ve Hürmüz haberleri.
+- **IMF ülke filtresini yok sayıyor**, 228 ülkeyi birden döndürüyor (121 KB). Sorun değil ama beklenmedik.
+- **Node vekil değişkenini okumuyor.** `--use-env-proxy` bayrağı eklendi.
+- Tam metin çıkarma: 40 haberin 40'ı başarılı (30 JSON-LD, 10 Readability).
 
 ## Gizlilik ve güvenlik
 
@@ -118,6 +128,7 @@ Yerelde erişilemeyen kaynaklar için kullanılan küresel alternatifler:
 - Başlık-içerik uyumu kelime örtüşmesine dayanır. Çok kısa ya da yalnızca meta açıklaması olan haberlerde ölçüm yapılmaz.
 - Google News linkleri yönlendirme sayfası olduğu için bu haberlerin tam metni çoğu zaman çıkmaz; RSS özeti kullanılır.
 - Yayın çizgisi etiketleri bir başlangıç önerisidir. Kendi değerlendirmene göre panelden değiştir.
+- GDELT bazı IP'lere 429 veriyor ve bağlantısı yavaş (10 saniyeyi aşabiliyor). Düşerse dünya basını akışı Google News ve BBC/DW/Al Jazeera RSS'lerinden gelmeye devam eder.
 - AFAD'ın POST uç noktası resmi olarak belgelenmiş bir API değil, sitenin kendi kullandığı adres; değişirse eski `apiv2` yedeğine düşülür.
 - DeepSeek'in yoğun/sakin saat pencereleri resmi dokümandan doğrulanamadı. `data/pricing.json` içindeki `offPeakUTC` değerini kontrol et.
 - Forex Factory takviminde TL olayları (TCMB PPK, TÜİK enflasyon) yok. Bunlar haber akışından ve EVDS'ten izleniyor.

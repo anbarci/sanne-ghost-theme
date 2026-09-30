@@ -31,10 +31,13 @@ const PLACE_KEYS = Object.keys(PLACES).map(p => [fold(p), PLACES[p]]);
 const count = (t, list) => list.reduce((n, w) => n + (t.includes(w) ? 1 : 0), 0);
 
 // moves: piyasa teyidi için son değişimler (% olarak): { brent, usdtry, vix, xu100 }
-export function impact(text, weights, moves = {}) {
-  const t = norm(text);
+// Başlık eşleşmesi 0,6, gövde eşleşmesi 0,15 sayılır (2026-09-30'da 300 gerçek haberle ayarlandı).
+// Gövdeyi başlıkla eşit saymak her ekonomi yazısını 100'e çıkarıyordu.
+export function impact(text, weights, moves = {}, body = '') {
+  const t = norm(text), b = body ? norm(body) : '';
+  const hits = list => count(t, list) * 0.6 + (b ? count(b, list) * 0.15 : 0);
   const ch = {};
-  for (const k of Object.keys(K)) ch[k] = Math.min(1, count(t, K[k]) / 2);
+  for (const k of Object.keys(K)) ch[k] = Math.min(1, hits(K[k]));
 
   // Piyasa gerçekten tepki verdiyse ilgili kanalı güçlendir; vermediyse metin tek başına yeterli sayılmaz.
   const boost = (x, full) => Math.min(0.5, Math.abs(x || 0) / full);
@@ -48,9 +51,9 @@ export function impact(text, weights, moves = {}) {
   const top3 = Object.values(weights).sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0);
   score = top3 ? Math.min(1, score / top3) : 0;
 
-  const sev = Math.min(1, count(t, SEVERE) / 2);
+  const sev = Math.min(1, hits(SEVERE));
   // Türkiye ile hiç bağı olmayan (hiçbir kanal tetiklenmeyen) haber sıfırda kalır.
-  const final = Math.round(Math.min(100, score * 100 * (0.75 + 0.5 * sev)));
+  const final = Math.round(Math.min(100, score * 100 * (0.8 + 0.3 * sev)));
   const channels = Object.entries(ch).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k]) => k);
   const place = PLACE_KEYS.find(([p]) => t.includes(' ' + p));
   return { score: final, channels, severity: sev, place: place ? place[1] : null };

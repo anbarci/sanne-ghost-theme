@@ -18,7 +18,7 @@ export const rss = {
     const status = {};
     const lists = await pool(feeds, 8, async f => {
       try {
-        const xml = await fetchx(f.url, { as: 'text', timeout: 10000, retries: 0 });
+        const xml = await fetchx(f.url, { as: 'text', timeout: 10000, retries: 0, browser: true });
         const items = parseFeed(xml, f).map(i => ({ ...i, cat: f.cat }));
         status[f.id] = items.length;
         return items;
@@ -32,10 +32,10 @@ export const rss = {
 
 // GDELT: dünya basınında Türkiye nasıl konuşuluyor? (100+ dil, anahtarsız)
 export const gdelt = {
-  id: 'gdelt', name: 'GDELT (dünya basını)', group: 'haber', ttlMin: 30,
+  id: 'gdelt', name: 'GDELT (dünya basını)', group: 'haber', ttlMin: 60, timeoutSec: 110,
   async run() {
     const q = encodeURIComponent('(Turkey OR Türkiye OR Erdogan OR "Turkish lira") sourcelang:english');
-    const j = await fetchx(`https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&format=json&maxrecords=75&timespan=12h&sort=datedesc`, { as: 'json', timeout: 20000 });
+    const j = await fetchx(`https://api.gdeltproject.org/api/v2/doc/doc?query=${q}&mode=artlist&format=json&maxrecords=75&timespan=12h&sort=datedesc`, { as: 'json', timeout: 35000, retryWait: 6000 });
     const items = (j.articles || []).map(a => ({
       id: hash(a.url), title: a.title, link: a.url, summary: '', lang: 'en', cat: 'dünya',
       ts: Date.parse(a.seendate?.replace(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z/, '$1-$2-$3T$4:$5:$6Z')) || Date.now(),
@@ -44,7 +44,8 @@ export const gdelt = {
     // Ton zaman serisi: dünya basınının Türkiye'ye bakışı olumlu mu olumsuz mu?
     let tone = null;
     try {
-      const t = await fetchx(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent('(Turkey OR Türkiye)')}&mode=timelinetone&format=json&timespan=7d`, { as: 'json', timeout: 20000 });
+      await new Promise(r => setTimeout(r, 5500)); // GDELT: 5 sn'de en fazla bir istek
+      const t = await fetchx(`https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent('(Turkey OR Türkiye)')}&mode=timelinetone&format=json&timespan=7d`, { as: 'json', timeout: 35000, retryWait: 6000 });
       tone = (t.timeline?.[0]?.data || []).map(p => [p.date, Math.round(p.value * 100) / 100]);
     } catch {}
     return { items, tone };

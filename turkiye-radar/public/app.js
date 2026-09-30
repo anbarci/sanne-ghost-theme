@@ -25,8 +25,8 @@ function renderTape(s) {
   const m = s.markets || {};
   const items = TAPE.filter(([k]) => m[k]).map(([k, label, d]) => {
     const x = m[k];
-    return `<div class="tick ${x.anomaly ? 'anomaly' : ''} ${dir(x.chg)}c" data-k="${k}" title="${esc([NOTE[k], x.anomaly ? `Olağandışı hareket: normal günlük oynaklık %${nf(x.vol)}` : ''].filter(Boolean).join(' '))}">
-      <div class="k"><span>${esc(label)}</span><span class="${dir(x.chg)}">${pct(x.chg)}</span></div>
+    return `<div class="tick ${x.anomaly ? 'anomaly' : ''} ${dir(x.chg)}c" data-k="${k}" title="${esc([NOTE[k], x.roll === 'şüpheli' ? 'Vadeli kontrat devri şüphesi: günlük değişim güvenilir değil.' : x.roll ? `Değişim ${x.roll} kontratından hesaplandı (devir düzeltmesi).` : '', x.anomaly ? `Olağandışı hareket: normal günlük oynaklık %${nf(x.vol)}` : ''].filter(Boolean).join(' '))}">
+      <div class="k"><span>${esc(label)}</span><span class="${x.roll === 'şüpheli' ? 'muted' : dir(x.chg)}">${x.roll === 'şüpheli' ? 'devir?' : pct(x.chg)}</span></div>
       <b>${nf(x.price, d)}</b>${spark(x.spark)}</div>`;
   });
   if (s.crypto?.BTCTRY) items.push(`<div class="tick"><div class="k"><span>BTC/TL</span><span class="${dir(s.crypto.BTCTRY.chg)}">${pct(s.crypto.BTCTRY.chg)}</span></div><b>${nf(s.crypto.BTCTRY.price, 0)}</b></div>`);

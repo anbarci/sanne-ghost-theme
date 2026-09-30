@@ -77,6 +77,7 @@ export const isMisleading = c => c.score !== null && (c.score < 20 || (c.bait &&
 
 // AI'a gönderilecek kısa öz: ilk 2 cümle, en fazla ~280 karakter.
 export function lead(body, max = 280) {
+  body = body.replace(/https?:\/\/\S+/g, '').replace(/\s{2,}/g, ' ').trim(); // bazı akışlar özet yerine link basıyor
   const s = body.replace(/\n/g, ' ').match(/[^.!?]+[.!?]+/g) || [body];
   let out = '';
   for (const x of s) { if ((out + x).length > max) break; out += x; }

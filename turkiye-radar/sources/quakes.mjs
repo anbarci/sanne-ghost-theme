@@ -13,7 +13,7 @@ async function afad() {
   try {
     const j = await fetchx('https://deprem.afad.gov.tr/EventData/GetEventsByFilter', {
       method: 'POST', as: 'json',
-      headers: { 'content-type': 'application/json', accept: 'application/json', origin: 'https://deprem.afad.gov.tr', referer: 'https://deprem.afad.gov.tr/last-earthquakes' },
+      browser: true, headers: { 'content-type': 'application/json', accept: 'application/json', origin: 'https://deprem.afad.gov.tr', referer: 'https://deprem.afad.gov.tr/last-earthquakes' },
       body: JSON.stringify({
         EventSearchFilterList: [{ FilterType: 9, Value: end.toISOString() }, { FilterType: 8, Value: start.toISOString() }],
         Skip: 0, Take: 300, SortDescriptor: { field: 'eventDate', dir: 'desc' },

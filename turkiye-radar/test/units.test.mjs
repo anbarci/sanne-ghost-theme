@@ -188,3 +188,35 @@ test('Günlük harcama İstanbul gününe göre toplanır', async () => {
   ];
   assert.deepEqual(spentToday(hist, now), { usd: 0.1, tokens: 160 });
 });
+
+// Aşağıdaki örnekler 2026-09-30'da canlı uçlardan alınan yanıtların kısaltılmış halidir.
+test('currency-api (gerçek biçim): kur, ons ve gümüş türetilir', async () => {
+  const { fromUsdRates } = await import('../sources/markets.mjs');
+  const cur = { date: '2026-09-29', usd: { try: 48.99546313, eur: 0.88022588, xau: 0.0002421835, xag: 0.016496894 } };
+  const prev = { date: '2026-09-28', usd: { try: 48.95, eur: 0.879, xau: 0.000238, xag: 0.0163 } };
+  const r = fromUsdRates(cur, prev);
+  assert.equal(r.USDTRY.price, 48.9955);
+  assert.equal(r.EURTRY.price, 55.6624);
+  assert.equal(Math.round(r.ONS.price), 4129);
+  assert.ok(r.ONS.chg < 0 && r.USDTRY.chg > 0);
+  assert.equal(r.USDTRY.src, 'currency-api');
+});
+
+test('İş Yatırım HisseTekil (gerçek biçim): hisse ve BIST 100', async () => {
+  const { fromIsYatirim } = await import('../sources/markets.mjs');
+  const row = (d, c, e) => ({ HGDG_HS_KODU: 'THYAO', HGDG_TARIH: d, HGDG_KAPANIS: c, END_ENDEKS_KODU: '01', END_DEGER: e, DD_DEGER: 48.8 });
+  const r = fromIsYatirim([row('26-09-2026', 290, 12800), row('29-09-2026', 293.5, 12592.76), row('30-09-2026', 298.1, 12290.58)], 'THYAO');
+  assert.equal(r.THYAO.price, 298.1);
+  assert.equal(r.XU100.price, 12290.58);
+  assert.equal(r.XU100.chg, -2.4); // haberdeki "dün 12.592,76 kapanış" ile tutarlı
+});
+
+test('Vadeli kontrat devri: sahte hareket yerine gerçek kontrat seçilir', async () => {
+  const { contractSymbols, pickContract } = await import('../sources/markets.mjs');
+  assert.deepEqual(contractSymbols('BZ', new Date('2026-09-30T12:00:00Z')), ['BZU26.NYM', 'BZV26.NYM', 'BZX26.NYM', 'BZZ26.NYM']);
+  assert.deepEqual(contractSymbols('TTF'), []);
+  // 2026-09-30 gerçek değerleri: BZ=F 96.33 (seri -%6,1), BZX26 102.76, BZZ26 96.33
+  const front = { price: 96.33, chg: -6.1 };
+  const hit = pickContract(front, [null, { sym: 'BZX26.NYM', price: 102.76 }, { sym: 'BZZ26.NYM', price: 96.33 }]);
+  assert.equal(hit.sym, 'BZZ26.NYM');
+});

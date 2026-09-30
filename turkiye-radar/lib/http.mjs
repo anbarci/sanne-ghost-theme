@@ -1,9 +1,12 @@
 // Tek fetch katmanı: zaman aşımı, boyut sınırı, tekrar deneme, kısa ömürlü önbellek.
-const UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36';
+// API'lere dürüst kimlikle gideriz: sahte Chrome kimliği Yahoo'da 429, FRED ve IMF'de ret getiriyordu
+// (tarayıcı gibi davranmayan "Chrome" bot sayılıyor). Haber sayfaları ve RSS için tarayıcı kimliği gerekir.
+const BOT_UA = 'TurkiyeRadar/0.1 (+self-hosted)';
+const BROWSER_UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128 Safari/537.36';
 const MAX_BYTES = 2_000_000;
 const cache = new Map(); // url -> { t, v }
 
-export async function fetchx(url, { timeout = 12000, retries = 1, headers = {}, method = 'GET', body, as = 'auto', ttl = 0, maxBytes = MAX_BYTES } = {}) {
+export async function fetchx(url, { timeout = 12000, retries = 1, retryWait = 0, headers = {}, method = 'GET', body, as = 'auto', ttl = 0, maxBytes = MAX_BYTES, browser = false } = {}) {
   const key = method === 'GET' && ttl ? url : null;
   if (key) {
     const hit = cache.get(key);
@@ -16,7 +19,7 @@ export async function fetchx(url, { timeout = 12000, retries = 1, headers = {}, 
     try {
       const res = await fetch(url, {
         method, body, signal: ac.signal, redirect: 'follow',
-        headers: { 'user-agent': UA, 'accept-language': 'tr-TR,tr;q=0.9,en;q=0.8', ...headers },
+        headers: { 'user-agent': browser ? BROWSER_UA : BOT_UA, 'accept-language': 'tr-TR,tr;q=0.9,en;q=0.8', ...headers },
       });
       if (!res.ok) {
         const err = new Error(`HTTP ${res.status} ${url}`);
@@ -34,7 +37,7 @@ export async function fetchx(url, { timeout = 12000, retries = 1, headers = {}, 
     } catch (e) {
       lastErr = e;
       if (e.status && !e.retry) break;
-      if (i < retries) await sleep(e.wait || 600 * 2 ** i);
+      if (i < retries) await sleep(Math.max(retryWait, e.wait || 600 * 2 ** i));
     } finally {
       clearTimeout(timer);
     }
