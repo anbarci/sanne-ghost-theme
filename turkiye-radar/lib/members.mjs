@@ -21,14 +21,15 @@ export const FEATURES = {
   web: 'Sohbette web araması',
   tara: '"Şimdi tara" düğmesi',
   sohbet: 'Günlük sohbet mesajı',
+  tartisma: 'Günlük hisse tartışması (boğa / ayı / hakem)',
   analizTetik: 'Günlük elle analiz başlatma',
   admin: 'Yönetim paneli',
 };
 export const DEFAULT_RANKS = {
-  temel: { ad: 'Temel', sira: 1, gundem: true, dunya: true, analizTam: false, trade: false, gecmis: false, portfoy: false, notlar: false, web: false, tara: false, sohbet: 0, analizTetik: 0, admin: false },
-  pro: { ad: 'Pro', sira: 2, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: false, sohbet: 30, analizTetik: 0, admin: false },
-  elit: { ad: 'Elit', sira: 3, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: true, sohbet: 150, analizTetik: 5, admin: false },
-  yonetici: { ad: 'Yönetici', sira: 4, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: true, sohbet: 100000, analizTetik: 100000, admin: true },
+  temel: { ad: 'Temel', sira: 1, gundem: true, dunya: true, analizTam: false, trade: false, gecmis: false, portfoy: false, notlar: false, web: false, tara: false, sohbet: 0, tartisma: 0, analizTetik: 0, admin: false },
+  pro: { ad: 'Pro', sira: 2, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: false, sohbet: 30, tartisma: 3, analizTetik: 0, admin: false },
+  elit: { ad: 'Elit', sira: 3, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: true, sohbet: 150, tartisma: 10, analizTetik: 5, admin: false },
+  yonetici: { ad: 'Yönetici', sira: 4, gundem: true, dunya: true, analizTam: true, trade: true, gecmis: true, portfoy: true, notlar: true, web: true, tara: true, sohbet: 100000, tartisma: 100000, analizTetik: 100000, admin: true },
 };
 export function ranks(settings = readJSON('settings.json', {})) {
   const out = {};
@@ -155,16 +156,24 @@ const trDay = t => new Date(t).toLocaleDateString('sv-SE', { timeZone: 'Europe/I
 export function usage(uid) {
   const u = readJSON('usage.json', {});
   const today = trDay(Date.now());
-  return u[uid]?.day === today ? u[uid] : { day: today, sohbet: 0, analizTetik: 0 };
+  return u[uid]?.day === today ? u[uid] : { day: today, sohbet: 0, analizTetik: 0, tartisma: 0 };
 }
 export function useQuota(user, kind) {
   const limit = user.rutbe[kind] || 0;
   const all = readJSON('usage.json', {});
   const cur = usage(user.id);
+  cur[kind] ||= 0;
   if (cur[kind] >= limit) return { ok: false, limit, used: cur[kind] };
   all[user.id] = { ...cur, [kind]: cur[kind] + 1 };
   writeJSON('usage.json', all);
   return { ok: true, limit, used: cur[kind] + 1 };
+}
+
+// Model çağrılmadan biten istekte (sağlayıcı yok, hisse yok, bütçe dolu) hak geri verilir.
+export function refundQuota(user, kind) {
+  const all = readJSON('usage.json', {});
+  const cur = usage(user.id);
+  if (cur[kind] > 0) { all[user.id] = { ...cur, [kind]: cur[kind] - 1 }; writeJSON('usage.json', all); }
 }
 
 // Yönetim işlemleri

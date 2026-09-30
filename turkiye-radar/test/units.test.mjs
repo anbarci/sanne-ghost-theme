@@ -241,6 +241,11 @@ test('Vadeli kontrat devri: sahte hareket yerine gerçek kontrat seçilir', asyn
   const front = { price: 96.33, chg: -6.1 };
   const hit = pickContract(front, [null, { sym: 'BZX26.NYM', price: 102.76 }, { sym: 'BZZ26.NYM', price: 96.33 }]);
   assert.equal(hit.sym, 'BZZ26.NYM');
+  // Aynı günün akşamı: seri -%4,73 (oynaklık %2,44) gösterdi; eski eşik (%4,88) kaçırıyordu.
+  const { needsRollCheck } = await import('../sources/markets.mjs');
+  assert.equal(needsRollCheck('BZ=F', { chg: -4.73, vol: 2.44 }), true);
+  assert.equal(needsRollCheck('BZ=F', { chg: 0.8, vol: 2.44 }), false);
+  assert.equal(needsRollCheck('USDTRY=X', { chg: -9, vol: 0.3 }), false);
 });
 
 test('BIST bedelsiz/bölünme düzeltmesi (KONTR 2025-12-01 gerçek değerleri)', async () => {
@@ -450,6 +455,8 @@ test('Canlı fiyat: spark ayrıştırma, gecikme, kontrat devrinde değişim kor
   assert.equal(q.YOK, undefined);
   const m = mergeLive({ USDTRY: { price: 48.9, chg: 0, vol: 0.1 }, ONS: { price: 4100, chg: 0, vol: 1 }, BRENT: { price: 90, chg: 1.2, roll: 'BZX26', vol: 2 }, GRAM_ALTIN: { derived: true } }, q);
   assert.equal(m.BRENT.chg, 1.2); // devir düzeltmeli değişim canlı veriyle ezilmez
+  const m2 = mergeLive({ BRENT: { price: 97.7, chg: -4.7, roll: 'şüpheli', vol: 2.4 } }, q);
+  assert.equal(m2.BRENT.chg, q.BRENT.chg, 'düzeltilemeyen devirde canlı değişim kullanılır');
   assert.equal(m.BRENT.price, 97.3);
   assert.equal(m.GRAM_ALTIN.price, Math.round(4221.6 * 49.01 / 31.1035 * 100) / 100);
   assert.equal(m.USDTRY.live, true);

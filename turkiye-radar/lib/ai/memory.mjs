@@ -21,6 +21,12 @@ export function statLessons(preds) {
     const common = wrongDir.sort((a, b) => wrongDir.filter(v => v === b).length - wrongDir.filter(v => v === a).length)[0];
     out.push(`${kod}: ${xs.length} tahminin ${hit}'i tuttu${hit / xs.length < 0.5 && common ? ` (tutmayanların çoğu "${common}" dediklerin)` : ''}`);
   }
+  // TL değer kaybı etkisi: nominalde tutan "yukarı" tahminlerinin kaçı dolar bazında kayıptı.
+  const upHits = done.filter(p => p.yon === 'yukari' && p.hit && p.chgUsd != null);
+  if (upHits.length >= 3) {
+    const lost = upHits.filter(p => p.chgUsd <= 0).length;
+    if (lost) out.push(`TL varlıklarda tutan ${upHits.length} "yukari" tahmininin ${lost}'i dolar bazında kayıptı: nominal artışı TL'nin değer kaybından ayır`);
+  }
   const high = done.filter(p => p.p >= 0.65);
   if (high.length >= 3) {
     const r = high.filter(p => p.hit).length / high.length;
@@ -32,6 +38,19 @@ export function statLessons(preds) {
       const real = done.filter(p => p.actual === yon).length / done.length;
       if (share >= 0.6 && share - real >= 0.25) out.push(`Tahminlerin %${pct(share)}'i "${yon}", gerçekleşen ise %${pct(real)}: yön yanlılığı var`);
     }
+  }
+  return out;
+}
+
+// Hafızaya giden ölçüm satırı: kararların endekse göre isabeti (model kullanılmaz, fiyatlardan hesaplanır).
+export function debateLessons(all = readJSON('debates.json', [])) {
+  const pc = x => `${x > 0 ? '+' : ''}${(x * 100).toLocaleString('tr-TR', { maximumFractionDigits: 1 })}%`;
+  const out = [];
+  for (const [ad, set] of [['AL/ARTIR', ['AL', 'ARTIR']], ['AZALT/SAT', ['AZALT', 'SAT']]]) {
+    const xs = all.filter(d => d.done && set.includes(d.karar));
+    if (xs.length < 3) continue;
+    const hit = xs.filter(d => d.hit).length, avg = xs.reduce((a, d) => a + d.alfa, 0) / xs.length;
+    out.push(`Hisse tartışmalarında ${ad} dediğin ${xs.length} kararın ${hit}'i endekse göre tuttu (ortalama alfa ${pc(avg)})`);
   }
   return out;
 }
@@ -115,5 +134,5 @@ export function pickLessons(context = '', now = Date.now(), dersler = loadMemory
 // Özete girecek satırlar: önce ölçülen (fiyatlardan), sonra kararlı ilkeler, sonra bağlama en ilgili dersler.
 export function memoryLines(context = '', preds = readJSON('predictions.json', [])) {
   const { stable, rest } = pickLessons(context);
-  return [...statLessons(preds).map(x => `ölçüm: ${x}`), ...stable.map(d => `ilke (${d.sayi} kez doğrulandı): ${d.text}`), ...rest.map(d => `ders: ${d.text}`)];
+  return [...statLessons(preds).map(x => `ölçüm: ${x}`), ...debateLessons().map(x => `ölçüm: ${x}`), ...stable.map(d => `ilke (${d.sayi} kez doğrulandı): ${d.text}`), ...rest.map(d => `ders: ${d.text}`)];
 }

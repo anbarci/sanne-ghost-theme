@@ -39,13 +39,15 @@ export async function liveQuotes() {
 }
 
 // Canlı fiyatları mevcut piyasa kaydına işler; oynaklık (vol) tam taramadan kalır, olağandışı bayrağı yeniden hesaplanır.
-// Vadeli kontratlarda devir şüphesi varsa (roll) günlük değişim üzerine yazılmaz.
+// Devir düzeltmesi yapılmış vadeli kontratta (roll = kontrat kodu) günlük değişim üzerine yazılmaz.
+// Düzeltme yapılamadıysa (roll = 'şüpheli') canlı değişim kullanılır: spark kontratın kendi önceki kapanışını
+// veriyor (2026-09-30 Brent: seri -%4,7, spark +%1,7, Aralık kontratının kendi geçmişi +%1,6).
 export function mergeLive(markets, live) {
   const m = { ...markets };
   for (const [k, q] of Object.entries(live || {})) {
     // Tam taramada alınamamış sembol: canlı fiyatla eklenir (oynaklık bilinmez, olağandışı bayrağı konmaz).
     const x = m[k] || { sym: CORE[k], src: 'yahoo-canlı', vol: null };
-    const chg = x.roll ? x.chg : q.chg;
+    const chg = x.roll && x.roll !== 'şüpheli' ? x.chg : q.chg;
     m[k] = { ...x, price: q.price, chg, time: q.time, delaySec: q.delaySec, live: true, anomaly: x.vol ? Math.abs(chg) > Math.max(1, 1.5 * x.vol) : false };
   }
   if (m.ONS && m.USDTRY && live?.ONS && live?.USDTRY) {

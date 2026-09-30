@@ -189,6 +189,7 @@ async function selectSymbol(kod) {
 }
 
 function renderDetail(kod, row, d) {
+  renderDebate(kod, row);
   if (!row) {
     const r = n => (d.c.length > n ? (d.c.at(-1) / d.c.at(-1 - n) - 1) * 100 : null);
     $('#c-detail').innerHTML = `<dl class="kv"><dt>1 ay</dt><dd>${chg(r(21))}</dd><dt>3 ay</dt><dd>${chg(r(63))}</dd><dt>1 yıl</dt><dd>${chg(r(252))}</dd><dt>RSI (14)</dt><dd>${nf(d.rsi.at(-1), 0)}</dd></dl>`;
@@ -209,6 +210,54 @@ function renderDetail(kod, row, d) {
       ${s.risk.length ? `<h3 class="more">Riskler</h3><ul class="bad">${s.risk.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}</div>
     <div><h3>Güncel haberler</h3><ul>${row.news?.titles?.map(n => `<li><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span class="muted small">${esc(n.src)}</span></li>`).join('') || '<li class="muted">Son 36 saatte anılmadı</li>'}</ul>
       ${notes.length ? `<p class="note">${notes.map(esc).join(' ')}</p>` : ''}</div>`;
+}
+
+
+// Boğa – ayı tartışması (TradingAgents akışından uyarlandı): boğa, ayı, hakem, risk gözden geçiricisi.
+const KARAR_CLS = { AL: 'al', ARTIR: 'al', AZALT: 'sat', SAT: 'sat' };
+const BOYUT = { yok: 'pozisyon yok', kucuk: 'küçük pozisyon', normal: 'normal pozisyon' };
+const paras = t => String(t || '').split(/\n+/).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('');
+function debateCard(d) {
+  const h = d.hakem || {}, rk = d.risk || {};
+  const sonuc = d.done ? `<p class="small">Sonuç: ${d.gun} günde ${chg(d.getiri * 100)}, endekse göre ${chg(d.alfa * 100)} · ${d.hit == null ? 'yönsüz karar' : d.hit ? 'tuttu' : 'tutmadı'}</p>` : `<p class="small muted">Vade ${d.vade} gün; dolunca endekse göre puanlanacak.</p>`;
+  return `<div class="deb">
+    <div class="inline"><span class="tag ${KARAR_CLS[d.karar] || ''}">${esc(d.karar)}</span><span class="small muted">${ago(d.at)} · güven ${esc(GUVEN[h.guven] || h.guven || '-')} · ${esc(BOYUT[rk.boyut] || rk.boyut || '-')}${d.hakemKarar && d.hakemKarar !== d.karar ? ` · hakem ${esc(d.hakemKarar)} dedi, risk temkinliye çekti` : ''}</span></div>
+    ${sonuc}
+    <p>${esc(h.gerekce)}</p>
+    ${h.adimlar?.length ? `<ul>${h.adimlar.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    <dl class="kv">${h.degistirir ? `<dt>Kararı değiştirir</dt><dd>${esc(h.degistirir)}</dd>` : ''}${rk.zarar_kes ? `<dt>Zarar kes</dt><dd>${esc(rk.zarar_kes)}</dd>` : ''}${rk.uyari ? `<dt>Risk uyarısı</dt><dd>${esc(rk.uyari)}</dd>` : ''}</dl>
+    <div class="povs two"><details class="pov bull"><summary><i class="dot"></i>Boğanın savunması</summary>${paras(d.boga)}</details><details class="pov bear"><summary><i class="dot"></i>Ayının savunması</summary>${paras(d.ayi)}</details></div>
+    ${d.unverified?.length ? `<p class="alert">Veride bulunamayan rakamlar: ${d.unverified.map(esc).join(', ')}. Bunlara güvenmeyin.</p>` : ''}
+    <p class="note">${esc(d.provider)} · ${esc(d.model)}${d.cost != null ? ` · $${d.cost.toFixed(4)}` : ''}. Model çıktısıdır, yatırım tavsiyesi değildir.</p>
+  </div>`;
+}
+function paintDebate(kod, r, busy = false) {
+  const box = $('#c-debate');
+  const left = Math.max(0, (r.limit || 0) - (r.usage?.tartisma || 0));
+  const last = r.list?.[0];
+  box.innerHTML = `<div class="deb-head"><h3>Boğa – ayı tartışması</h3>
+      <button type="button" class="btn sm" id="deb-run" ${left && !busy ? '' : 'disabled'}>${busy ? 'Tartışılıyor…' : 'Tartıştır'}</button>
+      <span class="small muted">${r.limit ? `Bugün kalan hak: ${left}` : 'Üyeliğinde tartışma hakkı yok'}</span></div>
+    <p class="small muted">Boğa ve ayı bu hissenin radardaki verisiyle karşılıklı savunma yapar; hakem 5 basamaklı karar verir (AL, ARTIR, TUT, AZALT, SAT), risk gözden geçiricisi kararı yalnızca temkinliye çekebilir. Vade dolunca karar endekse göre puanlanır.</p>
+    ${busy ? '<div class="skel" aria-label="Tartışma sürüyor"><i></i><i></i><i></i></div><p class="small muted">Dört model çağrısı sırayla yapılıyor; genelde 30-90 saniye sürer.</p>' : ''}
+    ${last ? debateCard(last) : busy ? '' : '<p class="empty">Bu hisse için henüz tartışma yok.</p>'}
+    ${r.gecmis?.length > 1 ? `<h3 class="more">Önceki kararlar</h3><ul class="small">${r.gecmis.slice(1).map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
+  $('#deb-run')?.addEventListener('click', async () => {
+    paintDebate(kod, r, true);
+    const d = await api('/api/debate', { kod, m: ui.market });
+    if (d.error) { toast(d.error, 6000); paintDebate(kod, r); return; }
+    if (ui.sel !== kod) return;
+    renderDebate(kod, true);
+  });
+}
+async function renderDebate(kod, row) {
+  const box = $('#c-debate');
+  if (!row || !can('trade')) { box.hidden = true; return; }
+  box.hidden = false;
+  const r = await api(`/api/debate?kod=${encodeURIComponent(kod)}`);
+  if (ui.sel !== kod) return;
+  if (r.error) { box.innerHTML = `<p class="small muted">${esc(r.error)}</p>`; return; }
+  paintDebate(kod, r);
 }
 
 // Yapay zeka

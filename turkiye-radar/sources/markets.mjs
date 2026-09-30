@@ -29,7 +29,7 @@ async function chart(sym) {
   try {
     const f = await yahoo(sym);
     const s = stats(sym, f.closes, f.price, f.time, 'yahoo');
-    return sym.endsWith('=F') && Math.abs(s.chg) > Math.max(2, 2 * s.vol) ? fixRoll(sym, s) : s;
+    return needsRollCheck(sym, s) ? fixRoll(sym, s) : s;
   } catch (e) {
     if (!STOOQ[sym]) throw e;
     return stooq(sym);
@@ -39,6 +39,9 @@ async function chart(sym) {
 // Vadeli "=F" serisi vade dolunca bir sonraki kontrata geçer; eski kontratın kapanışıyla yenisinin fiyatı
 // arasındaki fark sahte bir hareket gibi görünür (2026-09-30: Brent gerçekte +%0,2 iken seri -%6,1 gösterdi).
 // Fiyatı eşleşen gerçek kontratı bulup değişimi onun kendi geçmişinden hesaplarız.
+// Eşik bilerek düşük: 2026-09-30 akşamı Brent devri -%4,73 göründü, eski eşik (2 × oynaklık = %4,9) kaçırdı.
+// Gerçek büyük hareketlerde de kontrat kendi geçmişiyle aynı değişimi verir; bedeli yalnızca birkaç ek istek.
+export const needsRollCheck = (sym, s) => sym.endsWith('=F') && Math.abs(s.chg) > Math.max(1.5, 1.5 * (s.vol || 0));
 const FUT_EX = { BZ: 'NYM', CL: 'NYM', NG: 'NYM', GC: 'CMX', SI: 'CMX' };
 const MONTHS = 'FGHJKMNQUVXZ';
 export function contractSymbols(root, now = new Date()) {

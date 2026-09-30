@@ -183,6 +183,15 @@ h3 { font-size: .92rem; }
 /* AI */
 .lead-sum { font-size: 1.08rem; line-height: 1.5; font-weight: 500; margin-bottom: 14px; }
 .povs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.debate { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 10px; }
+.deb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.deb { display: grid; gap: 10px; }
+.deb ul { list-style: none; display: grid; gap: 5px; font-size: .86rem; }
+.deb li::before { content: "·"; color: var(--muted); margin-right: 6px; }
+.deb .kv { grid-template-columns: max-content minmax(0, 1fr); }
+.deb .kv dd { font-family: var(--font); text-align: left; }
+.deb details summary { cursor: pointer; font-weight: 600; font-size: .86rem; }
+.deb details p { margin-top: 8px; font-size: .86rem; }
 .pov { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px; }
 .pov h3 { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .pov h3 .num { font-size: .8rem; color: var(--muted); }

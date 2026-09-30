@@ -206,6 +206,23 @@ Tema eklemek için `data/themes.json` dosyasına aynı biçimde bir kayıt eklem
 - Yahoo'nun boş bıraktığı günler ve seans içi kısmi bar işaretlenir; hacim oranı kısmi günden hesaplanmaz.
 - AI yanıtındaki rakamlar veri özetinde aranır; bulunamayanlar "doğrulanamayan rakam" olarak gösterilir.
 
+## Boğa – ayı tartışması
+
+Trade sekmesinde bir hisse seçince grafiğin altında **Tartıştır** düğmesi çıkar. Akış [TradingAgents](https://github.com/TauricResearch/TradingAgents)'ın boğa/ayı + yönetici + risk yapısından uyarlandı:
+
+1. **Boğa** hisseyi savunur, **ayı** boğaya cevap vererek karşı tezi kurar.
+2. **Hakem** ikisini tartıp 5 basamaklı karar verir: AL, ARTIR, TUT, AZALT, SAT. Kuralı: "çelişki var" diye TUT denmez; güçlü taraf seçilir, ama kararlı görünmek için yön de uydurulmaz.
+3. **Risk gözden geçiricisi** kararı yalnızca temkinliye çekebilir. Hakemden iyimser bir karar yazarsa hakemin kararı geçerli olur.
+4. Model kararı okunamazsa sonuç TUT değil **İNCELE** olur ve karneye girmez.
+
+TradingAgents'tan farklı olarak dört ayrı "analist" çağrısı yok: radarın elindeki veri (tarayıcı satırı, skor gerekçeleri, strateji karnesi, gündem, haberler, piyasa) doğrudan veri sayfası olarak verilir. Tartışma bu yüzden 4 model çağrısıdır (TradingAgents'ta varsayılan ayarla en az 12: 4 analist, boğa, ayı, araştırma yöneticisi, trader, 3 risk analisti, portföy yöneticisi). Modelin yazdığı ve veri sayfasında olmayan rakamlar ayrıca işaretlenir.
+
+**Karne:** Vade (5-30 gün) dolunca karar endekse göre ölçülür (BIST 100, S&P 500, Euro Stoxx 50). AL/ARTIR endeksi geçerse, AZALT/SAT geride kalırsa tutmuş sayılır. Aynı hisse yeniden tartışılınca eski kararlar ve sonuçları hakemin önüne gelir; toplu isabet de hafızaya "ölçüm" satırı olarak girer.
+
+Günlük tartışma hakkı rütbeye bağlıdır (varsayılan: Pro 3, Elit 10). Çağrılar günlük yapay zekâ bütçesine sayılır.
+
+**TL etkisi:** TL ile fiyatlanan varlıklarda (BIST 100, gram altın, BTC/TL) analiz tahminlerinin dolar bazındaki sonucu da saklanır. Nominalde tutan "yukarı" tahminlerinin çoğu dolar bazında kayıpsa hafızaya bunu söyleyen bir satır girer.
+
 ## Kurulum
 
 **En kolay yol:** [Node.js](https://nodejs.org) 22.21 veya üstünü kur (LTS sürümü yeterli). Sonra klasördeki başlatma dosyasına çift tıkla:
@@ -351,6 +368,7 @@ Demo verisiyle geçen testler gerçek veride şu hataları ortaya çıkardı. He
 - **Etki skoru doymuştu.** Tam metin geldikten sonra gövdedeki her kelime başlıktaki kadar sayılıyordu; bir tarım köşe yazısı 100 alıyordu. Başlık 0,6, gövde 0,15 ağırlıkla yeniden ayarlandı. 300 gerçek haberde 60 üstü 7 haber kaldı, en üstte İran-petrol ve Hürmüz haberleri.
 - **IMF ülke filtresini yok sayıyor**, 228 ülkeyi birden döndürüyor (121 KB). Sorun değil ama beklenmedik.
 - **Node vekil değişkenini okumuyor.** `--use-env-proxy` bayrağı eklendi.
+- **Brent kontrat devri kaçtı (2026-09-30 akşamı).** Yahoo'nun `BZ=F` serisi Kasım kontratından Aralık'a geçti; seri -%4,73 gösterdi, Aralık kontratının kendi geçmişi +%1,6 idi. Devir dedektörünün eşiği (2 × oynaklık = %4,88) bunu kaçırdı ve gündem modülü "petrol düştü → havayolu lehine" diye yanlış sinyal üretti. Eşik 1,5 × oynaklığa indi; düzeltme yapılamazsa (Yahoo 429) canlı fiyatın kendi önceki kapanışına göre değişimi kullanılıyor ve gündem teması üretilmiyor.
 - Tam metin çıkarma: 40 haberin 40'ı başarılı (30 JSON-LD, 10 Readability).
 
 ## Gizlilik ve güvenlik
@@ -406,7 +424,8 @@ Aşağıdakiler **geliştirme sırasında kullanıldı, repoya eklenmedi**:
 
 - RSS listesinin çıkış noktası: [bakinazik/rss](https://github.com/bakinazik/rss). Oradaki adresler kullanıldı; tasarım kodu kopyalanmadı, çünkü repoda lisans yok.
 - Fikir: [Crucix](https://github.com/calesthio/Crucix)
-- Olağandışı hareket eşiği fikri: [PanWatch](https://github.com/TNT-Likely/PanWatch)
+- Olağandışı hareket eşiği fikri ve "TradingAgents'ı DeepSeek ile ucuza çalıştırma" örneği: [PanWatch](https://github.com/TNT-Likely/PanWatch) (MIT)
+- Boğa/ayı tartışması, 5 basamaklı karar, okunamayan kararın İNCELE sayılması ve karar sonucunun endekse göre ölçülmesi: [TradingAgents](https://github.com/TauricResearch/TradingAgents) (Apache 2.0; kod alınmadı, akış ve kurallar uyarlandı)
 - Temettü düzeltmesi, IC ölçümü ve rakam doğrulama fikirleri: [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (MIT)
 - Pano yerleşimi için görsel referans: [sc-datav](https://github.com/knight-L/sc-datav)
 - `__NEXT_DATA__` gibi gömülü içerik fikri: [webclaw](https://github.com/0xMassi/webclaw) (AGPL; kod alınmadı)

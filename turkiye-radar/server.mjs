@@ -8,7 +8,8 @@ import * as M from './lib/members.mjs';
 import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
 import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA, normalizeResult } from './lib/ai/analyze.mjs';
 import { chat, loadChat, clearChat } from './lib/ai/chat.mjs';
-import { loadMemory, deleteLesson, statLessons, addNote, deleteNote, myNotes } from './lib/ai/memory.mjs';
+import { debate, scoreDebates, pastLines } from './lib/ai/debate.mjs';
+import { loadMemory, deleteLesson, statLessons, debateLessons, addNote, deleteNote, myNotes } from './lib/ai/memory.mjs';
 import { toc, loadArchive } from './lib/ai/memtree.mjs';
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
@@ -66,6 +67,7 @@ async function cycle({ force = false, forceAI = false } = {}) {
   try {
     const snap = await sweep({ force });
     scorePredictions(snap);
+    scoreDebates(snap);
     const settings = loadSettings();
     let analysis = null;
     status.analyzing = true; broadcast({ type: 'status', status });
@@ -345,6 +347,20 @@ const server = createServer(async (req, res) => {
         catch (e) { return send(res, 200, { error: e.message }); }
         finally { status.analyzing = false; broadcast({ type: 'status', status }); }
       }
+      // Hisse tartışması (boğa / ayı / hakem / risk). Trade yetkisi ve günlük tartışma hakkı gerekir.
+      if (path.startsWith('/api/debate') && !R.trade) return deny('trade');
+      if (path === '/api/debate' && req.method === 'GET') {
+        const kod = String(url.searchParams.get('kod') || '').toUpperCase();
+        const list = readJSON('debates.json', []).filter(d => d.kod === kod).slice(0, 5).map(({ uid, ...d }) => d);
+        return send(res, 200, { list, gecmis: pastLines(kod), usage: M.usage(user.id), limit: R.tartisma || 0 });
+      }
+      if (path === '/api/debate' && req.method === 'POST') {
+        if (!R.tartisma) return deny('tartisma');
+        const q = M.useQuota(user, 'tartisma');
+        if (!q.ok) return send(res, 200, { error: `Günlük tartışma hakkın doldu (${q.limit}). Yarın yenilenir ya da üyeliğini yükselt.` });
+        try { const { uid, ...d } = await debate(body.kod, loadSettings(), { market: body.m, uid: user.id }); return send(res, 200, d); }
+        catch (e) { if (e.early) M.refundQuota(user, 'tartisma'); return send(res, 200, { error: e.message }); }
+      }
       if (path.startsWith('/api/chat') && !R.sohbet) return deny('sohbet');
       if (path === '/api/chat' && req.method === 'GET') return send(res, 200, { turns: loadChat(url.searchParams.get('at'), user.id), usage: M.usage(user.id), limit: R.sohbet });
       if (path === '/api/chat' && req.method === 'POST') {
@@ -355,7 +371,7 @@ const server = createServer(async (req, res) => {
         catch (e) { return send(res, 200, { error: e.message }); }
       }
       if (path === '/api/chat/clear' && req.method === 'POST') { clearChat(body.at, user.id); return send(res, 200, { ok: true }); }
-      if (path === '/api/memory' && req.method === 'GET') { const m = loadMemory(); return send(res, 200, { dersler: m.dersler, notlar: R.notlar ? myNotes(user.id) : [], olcum: statLessons(readJSON('predictions.json', [])), agac: R.gecmis ? toc() : '', arsiv: loadArchive().length, notlarAcik: R.notlar, yonetici: R.admin }); }
+      if (path === '/api/memory' && req.method === 'GET') { const m = loadMemory(); return send(res, 200, { dersler: m.dersler, notlar: R.notlar ? myNotes(user.id) : [], olcum: [...statLessons(readJSON('predictions.json', [])), ...debateLessons()], agac: R.gecmis ? toc() : '', arsiv: loadArchive().length, notlarAcik: R.notlar, yonetici: R.admin }); }
       if (path.startsWith('/api/memory/note') && !R.notlar) return deny('notlar');
       if (path === '/api/memory/note' && req.method === 'POST') return send(res, 200, { ok: addNote(body.text, user.id) });
       if (path === '/api/memory/note/delete' && req.method === 'POST') { deleteNote(+body.at, user.id); return send(res, 200, { ok: true }); }

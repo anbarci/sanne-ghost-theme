@@ -235,8 +235,8 @@ export function unverifiedNumbers(text, source) {
   return [...bad].slice(0, 12);
 }
 
-// Günlük bütçe analizler ve sohbet mesajları için ortaktır.
-export const spendLog = () => [...readJSON('analyses.json', []), ...Object.values(readJSON('chats.json', {})).flatMap(c => c.turns || []).filter(t => t.usage)];
+// Günlük bütçe analizler, hisse tartışmaları ve sohbet mesajları için ortaktır.
+export const spendLog = () => [...readJSON('analyses.json', []), ...readJSON('debates.json', []), ...Object.values(readJSON('chats.json', {})).flatMap(c => c.turns || []).filter(t => t.usage)];
 
 export function activeProvider(settings) {
   const p = settings.providers.find(x => x.id === settings.activeProvider) || settings.providers[0];
@@ -297,13 +297,18 @@ function provenance(snap, digest) {
 
 const priceOf = (snap, kod) => (kod === 'BTCTRY' ? snap.crypto?.BTCTRY?.price : snap.markets?.[kod]?.price);
 
+// TL ile fiyatlanan varlıklarda nominal artışın bir kısmı TL'nin değer kaybıdır. Dolar bazındaki değişim de
+// saklanır: "yukarı" tahmini nominalde tutup dolar bazında kaybettirdiyse karne bunu ayrıca gösterir.
+export const TL_ASSETS = ['XU100', 'GRAM_ALTIN', 'BTCTRY'];
+
 function recordPredictions(entry, snap) {
   const preds = readJSON('predictions.json', []);
+  const usd = snap.markets?.USDTRY?.price;
   for (const v of entry.result.varliklar || []) {
     const base = priceOf(snap, v.kod);
     if (!base) continue;
     const days = Math.min(30, Math.max(1, v.vade_gun | 0));
-    preds.push({ id: `${entry.at}-${v.kod}`, at: entry.at, due: entry.at + days * 864e5, kod: v.kod, yon: v.yon, p: Math.min(100, Math.max(0, v.olasilik)) / 100, base, model: entry.model, provider: entry.provider });
+    preds.push({ id: `${entry.at}-${v.kod}`, at: entry.at, due: entry.at + days * 864e5, kod: v.kod, yon: v.yon, p: Math.min(100, Math.max(0, v.olasilik)) / 100, base, ...(TL_ASSETS.includes(v.kod) && usd ? { usd } : {}), model: entry.model, provider: entry.provider });
   }
   writeJSON('predictions.json', preds.slice(-2000));
 }
@@ -318,6 +323,8 @@ export function scorePredictions(snap) {
     const chg = (now / x.base - 1) * 100;
     const actual = chg > 0.5 ? 'yukari' : chg < -0.5 ? 'asagi' : 'yatay';
     x.done = true; x.actual = actual; x.chg = Math.round(chg * 100) / 100;
+    const usdNow = snap.markets?.USDTRY?.price;
+    if (x.usd && usdNow) x.chgUsd = Math.round(((now / usdNow) / (x.base / x.usd) - 1) * 1e4) / 100;
     x.hit = actual === x.yon;
     x.brier = (x.p - (x.hit ? 1 : 0)) ** 2; // 0 = kusursuz, 0.25 = yazı-tura, 1 = tamamen yanlış ve emin
     changed = true;
