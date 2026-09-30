@@ -100,6 +100,27 @@ docker run -d --name tooljet --restart unless-stopped -p 8080:80 -v tooljet_data
 ```
 http://localhost:8080 → yeni uygulama → veri kaynağı olarak **REST API**: temel adres `http://host.docker.internal:3120/api/v1`, başlık `Authorization: Bearer <anahtar>`. Sonra bir tablo ya da grafik bileşenine `piyasa`, `tarayici?piyasa=tr` gibi sorguları bağla. ToolJet sorguları kendi sunucusundan yaptığı için tarayıcı izin (CORS) ayarı gerekmez. Not: `tooljet/try` imajı Enterprise deneme sürümüdür; tamamen açık kaynak topluluk sürümü için ToolJet'in Docker kurulum belgesindeki CE imajını kullan. Radar sunucusunu internete açma; anahtar sızarsa Üyelik sayfasından sil.
 
+## Obsidian kasasına aktarma
+
+Radarın hafızası (tüm analizler, tahminlerin gerçek sonuçları, dersler, gündem temaları) bir [Obsidian](https://obsidian.md) kasasına bağlantılı Markdown notları olarak yazılabilir. Biçim [claude-obsidian](https://github.com/AgriciDaniel/claude-obsidian) ile uyumludur: YAML ön bilgi (`type`, `title`, `status`, `created`, `updated`, `tags`), notlar `wiki/` altında, `[[bağlantı]]` ile örülü. Böylece claude-obsidian'ın sorgu ve bakım becerileri radar notları üzerinde de çalışır.
+
+```bash
+npm run obsidian -- ~/Documents/KasaAdi
+```
+
+Ne yazılır (yalnızca `<kasa>/wiki/radar/` altına):
+
+| Not | İçerik |
+|---|---|
+| `Radar.md` | Dizin: son analiz, varlıklar, temalar, günler |
+| `analizler/2026-09-30-0855.md` (`type: source`) | Özet, senaryo, tahminler ve **gerçek sonuçları**, fikirler, eylem planı, ders, o anki fiyatlar, dayandığı haberler (bağlantı ve teyit durumuyla) |
+| `varliklar/USDTRY.md` (`type: entity`) | Son fiyat, tüm tahminler ve isabet oranı |
+| `temalar/tema-petrol.md` (`type: concept`) | Tema kuralı, bugün aktif mi, kanıt haberleri, etkilediği hisseler |
+| `Dersler.md` | Pekişme sayısıyla dersler; kararlı ilkeler işaretli |
+| `gunler/radar-2026-09-30.md` | O günün analizleri |
+
+Obsidian'ın grafik görünümünde analiz → varlık → tema → hisse ağı görünür. Radarın ürettiği dosyalar `generated_by: turkiye-radar` taşır; her aktarımda yalnızca bunlar yeniden yazılır ya da silinir, aynı klasöre koyduğun kendi notlarına dokunulmaz (yine de kendi notlarını başka bir klasörde tutman önerilir). Gün ve tema notlarında `radar-`/`tema-` ön eki, kendi günlük notlarınla ad çakışmasın diye var. Her analizden sonra kendiliğinden aktarmak için sunucuyu `RADAR_OBSIDIAN_DIR=~/Documents/KasaAdi npm start` ile başlat (güvenlik için bu yol web panelinden verilemez). Aktarım tamamen yereldir; ağa bir şey gönderilmez. Kişisel notlar ve portföy aktarılmaz.
+
 ## Görünümler
 
 Üstteki sekmelerle, 1-5 tuşlarıyla ya da **Ctrl+K komut paletiyle** geçilir (paletten hisse adı yazıp grafiğe, komut yazıp taramaya da gidilir). Sohbet her sayfada sağ alttaki düğmeden ya da C tuşuyla açılan çekmecededir. Gündem'in üstünde dört temel gösterge (kıvılcım grafikli, gecikmesiyle), senaryo dengesi çubuğu ve durum sayaçları (olağandışı hareket, yüksek etkili haber, geçmeyen kontrol) vardır; analiz kartı sekmelidir (Bakış açıları / Ne yapmalı / Beklentiler ve fikirler). Adres çubuğu görünümü tutar, yer imi olarak kaydedilebilir.

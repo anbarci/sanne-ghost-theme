@@ -13,7 +13,8 @@
     "sweep": "node --use-env-proxy --disable-warning=UNDICI-EHPA scripts/sweep-once.mjs",
     "build:map": "node scripts/build-map.mjs",
     "test": "node --test test/*.test.mjs",
-    "sifre": "node scripts/sifre.mjs"
+    "sifre": "node scripts/sifre.mjs",
+    "obsidian": "node scripts/obsidian.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

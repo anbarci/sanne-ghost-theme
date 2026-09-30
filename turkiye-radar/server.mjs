@@ -17,6 +17,7 @@ import { yahooDaily, loadUniverse, MARKETS } from './sources/bist.mjs';
 import { CORE } from './sources/markets.mjs';
 import { sma, rsi } from './lib/ta.mjs';
 import { checkKey } from './lib/keycheck.mjs';
+import { exportVault } from './lib/obsidian.mjs';
 
 // .env dosyası varsa yükle (dotenv bağımlılığı olmadan).
 try {
@@ -75,6 +76,8 @@ async function cycle({ force = false, forceAI = false } = {}) {
     try {
       analysis = await analyze(snap, settings, { force: forceAI || due });
       status.lastAnalysisNote = analysis.skipped || null;
+      // İsteğe bağlı: her yeni analizden sonra Obsidian kasasına aktar (yalnızca ortam değişkeniyle; web'den yol verilemez).
+      if (analysis?.result && process.env.RADAR_OBSIDIAN_DIR) { try { exportVault(process.env.RADAR_OBSIDIAN_DIR); } catch (e) { console.error('[obsidian]', e.message); } }
     } catch (e) { status.lastAnalysisNote = `Analiz hatası: ${e.message}`; }
     status.analyzing = false;
     await dispatchAlerts(snap, settings, analysis?.result ? analysis : null);

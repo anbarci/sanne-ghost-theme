@@ -541,3 +541,27 @@ test('API anahtarı: yalnızca özet saklanır, doğru anahtar üyeyi salt okunu
   M.deleteToken(u.id, tok.split('_')[1]);
   assert.equal(M.currentUser({ headers: { authorization: `Bearer ${tok}` } }), null);
 });
+
+test('Obsidian aktarımı: ön bilgi, bağlantılar, tahmin sonucu; kullanıcı notlarına dokunulmaz, eski üretilen not silinir', async () => {
+  const { exportVault } = await import('../lib/obsidian.mjs');
+  const { writeJSON } = await import('../lib/store.mjs');
+  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const at = Date.UTC(2026, 8, 29, 9);
+  writeJSON('archive.json', [{ at, provider: 'DeepSeek', model: 'deepseek-flash', ozet: 'Kur baskısı sürüyor', tarafsiz: 't', kotumser: 40, iyimser: 20, varliklar: [{ kod: 'USDTRY', yon: 'yukari', olasilik: 60, vade_gun: 7 }], fikirler: [], eylem: [], ders: 'Kurda aşağı tahmini dikkatli ver', haberler: ['Başlık [AA]'], fiyat: { USDTRY: 48.9 } }]);
+  writeJSON('predictions.json', [{ id: `${at}-USDTRY`, at, kod: 'USDTRY', yon: 'yukari', p: 0.6, done: true, hit: true, chg: 0.8 }]);
+  const vault = mkdtempSync(join((await import('node:os')).tmpdir(), 'vault-'));
+  mkdirSync(join(vault, 'wiki', 'radar', 'analizler'), { recursive: true });
+  writeFileSync(join(vault, 'wiki', 'radar', 'benim-notum.md'), '# kendi notum');
+  writeFileSync(join(vault, 'wiki', 'radar', 'analizler', 'eski.md'), '---\ngenerated_by: turkiye-radar\n---\n');
+  const r = exportVault(vault, { now: at });
+  const a = readFileSync(join(r.dir, 'analizler', '2026-09-29-1200.md'), 'utf8');
+  assert.match(a, /^---\ntype: source\ntitle: "Analiz 2026-09-29 12:00"/);
+  assert.match(a, /\| \[\[USDTRY\]\] \| yukarı \| %60 \| 7 gün \| tuttu \(0,8%\) \|/);
+  assert.match(a, /\[\[radar-2026-09-29\|2026-09-29\]\]/);
+  assert.match(readFileSync(join(r.dir, 'varliklar', 'USDTRY.md'), 'utf8'), /1 tahminin \*\*1\*\*'i tuttu/);
+  assert.ok(existsSync(join(r.dir, 'temalar', 'tema-petrol.md')));
+  assert.ok(existsSync(join(r.dir, 'benim-notum.md')), 'kullanıcının notu kalmalı');
+  assert.ok(!existsSync(join(r.dir, 'analizler', 'eski.md')), 'eski üretilen not silinmeli');
+  assert.equal(r.removed, 1);
+});
