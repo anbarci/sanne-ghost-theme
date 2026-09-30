@@ -18,6 +18,15 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 
 ## Kurulum
 
+**En kolay yol:** [Node.js](https://nodejs.org) 22.21 veya üstünü kur (LTS sürümü yeterli). Sonra klasördeki başlatma dosyasına çift tıkla:
+
+- Windows: `baslat.bat`
+- Mac / Linux: `baslat.sh` (Terminal'de `./baslat.sh`)
+
+İlk açılışta bağımlılıklar kurulur ve tarayıcıda yönetim sayfası açılır. Konsolda yazan **kurulum anahtarı** ile şifreni belirle. Sonraki açılışlarda sadece şifre sorulur.
+
+Elle kurmak istersen:
+
 Node.js 22.21 veya üstü gerekir. `npm start`, kurumsal ağlarda `HTTPS_PROXY` değişkenine uyması için Node'u `--use-env-proxy` bayrağıyla başlatır (Node'un yerleşik `fetch`'i bu değişkeni kendiliğinden okumaz).
 
 ```bash
