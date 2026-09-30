@@ -90,7 +90,7 @@ function schedule() {
   }, 60e3);
 }
 
-const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'sources', 'telegram'];
+const SETTABLE = ['intervalMin', 'aiIntervalMin', 'aiMinDelta', 'aiDailyUSD', 'aiDailyTokens', 'weights', 'watchlist', 'evdsSeries', 'fetchArticles', 'verifyTop', 'searxngUrl', 'sources', 'telegram'];
 
 async function admin(req, res, path, body) {
   const s = loadSettings();
@@ -101,6 +101,7 @@ async function admin(req, res, path, body) {
       for (const k of SETTABLE) if (k in body) s[k] = body[k];
       s.intervalMin = Math.max(5, +s.intervalMin || 15);
       s.verifyTop = Math.min(40, Math.max(0, +s.verifyTop || 0));
+      s.searxngUrl = /^https?:\/\/[^\s]+$/.test(s.searxngUrl || '') ? s.searxngUrl : '';
       s.watchlist = (s.watchlist || []).map(x => String(x).trim().toUpperCase()).filter(x => /^[A-Z0-9.^=-]{1,15}$/.test(x)).slice(0, 30);
       saveSettings(s); schedule();
       return send(res, 200, { ok: true });
@@ -211,7 +212,7 @@ const server = createServer(async (req, res) => {
         return send(res, 200, { snap, analysis: analyses[0] || null, status, score: scorecard() });
       }
       if (path === '/api/chart') return send(res, 200, await chartData(url.searchParams.get('sym') || 'XU100'));
-      if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, hash, ...m }) => ({ ...m, ozet: result?.ozet, guven: result?.guven, kotumser: result?.kotumser?.olasilik, iyimser: result?.iyimser?.olasilik })));
+      if (path === '/api/analyses') return send(res, 200, readJSON('analyses.json', []).map(({ result, hash, provenance, ...m }) => ({ ...m, ozet: result?.ozet, guven: result?.guven, kotumser: result?.kotumser?.olasilik, iyimser: result?.iyimser?.olasilik })));
       if (path === '/api/analysis') {
         const at = +url.searchParams.get('at');
         const a = readJSON('analyses.json', []).find(x => x.at === at);

@@ -61,6 +61,7 @@ const DEFAULTS = {
   watchlist: ['THYAO.IS', 'ASELS.IS', 'TUPRS.IS', 'BIMAS.IS', 'KCHOL.IS', 'GARAN.IS'],
   evdsSeries: ['TP.DK.USD.A.YTL', 'TP.DK.EUR.A.YTL', 'TP.FG.J0'],
   fetchArticles: 40,       // her taramada tam metni çekilecek en fazla haber
+  searxngUrl: '',          // örn. http://127.0.0.1:8888 (JSON çıktısı açık kendi SearXNG'n); boşsa Google News RSS
   verifyTop: 12,           // Google News aramasıyla çapraz teyit edilecek en önemli haber sayısı (0 = kapalı)
   telegram: { enabled: false, chatId: '' },
   secrets: {},

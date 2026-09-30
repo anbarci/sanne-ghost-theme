@@ -210,10 +210,23 @@ export async function analyze(snap, settings, { force = false } = {}) {
   const r = await complete(p, p.key, SYSTEM, `VERİ ÖZETİ (${new Date(snap.at).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' })}):\n${digest}`, SCHEMA);
   const result = parseJSON(r.text);
   result.dogrulanamayan = verifyNumbers(result, digest);
-  const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result };
+  const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result, provenance: provenance(snap, digest) };
   writeJSON('analyses.json', [entry, ...hist].slice(0, 60));
   recordPredictions(entry, snap);
   return entry;
+}
+
+// Kaynak kaydı (Feynman'ın provenance dosyası fikri): analiz hangi özete ve hangi haberlere dayandı.
+// Sonradan "model bunu nereden çıkardı?" sorusu, o anki veri silinmiş olsa da cevaplanabilir.
+function provenance(snap, digest) {
+  const used = balancedNews(snap.news || []);
+  const ids = new Set(used.map(n => n.id));
+  const world = (snap.news || []).filter(n => !ids.has(n.id) && ['dünya', 'uluslararası'].includes(n.stance)).slice(0, 5);
+  return {
+    digest,
+    haberler: [...used, ...world].map(n => ({ title: n.title, link: n.link, src: n.srcName, stance: n.stance, etki: n.impact?.score, teyit: n.teyit ? (n.teyit.durum === 'tek' ? 'tek kaynak' : `${n.teyit.durum} ${n.teyit.kaynak}`) : null, uyumsuz: !!n.misleading })),
+    kontroller: (snap.checks || []).filter(c => !c.ok).map(c => `${c.ad}: ${c.detay}`),
+  };
 }
 
 const priceOf = (snap, kod) => (kod === 'BTCTRY' ? snap.crypto?.BTCTRY?.price : snap.markets?.[kod]?.price);

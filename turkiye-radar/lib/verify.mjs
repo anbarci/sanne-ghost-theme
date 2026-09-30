@@ -1,7 +1,9 @@
 // Çapraz teyit: önemli bir haberi başka kaç bağımsız yayıncı veriyor, yalanlama var mı?
-// Google News'in herkese açık arama RSS'i kullanılır (news.google.com/rss/search). Arama sayfası kazınmaz,
-// bot korumasını atlatan araç (ör. Botasaurus) gerekmez; kimlik gizlenmez.
-// Gizlilik: Google'a yalnızca başlıktan seçilen birkaç kelime gider, çerez ya da hesap bilgisi gitmez.
+// İki arka uç:
+//  - SearXNG (yönetimde adresi girilmişse): kendi kurduğun üst arama motoru. Tek sorgu Bing, DuckDuckGo,
+//    Google News, Brave, Reuters gibi motorlara dağılır; Google'a bağımlılık ve iz azalır.
+//  - Google News arama RSS'i (varsayılan ya da SearXNG düşerse yedek). Arama sayfası kazınmaz.
+// Gizlilik: yalnızca başlıktan seçilen birkaç kelime gider, çerez ya da hesap bilgisi gitmez.
 import { fetchx, pool } from './http.mjs';
 import { readJSON, writeJSON } from './store.mjs';
 import { stripTags, fold } from './rss.mjs';
@@ -46,13 +48,34 @@ export function parseGoogleNews(xml) {
   })).filter(x => x.title && x.src);
 }
 
+// SearXNG JSON sonuçları. Tarih ya publishedDate'te ya da "12 hours ago | Dünya Gazetesi" gibi metinde olur.
+// Tarihsiz sonuç atılır: gerçek denemede 2 hafta önceki "Brent 104,44'e geriledi" bugünkü haberi teyit ediyordu.
+const UNIT = { minute: 6e4, dakika: 6e4, hour: 36e5, saat: 36e5, day: 864e5, gün: 864e5, week: 6048e5, hafta: 6048e5, month: 2592e6, ay: 2592e6, year: 31536e6, yıl: 31536e6 };
+export function relAge(text) {
+  const m = /(\d+)\s*(minute|hour|day|week|month|year|dakika|saat|gün|hafta|ay|yıl)s?\s*(ago|önce)/i.exec(text || '');
+  return m ? +m[1] * UNIT[m[2].toLowerCase()] : null;
+}
+export function parseSearx(j, now = Date.now()) {
+  return (j?.results || []).map(r => {
+    let host = '';
+    try { host = new URL(r.url).hostname.replace(/^www\./, ''); } catch {}
+    const pub = String(r.metadata || '').split('|').map(x => x.trim()).find(x => x && !relAge(x) && !/ago$/.test(x));
+    const d = Date.parse(r.publishedDate || '');
+    const age = relAge(r.metadata) ?? relAge(r.content);
+    return { title: String(r.title || ''), src: pub || host, host, link: r.url, ts: Number.isFinite(d) ? d : age != null ? now - age : null };
+  }).filter(x => x.title && x.src);
+}
+
 // Adaylardan teyit sonucu: benzer başlıklı, farklı yayıncılı haberler; neredeyse aynı başlık = muhtemelen ajans kopyası.
-export function judge(item, cands) {
+export function judge(item, cands, now = Date.now()) {
   // Kendi kaynağımızı sayma: "Anadolu Ajansı Ekonomi" ile "Anadolu Ajansı", "BirGün" ile "birgun.net" aynı yayıncı.
-  const own = pubTokens(item.srcName);
+  let ownHost = '';
+  try { ownHost = new URL(item.link).hostname.replace(/^www\./, ''); } catch {}
+  const own = [...pubTokens(item.srcName), ...(ownHost && !/news\.google/.test(ownHost) ? pubTokens(ownHost) : [])];
   const seen = new Map();
   for (const c of cands) {
     const s = similarity(item.title, c.title);
+    if (!c.ts || now - c.ts > 72 * 36e5) continue; // tarihsiz ya da 3 günden eski: başka bir olay olabilir
     const key = pubTokens(c.src).join(' ');
     if (s < 0.4 || !key || own.some(w => key.split(' ').includes(w)) || seen.has(key)) continue;
     seen.set(key, { ...c, s, kopya: s >= 0.85 && similarity(c.title, item.title) >= 0.85 });
@@ -71,7 +94,7 @@ export function judge(item, cands) {
 
 let blockedUntil = 0;
 // news: puana göre sıralı liste. En önemli `top` haber için teyit arar; sonuç 6 saat önbellekte.
-export async function corroborate(news, { top = 12, minImpact = 40 } = {}) {
+export async function corroborate(news, { top = 12, minImpact = 40, searxng = '' } = {}) {
   const cache = readJSON('verify.json', {});
   const now = Date.now();
   for (const [k, v] of Object.entries(cache)) if (now - v.t > 6 * 36e5) delete cache[k];
@@ -83,7 +106,18 @@ export async function corroborate(news, { top = 12, minImpact = 40 } = {}) {
     const q = queryOf(n.title);
     if (q.split(' ').length < 2) return;
     const loc = n.lang === 'en' ? 'hl=en-US&gl=US&ceid=US:en' : 'hl=tr&gl=TR&ceid=TR:tr';
-    const search = async q => { asked++; return judge(n, parseGoogleNews(await fetchx(`https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:2d')}&${loc}`, { as: 'text', timeout: 10000, retries: 0 }))); };
+    const google = async q => parseGoogleNews(await fetchx(`https://news.google.com/rss/search?q=${encodeURIComponent(q + ' when:2d')}&${loc}`, { as: 'text', timeout: 10000, retries: 0 }));
+    const searx = async q => parseSearx(await fetchx(`${searxng.replace(/\/$/, '')}/search?q=${encodeURIComponent(q)}&format=json&categories=news&language=${n.lang === 'en' ? 'en' : 'tr'}`, { as: 'json', timeout: 15000, retries: 0 }));
+    // SearXNG tanımlıysa iki kaynak birlikte sorulur ve yayıncılar birleştirilir. Gerçek denemede birbirini
+    // tamamladılar: Google yaygın haberde çok daha fazla yayıncı saydı (24'e 4), SearXNG ise Google'ın
+    // "tek kaynak" dediği iki haberi başka motorlarda buldu.
+    const search = async q => {
+      asked++;
+      const [g, x] = await Promise.allSettled([google(q), searxng ? searx(q) : Promise.resolve(null)]);
+      if (g.status === 'rejected' && (!searxng || x.status === 'rejected')) throw g.reason;
+      const via = [g.status === 'fulfilled' && 'google-news', x.status === 'fulfilled' && x.value && 'searxng'].filter(Boolean);
+      return { ...judge(n, [...(g.value || []), ...(x.value || [])]), via: via.join('+') };
+    };
     try {
       // Arama kelimeleri VE ile bağlanır; 6 kelime hiç sonuç vermezse ayırt edici ilk 4 kelimeyle bir kez daha denenir.
       let res = await search(q), used = q;

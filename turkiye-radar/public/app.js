@@ -319,6 +319,11 @@ async function renderHistory(at) {
   if (!cur) return;
   const a = await api(`/api/analysis?at=${cur}`);
   renderAI(a, $('#adet'), $('#adet-meta'));
+  const pv = a.provenance;
+  if (pv) $('#adet').insertAdjacentHTML('beforeend', `<h3 class="more">Bu analiz neye dayandı</h3>
+    <ol class="prov">${pv.haberler.map(n => `<li><a href="${esc(safeUrl(n.link))}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a> <span class="small muted">${esc(n.src)} · etki ${esc(n.etki ?? '—')}${n.teyit ? ` · teyit: ${esc(n.teyit)}` : ''}${n.uyumsuz ? ' · başlık uyumsuz' : ''}</span></li>`).join('')}</ol>
+    ${pv.kontroller.length ? `<p class="small err">Geçmeyen veri kontrolleri: ${pv.kontroller.map(esc).join(' ; ')}</p>` : ''}
+    <details class="digest"><summary class="small">Modele giden veri özetinin tamamı (${pv.digest.length} karakter)</summary><pre>${esc(pv.digest)}</pre></details>`);
   const preds = a.predictions || [];
   if (preds.length) $('#adet').insertAdjacentHTML('beforeend', `<h3 class="more">Tahminlerin sonucu</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Tahmin</th><th class="n">Olas.</th><th>Vade</th><th>Sonuç</th></tr></thead><tbody>${preds.map(p => `<tr><td>${esc(p.kod)}</td><td>${esc(p.yon)}</td><td class="n">%${Math.round(p.p * 100)}</td><td class="small">${esc(fmtDT(p.due))}</td><td>${p.done ? `<span class="${p.hit ? 'ok' : 'err'}">${p.hit ? 'tuttu' : 'tutmadı'}</span> <span class="small muted">${pct(p.chg)}</span>` : '<span class="muted">bekliyor</span>'}</td></tr>`).join('')}</tbody></table></div>`);
 }

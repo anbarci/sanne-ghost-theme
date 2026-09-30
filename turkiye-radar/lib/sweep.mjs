@@ -149,7 +149,7 @@ export async function sweep({ force = false, onDone } = {}) {
     const rawNews = [...(d('rss')?.items || []), ...(d('gdelt')?.items || [])];
     const news = await enrichNews(rawNews, settings, moves);
     // Tek kaynaklı mı, yaygın mı, yalanlanmış mı? (Google News arama RSS'i; hata taramayı durdurmaz)
-    const verify = settings.verifyTop > 0 ? await corroborate(news, { top: settings.verifyTop }).catch(e => ({ error: e.message })) : null;
+    const verify = settings.verifyTop > 0 ? await corroborate(news, { top: settings.verifyTop, searxng: settings.searxngUrl }).catch(e => ({ error: e.message })) : null;
 
     const crypto = d('btcturk') || {};
     // USDT/TRY ile resmi kur arasındaki makas: dövize kaçış baskısının gayriresmî göstergesi.

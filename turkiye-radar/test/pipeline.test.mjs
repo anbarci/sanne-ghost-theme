@@ -106,6 +106,9 @@ test('AI analizi: tek çağrı, tekrar çağrı yapılmaz, tahmin karnesi puanla
   assert.equal(aiCalls, 1);
   assert.equal(a.result.kotumser.olasilik, 35);
   assert.equal(a.usage.in, 900);
+  // Kaynak kaydı: özetin tamamı ve dayanılan haberler analizle birlikte saklanır.
+  assert.ok(a.provenance.digest.startsWith('PİYASA') || a.provenance.digest.length > 100);
+  assert.ok(a.provenance.haberler.length > 0 && a.provenance.haberler.every(h => h.title && h.link));
 
   const again = await analyze(snap, loadSettings());
   assert.ok(again.skipped, 'aynı veriyle ikinci çağrı yapılmamalı');

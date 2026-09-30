@@ -121,7 +121,7 @@ $('#btn-sweep').addEventListener('click', async () => { await api('/api/sweep', 
 
 function renderSettings() {
   const s = S.settings;
-  $('#s-int').value = s.intervalMin; $('#s-aiint').value = s.aiIntervalMin; $('#s-aimin').value = s.aiMinDelta; $('#s-art').value = s.fetchArticles; $('#s-ver').value = s.verifyTop ?? 12; $('#s-usd').value = s.aiDailyUSD; $('#s-tok').value = s.aiDailyTokens;
+  $('#s-int').value = s.intervalMin; $('#s-aiint').value = s.aiIntervalMin; $('#s-aimin').value = s.aiMinDelta; $('#s-art').value = s.fetchArticles; $('#s-ver').value = s.verifyTop ?? 12; $('#s-sx').value = s.searxngUrl || ''; $('#s-usd').value = s.aiDailyUSD; $('#s-tok').value = s.aiDailyTokens;
   $('#s-watch').value = s.watchlist.join(', '); $('#s-evds').value = s.evdsSeries.join(', ');
   $('#weights').innerHTML = Object.entries(s.weights).map(([k, v]) => `<label>${W_LABEL[k] || k} <input type="number" step="0.05" min="0" max="1" data-w="${k}" value="${v}"></label>`).join('');
   $('#tg-on').checked = s.telegram.enabled; $('#tg-ai').checked = !!s.telegram.sendAnalysis; $('#tg-chat').value = s.telegram.chatId || '';
@@ -131,7 +131,7 @@ $('#set-form').addEventListener('submit', async e => {
   const weights = {};
   document.querySelectorAll('[data-w]').forEach(i => { weights[i.dataset.w] = +i.value; });
   const list = v => v.split(',').map(x => x.trim()).filter(Boolean);
-  await api('/api/admin/settings', { intervalMin: +$('#s-int').value, aiIntervalMin: +$('#s-aiint').value, aiMinDelta: +$('#s-aimin').value, fetchArticles: +$('#s-art').value, verifyTop: +$('#s-ver').value, aiDailyUSD: +$('#s-usd').value, aiDailyTokens: +$('#s-tok').value, watchlist: list($('#s-watch').value), evdsSeries: list($('#s-evds').value), weights });
+  await api('/api/admin/settings', { intervalMin: +$('#s-int').value, aiIntervalMin: +$('#s-aiint').value, aiMinDelta: +$('#s-aimin').value, fetchArticles: +$('#s-art').value, verifyTop: +$('#s-ver').value, searxngUrl: $('#s-sx').value.trim(), aiDailyUSD: +$('#s-usd').value, aiDailyTokens: +$('#s-tok').value, watchlist: list($('#s-watch').value), evdsSeries: list($('#s-evds').value), weights });
   toast('Kaydedildi'); refresh();
 });
 $('#tg-form').addEventListener('submit', async e => {

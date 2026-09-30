@@ -353,9 +353,26 @@ test('Çapraz teyit: benzer başlık, kendi kaynağı sayılmaz, ajans kopyası 
     'Brent petrolün varili 96 doların altına geriledi - Ekotürk|ekotürk', 'Altın fiyatları rekor kırdı - Sözcü|Sözcü',
     'Brent petrol geriledi iddiası asılsız çıktı - Teyit|Teyit']
     .map(x => { const [t, s] = x.split('|'); return `<item><title>${t}</title><link>https://news.google.com/x</link><pubDate>Tue, 29 Sep 2026 10:00:00 GMT</pubDate><source url="https://x">${s}</source></item>`; }).join('');
-  const r = judge({ title: 'Brent petrol 96 doların altına geriledi', srcName: 'Dünya' }, parseGoogleNews(xml));
+  const r = judge({ title: 'Brent petrol 96 doların altına geriledi', srcName: 'Dünya' }, parseGoogleNews(xml), Date.UTC(2026, 8, 30, 9));
   assert.deepEqual(r.ornek.map(o => o.src).sort(), ['Mynet', 'Teyit', 'ekotürk']);
   assert.equal(r.ozgun, 2); // Mynet aynı başlık: ajans kopyası
   assert.equal(r.durum, 'yalanlama');
   assert.equal(queryOf("İran'dan Körfez enerji altyapısına saldırı tehdidi"), 'İran Körfez enerji altyapısına saldırı tehdidi');
+});
+
+test('SearXNG: yayıncı ve tarih çıkarılır, tarihsiz ve eski sonuç teyit sayılmaz', async () => {
+  const { parseSearx, judge } = await import('../lib/verify.mjs');
+  const now = Date.UTC(2026, 8, 30, 9);
+  const j = { results: [
+    { title: 'Brent petrol 96 doların altına geriledi', url: 'https://www.dunya.com/enerji/x', metadata: '12 hours ago | Dünya Gazetesi' },
+    { title: 'Brent petrol 95,80 dolara geriledi', url: 'https://www.malatyaguncel.com/x', publishedDate: '2026-09-29T20:20:00' },
+    { title: 'Brent petrol 104,44 dolara geriledi', url: 'https://mansethaber.com/x', content: 'Manşet Haber / 2 weeks ago' },
+    { title: 'Brent petrol geriledi', url: 'https://tarihsiz.com/x' },
+  ] };
+  const c = parseSearx(j, now);
+  assert.equal(c[0].src, 'Dünya Gazetesi');
+  assert.equal(c[0].ts, now - 12 * 36e5);
+  assert.equal(c[1].src, 'malatyaguncel.com');
+  const r = judge({ title: 'Brent petrol 96 doların altına geriledi', srcName: 'Investing', link: 'https://tr.investing.com/a' }, c, now);
+  assert.deepEqual(r.ornek.map(o => o.src).sort(), ['Dünya Gazetesi', 'malatyaguncel.com']); // 2 hafta önceki ve tarihsiz atıldı
 });
