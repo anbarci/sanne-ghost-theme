@@ -105,6 +105,8 @@ h3 { font-size: .92rem; }
 .tick.static { cursor: default; } .tick.static:hover { border-color: var(--line); }
 .tick .k { font-size: .74rem; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
 .tick b { display: block; font: 600 1rem/1.3 var(--mono); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.tick b .lag { font: 500 .62rem var(--font); color: var(--muted); margin-left: 6px; vertical-align: 2px; }
+.tick b .lag.on { color: var(--up); }
 .tick.anomaly { border-color: var(--warn); background: var(--warn-soft); }
 .tick.flash-up { animation: flash-up 1.4s var(--ease); } .tick.flash-down { animation: flash-down 1.4s var(--ease); }
 @keyframes flash-up { from { background: color-mix(in srgb, var(--up) 18%, var(--surface)); } }
@@ -251,6 +253,7 @@ input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px;
 .msg.ai .small { margin-top: 6px; }
 .ask { display: grid; gap: 8px; }
 .ask textarea { width: 100%; resize: vertical; }
+.note-add { margin: 6px 0 8px; }
 
 /* Kaynak kaydı */
 .prov { padding-left: 20px; display: grid; gap: 4px; font-size: .84rem; }

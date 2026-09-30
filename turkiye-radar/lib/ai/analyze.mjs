@@ -5,7 +5,11 @@
 import { createHash } from 'node:crypto';
 import { complete, parseJSON, costUSD } from './providers.mjs';
 import { readJSON, writeJSON, getSecret } from '../store.mjs';
-import { memoryLines, addLesson } from './memory.mjs';
+import { memoryLines, addLesson, noteLines } from './memory.mjs';
+import { archive } from './memtree.mjs';
+
+// Veri özetinin kişisel/hafıza kuyruğu: "veri değişti mi?" kontrolüne ve sohbetteki güncel veri kopyasına girmez.
+export const TAIL = /\n(KULLANICI NOTLARI|HAFIZA|ÖNCEKİ ANALİZLER)[\s\S]*$/;
 
 export const ASSETS = ['USDTRY', 'EURTRY', 'GRAM_ALTIN', 'XU100', 'BRENT', 'BTCTRY'];
 
@@ -147,7 +151,9 @@ export function buildDigest(s, prev) {
   const bad = (s.checks || []).filter(c => !c.ok);
   if (bad.length) L.push('KONTROL (geçmeyen): ' + bad.map(c => `${c.ad}: ${c.detay}`).join(' ; '));
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
-  // HAFIZA ve ÖNCEKİ ANALİZLER hep en sonda: "veri değişti mi?" kontrolüne (hash) girmezler.
+  // KULLANICI NOTLARI, HAFIZA ve ÖNCEKİ ANALİZLER hep en sonda: "veri değişti mi?" kontrolüne (hash) girmezler.
+  const notes = noteLines();
+  if (notes.length) L.push('KULLANICI NOTLARI (eylem ve korunma önerilerini buna göre kişiselleştir):', ...notes.map(x => `- ${x}`));
   const mem = memoryLines();
   if (mem.length) L.push('HAFIZA (ölçülmüş isabet ve kendi derslerin):', ...mem.map(x => `- ${x}`));
   if (prev?.length) {
@@ -228,7 +234,7 @@ export async function analyze(snap, settings, { force = false } = {}) {
   const hist = readJSON('analyses.json', []);
   const last = hist[0];
   const digest = buildDigest(snap, prevAnalyses(hist));
-  const h = createHash('sha1').update(digest.replace(/\n(HAFIZA|ÖNCEKİ ANALİZLER)[\s\S]*$/, '')).digest('hex');
+  const h = createHash('sha1').update(digest.replace(TAIL, '')).digest('hex');
   if (!force && last) {
     const ageMin = (Date.now() - last.at) / 60e3;
     if (last.hash === h) return { skipped: 'Veri değişmedi' };
@@ -245,6 +251,7 @@ export async function analyze(snap, settings, { force = false } = {}) {
   if (result.ders) addLesson(result.ders);
   const entry = { at: Date.now(), hash: h, provider: p.name, model: r.model, ms: Date.now() - t0, usage: r.usage, cost: costUSD(p.model, r.usage), digestChars: digest.length, result, provenance: provenance(snap, digest) };
   writeJSON('analyses.json', [entry, ...hist].slice(0, 60));
+  archive(entry, snap); // kalıcı arşiv: 60 sınırı yok, hafıza ağacı buradan kurulur
   recordPredictions(entry, snap);
   return entry;
 }

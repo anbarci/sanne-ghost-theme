@@ -39,10 +39,11 @@ function renderTape(s) {
   const items = (ui.view === 'dunya' ? TAPE_WORLD : TAPE).filter(([k]) => m[k]).map(([k, label, d]) => {
     const x = m[k], roll = x.roll === 'şüpheli';
     const when = x.time ? new Date(x.time).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
-    const title = [x.src ? `Kaynak: ${x.src}${when ? ', son işlem ' + when : ''}.` : '', NOTE[k], roll ? 'Vadeli kontrat devri şüphesi: günlük değişim güvenilir değil.' : x.roll ? `Değişim ${x.roll} kontratından.` : '', x.anomaly ? `Olağandışı hareket (normal günlük oynaklık %${nf(x.vol)})` : ''].filter(Boolean).join(' ');
+    const lag = x.delaySec == null ? '' : x.delaySec < 90 ? 'canlı' : x.delaySec < 3600 ? `${Math.round(x.delaySec / 60)} dk` : 'kapalı';
+    const title = [x.src ? `Kaynak: ${x.src}${when ? ', son işlem ' + when : ''}.` : '', x.delaySec != null ? `Gecikme: ${x.delaySec < 90 ? x.delaySec + ' sn' : Math.round(x.delaySec / 60) + ' dk'}${x.delaySec >= 3600 ? ' (piyasa kapalı olabilir)' : ''}.` : '', NOTE[k], roll ? 'Vadeli kontrat devri şüphesi: günlük değişim güvenilir değil.' : x.roll ? `Değişim ${x.roll} kontratından.` : '', x.anomaly ? `Olağandışı hareket (normal günlük oynaklık %${nf(x.vol)})` : ''].filter(Boolean).join(' ');
     const clickable = k !== 'GRAM_ALTIN';
     return `<${clickable ? 'button type="button"' : 'div'} class="tick ${clickable ? '' : 'static'} ${x.anomaly ? 'anomaly' : ''}" data-k="${k}" ${clickable ? `aria-pressed="${ui.sel === k}"` : ''} title="${esc(title)}">
-      <div class="k"><span>${esc(label)}</span>${roll ? '<span class="muted">devir?</span>' : chg(x.chg)}</div><b>${nf(x.price, d)}</b></${clickable ? 'button' : 'div'}>`;
+      <div class="k"><span>${esc(label)}</span>${roll ? '<span class="muted">devir?</span>' : chg(x.chg)}</div><b>${nf(x.price, d)}${lag ? `<i class="lag ${lag === 'canlı' ? 'on' : ''}">${lag}</i>` : ''}</b></${clickable ? 'button' : 'div'}>`;
   });
   if (s.crypto?.BTCTRY && ui.view !== 'dunya') items.push(`<div class="tick static"><div class="k"><span>BTC/TL</span>${chg(s.crypto.BTCTRY.chg)}</div><b>${nf(s.crypto.BTCTRY.price, 0)}</b></div>`);
   if (s.usdtPremium != null && ui.view !== 'dunya') items.push(`<div class="tick static" title="USDT/TRY ile resmi kur farkı. Büyürse dövize talep baskısı var."><div class="k"><span>USDT makası</span></div><b>%${nf(s.usdtPremium)}</b></div>`);
@@ -243,15 +244,15 @@ const md = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<b
 function turnHTML(t) {
   if (t.role === 'user') return `<div class="msg me">${esc(t.content)}</div>`;
   const warn = t.unverified?.length ? `<div class="warn">Verilerde bulunamayan rakamlar: ${t.unverified.map(esc).join(', ')}</div>` : '';
-  const meta = [t.model, t.used ? `${t.used} satır ek veri kullandı` : '', t.cost != null ? `$${t.cost.toFixed(4)}` : ''].filter(Boolean).join(' · ');
+  const meta = [t.model, t.used ? `${t.used} satır ek veri` : '', ...(t.tools || []), t.cost != null ? `$${t.cost.toFixed(4)}` : ''].filter(Boolean).join(' · ');
   return `<div class="msg ai">${md(t.content)}${warn}<div class="small muted">${esc(meta)}</div></div>`;
 }
 async function mountChat(el, at) {
   el.innerHTML = `<h3 class="more">Analizle sohbet</h3>
     <div class="chips sugg">${SUGGEST.map(q => `<button type="button" class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
     <div class="msgs" aria-live="polite"></div>
-    <form class="ask"><textarea rows="2" maxlength="1500" placeholder="Soru sor (Enter gönderir, Shift+Enter yeni satır)" aria-label="Soru"></textarea><div class="inline"><button class="btn primary" type="submit">Sor</button><button class="btn ghost sm" type="button" data-clear>Sohbeti temizle</button></div></form>
-    <p class="note">Cevaplar bu analize, radarın şu anki verisine (piyasa, haber, tarayıcı) ve hafızaya dayanır; sorudaki hisse ve konu için ilgili veri otomatik eklenir. Günlük bütçeye sayılır.</p>`;
+    <form class="ask"><textarea rows="2" maxlength="1500" placeholder="Soru sor (Enter gönderir, Shift+Enter yeni satır)" aria-label="Soru"></textarea><div class="inline"><button class="btn primary" type="submit">Sor</button><label class="inline small"><input type="checkbox" data-web checked> web'de ara</label><button class="btn ghost sm" type="button" data-clear>Sohbeti temizle</button></div></form>
+    <p class="note">Cevaplar bu analize, radarın şu anki verisine, hafızaya ve gerekirse web aramasına (Google News, tanımlıysa SearXNG) dayanır. "hatırla: ..." ile başlayan mesaj kalıcı not olarak kaydedilir. Günlük bütçeye sayılır.</p>`;
   const box = el.querySelector('.msgs'), ta = el.querySelector('textarea'), btn = el.querySelector('[type=submit]');
   const show = turns => { box.innerHTML = turns.map(turnHTML).join(''); box.scrollTop = box.scrollHeight; };
   const { turns = [] } = await api(`/api/chat?at=${at || ''}`).catch(() => ({}));
@@ -261,9 +262,9 @@ async function mountChat(el, at) {
     btn.disabled = true; ta.value = '';
     box.insertAdjacentHTML('beforeend', `${turnHTML({ role: 'user', content: q })}<div class="msg ai muted">düşünüyor…</div>`); box.scrollTop = box.scrollHeight;
     try {
-      const r = await api('/api/chat', { at, q });
+      const r = await api('/api/chat', { at, q, web: el.querySelector('[data-web]').checked });
       if (r.error) { toast(r.error, 6000); box.lastElementChild.textContent = r.error; }
-      else { box.lastElementChild.outerHTML = turnHTML(r); box.scrollTop = box.scrollHeight; }
+      else { box.lastElementChild.outerHTML = turnHTML(r); box.scrollTop = box.scrollHeight; if (r.tools?.includes('not') && $('#mem')) renderMemory(); }
     } catch (e) { toast(e.message, 6000); } finally { btn.disabled = false; }
   };
   el.querySelector('form').addEventListener('submit', e => { e.preventDefault(); ask(ta.value); });
@@ -377,9 +378,14 @@ async function renderHistory(at) {
 async function renderMemory() {
   const m = await api('/api/memory').catch(() => null);
   if (!m) return;
-  $('#mem').innerHTML = `${m.olcum.length ? `<ul class="list small">${m.olcum.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul>` : '<p class="empty">Ölçüm için en az 3 sonuçlanmış tahmin gerekiyor.</p>'}
+  $('#mem').innerHTML = `<h3>Senin notların</h3>
+    <form class="note-add inline"><input type="text" maxlength="300" placeholder="ör. Portföyümde THYAO ve altın var, riskten kaçınırım" aria-label="Not" class="grow"><button class="btn sm" type="submit">Ekle</button></form>
+    ${m.notlar.length ? `<ul class="list small">${m.notlar.map(n => `<li><span>${esc(n.text)}</span><button type="button" class="btn ghost sm" data-delnote="${n.at}" aria-label="Notu sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Not yok. Sohbette "hatırla: ..." yazarak da ekleyebilirsin.</p>'}
+    <h3 class="more">Ölçülmüş isabet</h3>
+    ${m.olcum.length ? `<ul class="list small">${m.olcum.map(x => `<li><span>${esc(x)}</span></li>`).join('')}</ul>` : '<p class="empty">Ölçüm için en az 3 sonuçlanmış tahmin gerekiyor.</p>'}
     <h3 class="more">Kendi çıkardığı dersler</h3>
-    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span><button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}`;
+    ${m.dersler.length ? `<ul class="list small">${m.dersler.map(d => `<li><span>${esc(d.text)} <span class="muted">${esc(fmtDT(d.at))}</span></span><button type="button" class="btn ghost sm" data-del="${d.at}" aria-label="Dersi sil">sil</button></li>`).join('')}</ul>` : '<p class="empty">Henüz ders yok.</p>'}
+    <details class="digest"><summary class="small">Hafıza ağacı (${m.arsiv} analiz arşivde)</summary><pre>${esc(m.agac || 'Arşiv boş.')}</pre></details>`;
 }
 
 const CCY_TR = { USD: 'ABD', EUR: 'Euro', CNY: 'Çin', GBP: 'İngiltere', JPY: 'Japonya' };
@@ -482,7 +488,12 @@ document.addEventListener('click', e => {
   selectSymbol(kod);
 });
 window.addEventListener('hashchange', route);
-$('#mem').addEventListener('click', async e => { const b = e.target.closest('[data-del]'); if (!b) return; await api('/api/memory/delete', { at: +b.dataset.del }); renderMemory(); });
+$('#mem').addEventListener('click', async e => {
+  const b = e.target.closest('[data-del], [data-delnote]'); if (!b) return;
+  if (b.dataset.del) await api('/api/memory/delete', { at: +b.dataset.del }); else await api('/api/memory/note/delete', { at: +b.dataset.delnote });
+  renderMemory();
+});
+$('#mem').addEventListener('submit', async e => { e.preventDefault(); const i = e.target.querySelector('input'); if (i.value.trim()) { await api('/api/memory/note', { text: i.value }); renderMemory(); } });
 $('#slist').addEventListener('click', e => {
   if (e.target.closest('#scr-all')) { ui.showAll = !ui.showAll; renderScreener(); return; }
   const r = e.target.closest('.srow'); if (r) { selectSymbol(r.dataset.kod); if (matchMedia('(max-width: 1100px)').matches) $('#grafik').scrollIntoView({ behavior: 'smooth' }); }
@@ -519,7 +530,7 @@ es.onmessage = e => {
   const m = JSON.parse(e.data);
   if (m.type === 'status') { if (data) data.status = m.status; renderStatus(m.status); }
   if (m.type === 'update') load();
-  if (m.type === 'quotes' && data?.snap) { Object.assign(data.snap, { markets: m.markets, crypto: m.crypto }); renderTape(data.snap); if (ui.view === 'dunya') renderWorld(data.snap); }
+  if (m.type === 'quotes' && data?.snap) { Object.assign(data.snap, { markets: m.markets, crypto: m.crypto, usdtPremium: m.usdtPremium ?? data.snap.usdtPremium }); renderTape(data.snap); if (ui.view === 'dunya') renderWorld(data.snap); }
 };
 setInterval(() => data && renderStatus(data.status), 60e3);
 route();

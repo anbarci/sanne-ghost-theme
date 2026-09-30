@@ -30,10 +30,15 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
   - **Ne yaparsam kârlı çıkarım:** adım adım kişisel plan; her adımda neden ve risk. "Garanti" dili yasak.
   Bu alanlar çıktıyı analiz başına yaklaşık 500 token büyütür (DeepSeek'te sentin onda biri kadar).
 - **Analizle sohbet.** Gündem sekmesinde son analizin, Analizler sekmesinde her geçmiş analizin altında sohbet kutusu var. Model şunlarla cevap verir: analizin kendisi, radarın ŞU ANKİ veri özeti, hafıza ve sorudan seçilen ek veri. Soruda bir hisse (kod ya da ad: "THY", "Aselsan", "Nvidia"), bir varlık ("dolar", "altın", "petrol") ya da konu kelimesi geçerse o hissenin tarayıcı satırı, skor gerekçeleri, strateji karnesi, gündem zinciri, fiyatlar ve ilgili haberler (teyit etiketleriyle) soruya eklenir. Eski bir analizle konuşurken o anki veri özeti de verilir, böylece "o gün ne biliyordun, bugün ne değişti?" sorulabilir. Cevaptaki rakamlar verilerde aranır; bulunamayanlar uyarı olarak gösterilir. Son 8 mesaj bağlam olarak gider; sohbet de günlük bütçeye sayılır.
+- **Sohbette web araması.** Radarın akışında olmayan güncel bir bilgi gerekirse sohbet web'de arar: Google News arama RSS'i ve tanımlıysa kendi SearXNG'n. Soru "son durum", "bugün", "ne zaman", "açıkladı" gibi güncellik içeriyorsa arama soru anında yapılır; değilse model veri yetmediğini görünce `ARA: <sorgu>` satırıyla ister, sonuçlar verilip bir kez daha sorulur. SearXNG sonuçlarında ilk iki haberin metni de okunur (canlı denemede "TCMB politika faizi %37, PPK kararı 22 Ekim" bilgisi CNN Türk ve Ekotürk metninden geldi). Sohbet kutusundaki "web'de ara" işaretini kaldırırsan arama yapılmaz. Yerel ağ adresleri (127.0.0.1, 192.168.x, .local) açılmaz. Bilinen sınır: bir alan adının iç IP'ye çözülmesi (DNS rebinding) ya da yönlendirme ile iç ağa gidilmesi ayrıca denetlenmiyor; sunucu yalnızca 127.0.0.1'i dinlediği ve kişisel kullanım için olduğu için risk düşük.
 - **Kendi hafızası.** Yapay zeka hatalarından ders çıkarır; iki kaynaktan:
   - *Ölçüm* (model kullanılmaz, uydurulamaz): vadesi dolan tahminlerde varlık başına isabet ("USDTRY: 6 tahminin 2'si tuttu, tutmayanların çoğu 'aşağı' dediklerin"), yüksek güvenle verilen tahminlerin gerçek isabeti ("%65+ güvenle verdiğin 8 tahminin %38'i tuttu: güvenini düşür"), yön yanlılığı.
   - *Kendi dersleri:* her analizde tutmayan tahminlere bakıp tek cümlelik ders yazar; tekrar edenler ayıklanır, en fazla 15 tutulur.
   Hafıza her analize ve sohbete "HAFIZA" olarak girer. Analizler sekmesinde görünür; yanlış bulduğun dersi silebilirsin.
+  - *Senin notların:* sohbette "hatırla: portföyümde THYAO ve altın var, riskten kaçınırım" yazarsan (model çağrılmadan) kalıcı not olur; Hafıza panelinden de eklenip silinebilir. Notlar her analize ve sohbete girer; korunma ve eylem önerileri buna göre kişiselleşir.
+  - *Hafıza ağacı ve sınırsız arşiv* ([PageIndex](https://github.com/VectifyAI/PageIndex) fikri): tüm analizler kalıcı arşivde tutulur (en fazla 5000, ~7 MB; ekrandaki liste son 60). Arşivden model kullanmadan ay → hafta → gün → analiz ağacı ve her düğüm için sayısal özet çıkar ("[2026-H39] 12 analiz | USDTRY 48,3→48,9 | tahmin 5/9 tuttu | son görüş: …"). Sohbette model bu içindekiler tablosunu görür; ayrıntı için `OKU: 2026-H39` ister. Soruda "dün", "geçen hafta", "3 gün önce", "25 Eylül", "25.09" geçerse ilgili düğüm kendiliğinden açılır. PageIndex'in vektörsüz, gerekçeli gezinme yaklaşımı; vektör veritabanı ve ek model çağrısı yok.
+  - *Konu araması* ([Feynman](https://github.com/Companion-Inc/feynman)'ın session-search fikri): `BUL: altın` tüm arşivde ve eski sohbetlerde arar, sonuçları düğüm kimliğiyle döndürür.
+  - *Sohbet sıkıştırma* ([dbx](https://github.com/t8y2/dbx)'in context compaction fikri, modelsiz): son 8 mesaj aynen gider, daha eskileri "soru → cevabın ilk cümlesi" özetine iner; uzun sohbet token'ı şişirmez ama konuşmanın başı unutulmaz.
 - **Otomatik analiz saati.** Yönetimde "Otomatik analiz": yalnızca önemli değişimde (varsayılan), saatte bir, 2, 3, 6, 12 saatte ya da günde bir. Saatli modda veri değişmemiş olsa da analiz yapılır; arada büyük bir olay olursa olay tetiği yine çalışır. Günlük dolar/token sınırı her durumda geçerli. Tarama 15 dakikada bir olduğu için saat en fazla 15 dk kayar.
 - **Tahmin karnesi.** Yapay zekanın "USD/TRY 7 günde yükselir, %65" gibi her tahmini kaydedilir. Vade dolunca gerçek fiyatla karşılaştırılır ve Brier skoru hesaplanır. Hangi modelin gerçekten işe yaradığını veriyle görürsün. Dil modellerinin piyasa tahmininde genelde yazı-turadan çok iyi olmadığını unutma: karne bunu açıkça gösterecek.
 - **Olağandışı hareket tespiti.** Her varlığın kendi normal günlük oynaklığına göre alarm verir: 1,5 × son bir aydaki ortalama mutlak getiri. Fikir PanWatch'taki ATR% yaklaşımından geliyor. Böylece BTC'nin sıradan %3'lük hareketi alarm üretmez, dolar/TL'nin %1,5'lik hareketi üretir.
@@ -51,7 +56,17 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 | **Dünya** | Dünya endeksleri (S&P 500, Nasdaq, Euro Stoxx 50, DAX, FTSE, Nikkei, Şanghay…), dünya haritası (M5+ depremler, haber odakları, merkezde Türkiye), küresel etkisine göre haberler, ABD ve Avrupa gündemi. |
 | **Analizler** | Geçmiş yapay zeka analizleri. Her biri kendi sayfasında (`#analiz/<zaman>`) açılır; varlık tahminlerinin tutup tutmadığı yanında yazar. |
 
-**Veri ne kadar güncel?** Anlık değil. Yahoo verisi borsaya göre 15-20 dk gecikmelidir. Fiyat şeridi 5 dakikada bir, haberler ve tarayıcı 15 dakikada bir yenilenir (süre yönetimden değişir). Kripto (BtcTurk) neredeyse anlıktır.
+**Veri ne kadar güncel?** Fiyat şeridi dakikada bir, tek bir Yahoo isteğiyle (21 sembol) ve BtcTurk'ten yenilenir; haberler ve tarayıcı 15 dakikada bir. Gerçek gecikme her kutunun üstünde yazar ("canlı", "15 dk", "kapalı"). 30 Eylül 2026 ölçümü:
+
+| Veri | Gecikme | Neden |
+|---|---|---|
+| Dolar/TL, Euro/TL | 1-8 saniye | Döviz piyasası Yahoo'da neredeyse anlık |
+| USDT/TL, BTC/TL (BtcTurk) | anlık | Borsanın kendi API'si |
+| Ons altın, gümüş, Brent (vadeli) | ~10 dk | Vadeli piyasa verisi gecikmeli yayınlanır |
+| BIST 100, BIST 30, banka endeksi | 15 dk | Borsa İstanbul verisi ücretsiz kaynaklarda 15 dk gecikmelidir; anlık BIST verisi lisanslı ve ücretlidir (Matriks, Foreks vb.) |
+| ABD, Avrupa, Asya endeksleri | 15 dk ya da "kapalı" | Seans dışında son kapanış gösterilir |
+
+Gram altın ons × dolar/TL'den hesaplandığı için ons'un gecikmesini taşır. Denenen ücretsiz Türk kaynakları (truncgil, genelpara) bağlantıyı kesti ya da Cloudflare ile engelledi.
 
 **Yapay zeka önceki analizlerini hatırlar.** Her yeni analize son 3 analizin özeti ve varlık tahminlerinin sonucu ("USDTRY↑ %60/7g TUTMADI(-0,8%)") eklenir. Model görüşünü değiştirdiyse nedenini söylemek zorundadır. Bu satırlar "veri değişti mi?" kontrolünün dışında tutulur, yani tek başına yeni analiz tetiklemez.
 

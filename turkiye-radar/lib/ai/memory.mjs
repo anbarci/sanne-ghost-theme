@@ -36,7 +36,24 @@ export function statLessons(preds) {
   return out;
 }
 
-export const loadMemory = () => readJSON('memory.json', { dersler: [] });
+export const loadMemory = () => ({ dersler: [], notlar: [], ...readJSON('memory.json', {}) });
+
+// Kullanıcı notları: sohbette "hatırla: ..." ya da Hafıza panelinden. Portföy, risk tercihi, hedef gibi
+// kalıcı bilgiler; her analize ve sohbete girer, böylece öneriler kişiye göre olur.
+export function addNote(text, at = Date.now()) {
+  text = String(text || '').trim().slice(0, 300);
+  if (text.length < 3) return false;
+  const m = loadMemory();
+  m.notlar = [{ at, text }, ...m.notlar.filter(n => n.text !== text)].slice(0, 30);
+  writeJSON('memory.json', m);
+  return true;
+}
+export function deleteNote(at) {
+  const m = loadMemory();
+  m.notlar = m.notlar.filter(n => n.at !== at);
+  writeJSON('memory.json', m);
+}
+export const noteLines = () => loadMemory().notlar.slice(0, 15).map(n => n.text);
 
 export function addLesson(text, at = Date.now()) {
   text = String(text || '').trim().slice(0, 240);

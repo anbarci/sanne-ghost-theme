@@ -6,8 +6,11 @@
 // Sağlayıcıdan bağımsız çalışsın diye araç çağrısı (tool use) yerine veri soru anında seçilip eklenir.
 import { complete, costUSD } from './providers.mjs';
 import { readJSON, writeJSON } from '../store.mjs';
-import { buildDigest, activeProvider, spentToday, spendLog, unverifiedNumbers } from './analyze.mjs';
-import { memoryLines } from './memory.mjs';
+import { buildDigest, activeProvider, spentToday, spendLog, unverifiedNumbers, TAIL } from './analyze.mjs';
+import { memoryLines, noteLines, addNote } from './memory.mjs';
+import { toc, readNode, dateNodes, searchMemory } from './memtree.mjs';
+import { webSearch, webText } from '../websearch.mjs';
+import { queryOf } from '../verify.mjs';
 import { loadUniverse, MARKETS } from '../../sources/bist.mjs';
 import { fold } from '../rss.mjs';
 
@@ -19,7 +22,13 @@ Kurallar:
 3. [TEK KAYNAK], [UYUMSUZ], [YALANLAMA?] etiketli haberlere dayanırken bunu belirt. KONTROL satırında geçmeyen veriye güvenme.
 4. Kâr, korunma ya da işlem sorularında somut ol ama "garanti", "kesin" deme; her öneride riski ve fikri geçersiz kılacak koşulu yaz. Tarayıcı stratejilerinin geçmiş karnesi zayıfsa bunu hatırlat. HAFIZA'daki isabet oranlarını dikkate al.
 5. Muhalif ya da iktidara yakın yayınların bakışı sorulursa, o çizgideki haberlerin olayı nasıl anlattığını aktar; taraf tutma.
-6. Türkçe, sade ve kısa yaz (en fazla 8-10 cümle ya da kısa maddeler). Kullanıcı ayrıntı isterse uzat.`;
+6. Türkçe, sade ve kısa yaz (en fazla 8-10 cümle ya da kısa maddeler). Kullanıcı ayrıntı isterse uzat.
+7. KULLANICI NOTLARI kullanıcının kendisi hakkında verdiği bilgilerdir (portföy, risk tercihi, hedef); önerileri buna göre kişiselleştir.
+8. Elindeki veri soruyu cevaplamaya yetmiyorsa cevap YAZMA; yalnızca şu satırlardan en fazla 3 tane yaz ve dur:
+   ARA: <web'de aranacak kısa sorgu>   (güncel olay, radarda olmayan haber ya da açıklama için)
+   OKU: <hafıza düğümü>               (HAFIZA AĞACI'ndaki kimlik: 2026-H39, 2026-09-25, 2026-09 ya da A<sayı>)
+   BUL: <konu kelimeleri>             (geçmiş analizlerde ve sohbetlerde konu araması; ör. "altın", "THYAO faiz")
+   Sonuçlar sana verilince soruyu cevapla. WEB ARAMASI sonuçlarını kullanırken yayıncıyı ve tarihi belirt; tarihi eski ya da tek kaynaklı sonucu güncel kesin bilgi gibi sunma.`;
 
 const f = (x, d = 2) => (x == null || !Number.isFinite(+x) ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));
 const pc = x => (x == null ? '-' : `${x > 0 ? '+' : ''}${f(x * 100, 1)}%`);
@@ -42,10 +51,14 @@ function analysisText(a) {
 export function buildContext(a, snap, hist = readJSON('analyses.json', [])) {
   const L = [`BAĞLAM`, `ANALİZ (${when(a.at)}, ${a.provider} · ${a.model}):`, analysisText(a)];
   // Eski bir analiz seçildiyse o anki veri de verilir: "o gün ne biliyordun?" sorusu cevaplanabilsin.
-  if (hist[0] && hist[0].at !== a.at && a.provenance?.digest) L.push('', `ANALİZ ANINDAKİ VERİ ÖZETİ (${when(a.at)}):`, a.provenance.digest.replace(/\n(HAFIZA|ÖNCEKİ ANALİZLER)[\s\S]*$/, ''));
-  if (snap) L.push('', `ŞU ANKİ GERÇEK VERİ (${when(snap.at)}):`, buildDigest(snap).replace(/\n(HAFIZA|ÖNCEKİ ANALİZLER)[\s\S]*$/, ''));
+  if (hist[0] && hist[0].at !== a.at && a.provenance?.digest) L.push('', `ANALİZ ANINDAKİ VERİ ÖZETİ (${when(a.at)}):`, a.provenance.digest.replace(TAIL, ''));
+  if (snap) L.push('', `ŞU ANKİ GERÇEK VERİ (${when(snap.at)}):`, buildDigest(snap).replace(TAIL, ''));
+  const notes = noteLines();
+  if (notes.length) L.push('', 'KULLANICI NOTLARI:', ...notes.map(x => `- ${x}`));
   const mem = memoryLines();
   if (mem.length) L.push('', 'HAFIZA:', ...mem.map(x => `- ${x}`));
+  const tree = toc();
+  if (tree) L.push('', tree);
   return L.join('\n');
 }
 
@@ -107,32 +120,92 @@ export function retrieve(q, snap) {
 const chatKey = at => String(at);
 export const loadChat = at => readJSON('chats.json', {})[chatKey(at)]?.turns || [];
 
-export async function chat(at, q, settings) {
+const NOTE_CMD = /^\s*(hatırla|hatirla|not al|unutma|aklında tut)\s*[:,]?\s*/i;
+// Son dakika / güncellik isteyen sorularda web araması soru anında yapılır (modelin ayrıca istemesi beklenmez).
+const RECENT = /son dakika|son durum|son gelişme|bugün|şu an|şimdi|güncel|en son|az önce|bu sabah|bu akşam|açıklandı mı|açıkladı|ne oldu|ne zaman|kaç oldu|latest|today|breaking/i;
+const TOOL_LINE = /^\s*(ARA|OKU|BUL)\s*:\s*(.+?)\s*$/gim;
+
+// Uzayan sohbeti sıkıştırma (dbx'teki context compaction fikri, modelsiz): son 8 mesaj aynen gider,
+// daha eskileri "soru → cevabın ilk cümlesi" satırlarına indirgenir.
+export function compactHistory(turns, keep = 8) {
+  const old = turns.slice(0, -keep), recent = turns.slice(-keep).map(t => ({ role: t.role, content: t.content }));
+  if (!old.length) return { summary: '', recent };
+  const L = [];
+  for (let i = 0; i < old.length; i++) {
+    if (old[i].role !== 'user') continue;
+    const ans = old[i + 1]?.role === 'assistant' ? old[i + 1].content.replace(/\s+/g, ' ').split(/(?<=[.!?])\s/)[0].slice(0, 180) : '';
+    L.push(`- S: ${old[i].content.slice(0, 140)}${ans ? ` → C: ${ans}` : ''}`);
+  }
+  return { summary: `BU SOHBETİN ÖNCEKİ KISMI (özet, ${old.length} mesaj):\n${L.slice(-15).join('\n')}`, recent };
+}
+
+export async function runTools(lines, { settings, lang = 'tr' }) {
+  const out = [], used = [];
+  for (const [, kind, arg] of lines.slice(0, 3)) {
+    if (/^ARA$/i.test(kind)) {
+      const r = await webSearch(arg, { lang, searxng: settings.searxngUrl }).catch(e => ({ q: arg, results: [], errors: [e.message] }));
+      out.push(webText(r)); used.push(`web: ${arg} (${r.results.length} sonuç)`);
+    } else if (/^BUL$/i.test(kind)) {
+      out.push(searchMemory(arg)); used.push(`hafızada arama: ${arg}`);
+    } else {
+      out.push(readNode(arg).slice(0, 3500)); used.push(`hafıza: ${arg}`);
+    }
+  }
+  return { text: out.join('\n\n'), used };
+}
+
+export async function chat(at, q, settings, { web = true } = {}) {
   q = String(q || '').trim().slice(0, 1500);
   if (!q) throw new Error('Soru boş');
+  const hist = readJSON('analyses.json', []);
+  const a = hist.find(x => x.at === +at) || hist[0];
+  if (!a) throw new Error('Önce bir analiz gerekli');
+  const chats = readJSON('chats.json', {});
+  const c = (chats[chatKey(a.at)] ||= { at: a.at, turns: [] });
+  const save = turn => { c.turns.push({ role: 'user', content: q, at: Date.now() }, turn); c.turns = c.turns.slice(-60); writeJSON('chats.json', chats); return turn; };
+  // "hatırla: portföyümde THYAO var" → kalıcı not; model çağrılmaz.
+  if (NOTE_CMD.test(q)) {
+    const text = q.replace(NOTE_CMD, '');
+    return save({ role: 'assistant', content: addNote(text) ? `Not kaydedildi: "${text}". Bundan sonraki analizlerde ve sohbetlerde dikkate alınacak. Hafıza panelinden silebilirsin.` : 'Not boş olduğu için kaydedilmedi.', at: Date.now(), tools: ['not'] });
+  }
   const p = activeProvider(settings);
   if (!p) throw new Error('Yapay zeka sağlayıcısı tanımlı değil (yönetim paneli)');
   const spent = spentToday(spendLog());
   if (settings.aiDailyUSD > 0 && spent.usd >= settings.aiDailyUSD) throw new Error(`Günlük bütçe doldu ($${spent.usd.toFixed(3)} / $${settings.aiDailyUSD})`);
   if (settings.aiDailyTokens > 0 && spent.tokens >= settings.aiDailyTokens) throw new Error('Günlük token sınırı doldu');
-  const hist = readJSON('analyses.json', []);
-  const a = hist.find(x => x.at === +at) || hist[0];
-  if (!a) throw new Error('Önce bir analiz gerekli');
   const snap = readJSON('latest.json', null);
+  const { summary, recent } = compactHistory(c.turns);
   // Bağlam sistem metnine gömülür: aynı sohbet içinde değişmediği sürece sağlayıcının önbelleğinden okunur.
-  const context = buildContext(a, snap, hist);
-  const extra = retrieve(q, snap);
-  const chats = readJSON('chats.json', {});
-  const c = (chats[chatKey(a.at)] ||= { at: a.at, turns: [] });
-  const past = c.turns.slice(-8).map(t => ({ role: t.role, content: t.content }));
-  const msgs = [...past, { role: 'user', content: extra ? `${extra}\n\nSORU: ${q}` : q }];
-  const r = await complete({ ...p, maxTokens: Math.min(p.maxTokens || 6000, 2500) }, p.key, `${CHAT_SYSTEM}\n\n${context}`, msgs);
-  const answer = r.text.trim();
-  const turn = { role: 'assistant', content: answer, at: Date.now(), model: r.model, usage: r.usage, cost: costUSD(p.model, r.usage), unverified: unverifiedNumbers(answer, `${context}\n${extra}\n${q}`), used: extra ? extra.split('\n').length - 1 : 0 };
-  c.turns.push({ role: 'user', content: q, at: Date.now() }, turn);
-  c.turns = c.turns.slice(-40);
-  writeJSON('chats.json', chats);
-  return turn;
+  const context = buildContext(a, snap, hist) + (summary ? `\n\n${summary}` : '');
+  const system = `${CHAT_SYSTEM}\n\n${context}`;
+  // Soru anında eklenen veri: sorudaki hisse/varlık/haber + tarih ifadelerinin hafıza düğümleri + (gerekirse) web.
+  const used = [];
+  const parts = [retrieve(q, snap)];
+  for (const id of dateNodes(q)) { parts.push(readNode(id).slice(0, 2500)); used.push(`hafıza: ${id}`); }
+  if (web && RECENT.test(q)) {
+    const r = await webSearch(queryOf(q, 6), { searxng: settings.searxngUrl }).catch(() => null);
+    if (r) { parts.push(webText(r)); used.push(`web: ${r.q} (${r.results.length} sonuç)`); }
+  }
+  const extra = parts.filter(Boolean).join('\n\n');
+  const msgs = [...recent, { role: 'user', content: extra ? `${extra}\n\nSORU: ${q}` : q }];
+  const opts = { ...p, maxTokens: Math.min(p.maxTokens || 6000, 2500) };
+  const usage = { in: 0, out: 0, cacheRead: 0 };
+  const add = u => { for (const k of Object.keys(usage)) usage[k] += u?.[k] || 0; };
+  let r = await complete(opts, p.key, system, msgs);
+  add(r.usage);
+  let toolText = '';
+  // En fazla bir araç turu: model ARA/OKU istediyse çalıştır, sonuçlarla bir kez daha sor.
+  const lines = [...r.text.matchAll(TOOL_LINE)];
+  if (lines.length && r.text.replace(TOOL_LINE, '').trim().length < 40) {
+    const t = await runTools(lines, { settings });
+    used.push(...t.used); toolText = t.text;
+    msgs.push({ role: 'assistant', content: r.text.trim() }, { role: 'user', content: `ARAÇ SONUÇLARI:\n${t.text}\n\nŞimdi soruyu cevapla. Artık ARA ya da OKU yazma.` });
+    r = await complete(opts, p.key, system, msgs);
+    add(r.usage);
+  }
+  const answer = r.text.replace(TOOL_LINE, '').trim();
+  return save({ role: 'assistant', content: answer, at: Date.now(), model: r.model, usage, cost: costUSD(p.model, usage), tools: used,
+    unverified: unverifiedNumbers(answer, `${context}\n${extra}\n${toolText}\n${q}`), used: extra ? extra.split('\n').length - 1 : 0 });
 }
 
 export function clearChat(at) {

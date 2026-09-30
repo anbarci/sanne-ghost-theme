@@ -8,7 +8,8 @@ import { hasAdmin, setPassword, checkPassword, issueCookie, isAuthed, clearCooki
 import { sweep, sourceList, refreshQuotes } from './lib/sweep.mjs';
 import { analyze, scorePredictions, scorecard, activeProvider, SYSTEM, SCHEMA } from './lib/ai/analyze.mjs';
 import { chat, loadChat, clearChat } from './lib/ai/chat.mjs';
-import { loadMemory, deleteLesson, statLessons } from './lib/ai/memory.mjs';
+import { loadMemory, deleteLesson, statLessons, addNote, deleteNote } from './lib/ai/memory.mjs';
+import { toc, loadArchive } from './lib/ai/memtree.mjs';
 import { PRESETS, complete } from './lib/ai/providers.mjs';
 import { dispatchAlerts, sendTelegram } from './lib/alerts.mjs';
 import { loadFeeds } from './sources/news.mjs';
@@ -89,7 +90,7 @@ let timer, quick;
 function schedule() {
   clearInterval(timer); clearInterval(quick);
   timer = setInterval(() => cycle(), Math.max(5, loadSettings().intervalMin) * 60e3);
-  // Kaynakların ttlMin'i (5 dk) daha sık çekmeyi zaten engeller; bu döngü sadece şeridi tazeler.
+  // Dakikada bir fiyat şeridi: tek Yahoo isteği + BtcTurk (tam tarama 15 dk'da bir ayrıca sürer).
   quick = setInterval(async () => {
     if (status.sweeping) return;
     try { const q = await refreshQuotes(); if (q) broadcast({ type: 'quotes', ...q }); } catch (e) { console.error('[quotes]', e.message); }
@@ -237,11 +238,13 @@ const server = createServer(async (req, res) => {
       }
       if (path === '/api/chat' && req.method === 'GET') return send(res, 200, { turns: loadChat(url.searchParams.get('at')) });
       if (path === '/api/chat' && req.method === 'POST') {
-        try { return send(res, 200, await chat(body.at, body.q, loadSettings())); }
+        try { return send(res, 200, await chat(body.at, body.q, loadSettings(), { web: body.web !== false })); }
         catch (e) { return send(res, 200, { error: e.message }); }
       }
       if (path === '/api/chat/clear' && req.method === 'POST') { clearChat(body.at); return send(res, 200, { ok: true }); }
-      if (path === '/api/memory' && req.method === 'GET') return send(res, 200, { dersler: loadMemory().dersler, olcum: statLessons(readJSON('predictions.json', [])) });
+      if (path === '/api/memory' && req.method === 'GET') { const m = loadMemory(); return send(res, 200, { dersler: m.dersler, notlar: m.notlar, olcum: statLessons(readJSON('predictions.json', [])), agac: toc(), arsiv: loadArchive().length }); }
+      if (path === '/api/memory/note' && req.method === 'POST') return send(res, 200, { ok: addNote(body.text) });
+      if (path === '/api/memory/note/delete' && req.method === 'POST') { deleteNote(+body.at); return send(res, 200, { ok: true }); }
       if (path === '/api/memory/delete' && req.method === 'POST') { deleteLesson(+body.at); return send(res, 200, { ok: true }); }
       if (path.startsWith('/api/admin/')) return admin(req, res, path, body);
       return send(res, 404, { error: 'Bulunamadı' });

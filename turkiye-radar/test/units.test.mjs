@@ -406,3 +406,53 @@ test('Sohbet verisi: sorudaki hisse, varlık ve konu kelimeleri ilgili veriyi ge
   assert.match(r, /HABER \[AA\/resmi.*Petrol fiyatları Hürmüz/);
   assert.equal(retrieve('merhaba', snap), '');
 });
+
+test('Sohbet sıkıştırma: son 8 mesaj aynen, eskiler soru → ilk cümle özetine iner', async () => {
+  const { compactHistory } = await import('../lib/ai/chat.mjs');
+  const turns = Array.from({ length: 12 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: i % 2 ? `Cevap ${i}. İkinci cümle.` : `Soru ${i}` }));
+  const { summary, recent } = compactHistory(turns);
+  assert.equal(recent.length, 8);
+  assert.match(summary, /4 mesaj[\s\S]*S: Soru 0 → C: Cevap 1\.\n- S: Soru 2 → C: Cevap 3\./);
+  assert.equal(compactHistory(turns.slice(0, 4)).summary, '');
+});
+
+test('Canlı fiyat: spark ayrıştırma, gecikme, kontrat devrinde değişim korunur, gram altın yeniden hesaplanır', async () => {
+  const { parseSpark, mergeLive } = await import('../lib/live.mjs');
+  const now = 1790760210000;
+  const j = { 'USDTRY=X': { timestamp: [1790760200, 1790760202], close: [49, 49.01], previousClose: 49.0005 },
+    'GC=F': { timestamp: [1790759600], close: [4221.6], previousClose: 4179.7 }, 'BZ=F': { timestamp: [1790759600], close: [97.3], previousClose: 90 } };
+  const q = parseSpark(j, [['USDTRY', 'USDTRY=X'], ['ONS', 'GC=F'], ['BRENT', 'BZ=F'], ['YOK', 'YOK']], now);
+  assert.equal(q.USDTRY.delaySec, 8);
+  assert.equal(q.ONS.chg, 1);
+  assert.equal(q.YOK, undefined);
+  const m = mergeLive({ USDTRY: { price: 48.9, chg: 0, vol: 0.1 }, ONS: { price: 4100, chg: 0, vol: 1 }, BRENT: { price: 90, chg: 1.2, roll: 'BZX26', vol: 2 }, GRAM_ALTIN: { derived: true } }, q);
+  assert.equal(m.BRENT.chg, 1.2); // devir düzeltmeli değişim canlı veriyle ezilmez
+  assert.equal(m.BRENT.price, 97.3);
+  assert.equal(m.GRAM_ALTIN.price, Math.round(4221.6 * 49.01 / 31.1035 * 100) / 100);
+  assert.equal(m.USDTRY.live, true);
+});
+
+test('Hafıza ağacı: hafta kimliği, tarih ifadeleri, düğüm okuma ve konu araması', async () => {
+  const m = await import('../lib/ai/memtree.mjs');
+  const now = Date.UTC(2026, 8, 30, 9);
+  assert.equal(m.weekOf(now), '2026-H40');
+  assert.equal(m.weekOf(Date.UTC(2025, 11, 29)), '2026-H01');
+  assert.deepEqual(m.dateNodes('25 Eylül ve dün ne demiştin?', now), ['2026-09-25', '2026-09-29']);
+  assert.deepEqual(m.dateNodes('geçen hafta', now), ['2026-H39']);
+  const arr = [1, 2, 8].map(d => ({ at: now - d * 864e5, provider: 'P', ozet: d === 8 ? 'Altın yükseliş trendinde' : `özet ${d}`, varliklar: [{ kod: 'USDTRY', yon: 'yukari', olasilik: 60, vade_gun: 7 }], fikirler: [], eylem: [], ders: '', haberler: [], fiyat: { USDTRY: 48 + d / 10 } }));
+  const preds = [{ id: `${arr[0].at}-USDTRY`, at: arr[0].at, done: true, hit: false, chg: -0.8 }];
+  assert.match(m.readNode('2026-09-29', arr, preds), /USDTRY yukari %60\/7g TUTMADI \(-0,8%\)/);
+  assert.match(m.toc(now, arr, preds), /\[2026-H40\] 2 analiz \| USDTRY 48,2→48,1 \| tahmin 0\/1 tuttu/);
+  const chats = { [arr[1].at]: { at: arr[1].at, turns: [{ role: 'user', content: 'Gram altın alayım mı?', at: now }, { role: 'assistant', content: 'Riskli.' }] } };
+  const r = m.searchMemory('altın', arr, chats);
+  assert.match(r, /2 eşleşme/);
+  assert.match(r, /analiz: Altın yükseliş/);
+  assert.match(r, /sohbet: S: Gram altın alayım mı\? → C: Riskli\./);
+});
+
+test('Web araması: yerel ağ adresleri açılmaz', async () => {
+  const { isPublicUrl } = await import('../lib/websearch.mjs');
+  for (const u of ['http://localhost:3120/api', 'http://127.0.0.1/', 'http://192.168.1.1/', 'http://10.0.0.5/', 'http://172.20.0.1/', 'http://nas.local/', 'file:///etc/passwd', 'http://[::1]/'])
+    assert.equal(isPublicUrl(u), false, u);
+  assert.equal(isPublicUrl('https://www.aa.com.tr/tr/ekonomi/x'), true);
+});

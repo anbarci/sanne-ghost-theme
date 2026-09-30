@@ -11,6 +11,7 @@ import { fold } from './rss.mjs';
 import { catalysts, gundemScore } from './catalysts.mjs';
 import { runChecks } from './checks.mjs';
 import { corroborate } from './verify.mjs';
+import { liveQuotes, mergeLive } from './live.mjs';
 
 const state = readJSON('state.json', { sources: {} }); // kaynak başına son sonuç + zaman + hata
 let running = null;
@@ -183,20 +184,23 @@ export async function sweep({ force = false, onDone } = {}) {
 
 const slim = n => ({ id: n.id, title: n.title, link: n.link, ts: n.ts, src: n.src, srcName: n.srcName, srcs: n.srcs, also: n.also, stance: n.stance, cat: n.cat, lang: n.lang, lead: n.lead || n.summary?.slice(0, 280), impact: n.impact, check: n.check, misleading: n.misleading, teyit: n.teyit });
 
-// Hızlı yenileme: tam tarama (haber, tarayıcı) 15 dk'da bir; fiyat şeridi arada birkaç dakikada bir.
-// Yahoo verisi zaten 15 dk gecikmeli olduğundan daha sık çekmek hem boşa hem de 429 riskini artırır.
+// Hızlı yenileme (dakikada bir): tam tarama 15 dk'da bir; arada fiyatlar tek bir Yahoo isteğiyle (spark) ve
+// BtcTurk'ten tazelenir. Döviz ~8 sn, BIST 15 dk gecikmeli gelir; gecikme her fiyatın yanında gösterilir.
 export async function refreshQuotes() {
   if (running) return null;
   const snap = readJSON('latest.json', null);
   if (!snap) return null;
   const settings = loadSettings();
-  const src = SOURCES.filter(s => s.id === 'markets' || s.id === 'btcturk');
-  await Promise.all(src.map(s => runSource(s, settings, false)));
+  const [live] = await Promise.all([
+    liveQuotes().catch(() => null),
+    runSource(SOURCES.find(s => s.id === 'btcturk'), settings, true),
+  ]);
   if (running) return null; // bu arada tam tarama başladıysa onun sonucunu ezme
-  const mk = state.sources.markets?.data, cr = state.sources.btcturk?.data;
-  if (mk) snap.markets = mk;
+  if (live) snap.markets = mergeLive(snap.markets, live);
+  const cr = state.sources.btcturk?.data;
   if (cr) snap.crypto = cr;
+  if (cr?.USDTTRY && snap.markets?.USDTRY) snap.usdtPremium = Math.round((cr.USDTTRY.price / snap.markets.USDTRY.price - 1) * 10000) / 100;
   snap.quotesAt = Date.now();
   writeJSON('latest.json', snap);
-  return { markets: snap.markets, crypto: snap.crypto, quotesAt: snap.quotesAt };
+  return { markets: snap.markets, crypto: snap.crypto, usdtPremium: snap.usdtPremium, quotesAt: snap.quotesAt };
 }
