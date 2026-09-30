@@ -33,6 +33,8 @@ Fikir [Crucix](https://github.com/calesthio/Crucix)'ten geliyor. Kod sıfırdan 
 
 **Dünya haberleri analize girer.** Türkiye skoru düşük ama küresel piyasayı oynatan haberler ayrı bir "Dünya skoru"yla seçilir (finans, enerji, ticaret, jeopolitik, şiddet; Türkiye bağı aranmaz). En yüksek 5'i AI özetine "DÜNYA" satırı olarak girer. ABD ve Avrupa tarayıcılarının özeti de gider.
 
+**Veri kontrolleri.** Aynı büyüklük iki bağımsız kaynaktan karşılaştırılır: dolar/TL Yahoo ile TCMB, euro/TL Yahoo ile ECB, EUR/USD çapraz kuru ECB ile. Ayrıca bayat fiyatlar, şüpheli vadeli kontrat devirleri ve tarayıcı dosyalarının yaşı denetlenir. Geçmeyen kontrol panelde ✕ ile görünür ve AI özetine "KONTROL" satırı olarak gider; model o veriye dayanmamak zorundadır. 30 Eylül'deki gerçek veride sonuç: kur farkları %0,04-0,16 arasında, TTF gaz kontratında devir şüphesi yakalandı. Piyasa şeridindeki her kutunun üzerine gelince kaynağı ve son işlem saati görünür.
+
 ## Hisse tarayıcısı ve grafikler
 
 Üç piyasa taranır; Trade sekmesinden geçilir:
@@ -258,4 +260,6 @@ Aşağıdakiler **geliştirme sırasında kullanıldı, repoya eklenmedi**:
 - Tam metin: [Mozilla Readability](https://github.com/mozilla/readability) (Apache 2.0), [linkedom](https://github.com/WebReflection/linkedom) (ISC)
 - Harita verisi: Natural Earth (kamu malı), [world-atlas](https://github.com/topojson/world-atlas) paketi üzerinden. Dünya haritası tek seferlik SVG yoluna çevrildi (`public/world.json`), çalışırken dışarıya istek atılmaz.
 - Koyu lacivert finans paleti ve "finans panelinde koyu varsayılan" kararı: [ui-ux-pro-max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill). Yükseliş/düşüş renkleri yeni yüzeye karşı renk körlüğü testinden yeniden geçirildi.
-- İncelenip kullanılmayanlar: [proxy-scraper](https://github.com/maximilianfeix/proxy-scraper) (açık proxy'ler hem gizliliği bozar hem veri kaynaklarının engellemesine yol açar; radar kendi IP'sinden, dürüst kullanıcı ajanıyla istek atar), [CSVLint](https://github.com/BdR76/CSVLint) (Notepad++ eklentisi; kullanılan CSV'ler FRED/ECB/FIRMS'ün sabit biçimli dosyaları).
+- Kaynaklar arası kontrol fikri: [Libreta](https://github.com/danielochoa94/libreta) (Apache 2.0; kod alınmadı, "checks.yaml" yaklaşımı uyarlandı).
+- AI talimatındaki "olguyu yorumdan ayır, eksik veriyi söyle, tahminle doldurma" kuralları: [FAB – Finance Agents Benchmark](https://github.com/SecondState-ai/finance-agents-benchmark) sistem talimatından. FAB'da DeepSeek V4.1 Flash %60 ile birinci; ama zor görevlerde %29'da kalıyor ve 50 görevin yalnızca 23'ünü üç denemede de geçebiliyor. Yani aynı soruya her seferinde aynı cevabı vermiyor; karnenin önemi bu.
+- İncelenip kullanılmayanlar: [botasaurus](https://github.com/omkarcloud/botasaurus) (bot tespitini atlatan Python/Chrome kazıyıcı; radar sitelere dürüst kimlikle gidiyor, üstelik gerçek engeller bot tespiti değil: Kandilli ağ izin listesinde yok, GDELT hız sınırı koyuyor), [proxy-scraper](https://github.com/maximilianfeix/proxy-scraper) (açık proxy'ler hem gizliliği bozar hem veri kaynaklarının engellemesine yol açar; radar kendi IP'sinden, dürüst kullanıcı ajanıyla istek atar), [CSVLint](https://github.com/BdR76/CSVLint) (Notepad++ eklentisi; kullanılan CSV'ler FRED/ECB/FIRMS'ün sabit biçimli dosyaları).

@@ -9,6 +9,7 @@ import { recordPicks, scorePicks, picksSummary } from './picks.mjs';
 import { loadUniverse, MARKETS } from '../sources/bist.mjs';
 import { fold } from './rss.mjs';
 import { catalysts, gundemScore } from './catalysts.mjs';
+import { runChecks } from './checks.mjs';
 
 const state = readJSON('state.json', { sources: {} }); // kaynak başına son sonuç + zaman + hata
 let running = null;
@@ -167,6 +168,7 @@ export async function sweep({ force = false, onDone } = {}) {
       sources: sourceList(settings),
     };
     snap.screener = snap.screeners.tr; // AI özeti ve eski istemciler Türkiye tarayıcısını buradan okur
+    snap.checks = runChecks(snap);
     snap.delta = computeDelta(prev, snap);
     writeJSON('latest.json', snap);
     writeJSON('state.json', { sources: Object.fromEntries(Object.entries(state.sources).map(([k, v]) => [k, v])) });

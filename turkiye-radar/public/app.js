@@ -38,7 +38,8 @@ function renderTape(s) {
   const m = s.markets || {};
   const items = (ui.view === 'dunya' ? TAPE_WORLD : TAPE).filter(([k]) => m[k]).map(([k, label, d]) => {
     const x = m[k], roll = x.roll === 'şüpheli';
-    const title = [NOTE[k], roll ? 'Vadeli kontrat devri şüphesi: günlük değişim güvenilir değil.' : x.roll ? `Değişim ${x.roll} kontratından.` : '', x.anomaly ? `Olağandışı hareket (normal günlük oynaklık %${nf(x.vol)})` : ''].filter(Boolean).join(' ');
+    const when = x.time ? new Date(x.time).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const title = [x.src ? `Kaynak: ${x.src}${when ? ', son işlem ' + when : ''}.` : '', NOTE[k], roll ? 'Vadeli kontrat devri şüphesi: günlük değişim güvenilir değil.' : x.roll ? `Değişim ${x.roll} kontratından.` : '', x.anomaly ? `Olağandışı hareket (normal günlük oynaklık %${nf(x.vol)})` : ''].filter(Boolean).join(' ');
     const clickable = k !== 'GRAM_ALTIN';
     return `<${clickable ? 'button type="button"' : 'div'} class="tick ${clickable ? '' : 'static'} ${x.anomaly ? 'anomaly' : ''}" data-k="${k}" ${clickable ? `aria-pressed="${ui.sel === k}"` : ''} title="${esc(title)}">
       <div class="k"><span>${esc(label)}</span>${roll ? '<span class="muted">devir?</span>' : chg(x.chg)}</div><b>${nf(x.price, d)}</b></${clickable ? 'button' : 'div'}>`;
@@ -214,11 +215,12 @@ function renderAI(a, body = $('#ai-body'), meta = $('#ai-meta')) {
   const izle = r.tarafsiz.izle?.length ? `<p class="small muted">İzlenecekler: ${r.tarafsiz.izle.map(esc).join(' · ')}</p>` : '';
   const assets = (r.varliklar || []).map(v => `<tr><td>${esc(v.kod)}</td><td class="${v.yon === 'yukari' ? 'up' : v.yon === 'asagi' ? 'down' : 'flat'}">${v.yon === 'yukari' ? '▲' : v.yon === 'asagi' ? '▼' : '■'} ${esc(v.yon)}</td><td class="n">${esc(v.vade_gun)}g</td><td class="n">%${esc(v.olasilik)}</td><td class="small muted">${esc(v.gerekce)}</td></tr>`).join('');
   const ideas = (r.fikirler || []).map(f => `<div class="idea"><div class="inline"><span class="tag ${esc(f.yon)}">${esc(f.yon)}</span><b>${esc(f.baslik)}</b><span class="small muted">${esc(f.enstruman)}</span></div><div>${esc(f.gerekce)}</div><div class="small muted">Risk: ${esc(f.risk)} · Geçersiz kılan: ${esc(f.gecersiz_kilan)}</div></div>`).join('');
+  const eksik = r.eksik_veri?.length ? `<p class="small muted">Eksik veri: ${r.eksik_veri.map(esc).join(' · ')}</p>` : '';
   const bad = r.dogrulanamayan?.length ? `<p class="alert">Veri özetinde bulunamayan rakamlar: ${r.dogrulanamayan.map(esc).join(', ')}. Bu rakamlara güvenmeyin.</p>` : '';
   body.innerHTML = `
     <p class="lead-sum">${esc(r.ozet)}</p>
     <div class="povs">${view('bear', 'Kötümser', r.kotumser)}${view('bull', 'İyimser', r.iyimser)}${view('base', 'Tarafsız', r.tarafsiz, izle)}</div>
-    ${bad}
+    ${bad}${eksik}
     <div class="subgrid">
       <div><h3>Varlık beklentileri</h3><div class="scroll-x"><table><thead><tr><th>Varlık</th><th>Yön</th><th class="n">Vade</th><th class="n">Olas.</th><th>Neden</th></tr></thead><tbody>${assets}</tbody></table></div></div>
       <div><h3>Fikirler (kişisel)</h3><div class="ideas">${ideas || '<p class="empty">Fikir yok.</p>'}</div></div>
@@ -339,6 +341,9 @@ function renderSide(s) {
   const rg = s.resmiGazete;
   $('#rg-link').href = safeUrl(rg?.url || 'https://www.resmigazete.gov.tr/');
   $('#rg').innerHTML = (rg?.items || []).slice(0, 8).map(i => `<li><span><a href="${esc(safeUrl(i.link))}" target="_blank" rel="noopener noreferrer">${esc(i.title)}</a></span></li>`).join('') || '<li class="empty">Bugünkü sayı alınamadı.</li>';
+  const ck = s.checks || [];
+  $('#chk-sub').textContent = ck.length ? `${ck.filter(c => c.ok).length}/${ck.length} geçti` : '';
+  $('#checks').innerHTML = ck.map(c => `<li><span><span class="${c.ok ? 'ok' : 'err'}">${c.ok ? '✓' : '✕'}</span> ${esc(c.ad)}<span class="small muted"> · ${esc(c.detay)}</span></span></li>`).join('') || '<li class="empty">Henüz kontrol yok.</li>';
   $('#srcs').innerHTML = (s.sources || []).map(x => `<li><span>${esc(x.name)}</span><span class="${x.ok ? 'ok' : x.missing?.length || !x.enabled ? 'muted' : 'err'}">${!x.enabled ? 'kapalı' : x.missing?.length ? 'anahtar yok' : x.ok ? ago(x.at) : 'hata'}</span></li>`).join('');
 }
 

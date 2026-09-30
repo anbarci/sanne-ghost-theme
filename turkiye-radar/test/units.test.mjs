@@ -330,3 +330,19 @@ test('Dünya skoru: Türkiye bağı olmayan küresel haber de puan alır', () =>
   assert.ok(w.world >= 40, `world ${w.world}`);
   assert.deepEqual(impact('Fed holds rates, Wall Street falls', W).wplace, [40.7, -74]);
 });
+
+test('Veri kontrolleri: kaynaklar arası fark ve bayat veri yakalanır', async () => {
+  const { runChecks } = await import('../lib/checks.mjs');
+  const now = Date.UTC(2026, 8, 30, 10);
+  const s = {
+    markets: { USDTRY: { price: 48.94, time: now - 36e5 }, EURTRY: { price: 55.66, time: now - 36e5 }, BRENT: { price: 96, time: now - 100 * 36e5, roll: 'şüpheli' } },
+    tcmb: { date: '29.09.2026', rates: { USD: { sell: 49.0013 } } },
+    ecb: { EURTRY: { date: '2026-09-29', value: 57.9 }, EURUSD: { date: '2026-09-29', value: 1.1355 } },
+  };
+  const c = Object.fromEntries(runChecks(s, now).map(x => [x.ad, x]));
+  assert.equal(c['Dolar/TL: Yahoo ↔ TCMB'].ok, true);
+  assert.equal(c['Euro/TL: Yahoo ↔ ECB'].ok, false); // %3,9 fark
+  assert.equal(c['Çapraz kur EUR/USD'].ok, true);   // 55,66/48,94 = 1,137
+  assert.equal(c['Vadeli kontrat devri'].ok, false);
+  assert.match(c['Fiyatların tazeliği'].detay, /BRENT \(100 sa\)/);
+});

@@ -13,7 +13,7 @@ const view = (extra = {}) => ({ type: 'object', additionalProperties: false, req
 
 export const SCHEMA = {
   type: 'object', additionalProperties: false,
-  required: ['ozet', 'kotumser', 'iyimser', 'tarafsiz', 'varliklar', 'fikirler', 'guven'],
+  required: ['ozet', 'kotumser', 'iyimser', 'tarafsiz', 'varliklar', 'fikirler', 'eksik_veri', 'guven'],
   properties: {
     ozet: str,
     kotumser: view({ olasilik: { type: 'integer' } }),
@@ -31,6 +31,7 @@ export const SCHEMA = {
         properties: { baslik: str, enstruman: str, yon: { type: 'string', enum: ['al', 'sat', 'bekle', 'koru'] }, gerekce: str, risk: str, gecersiz_kilan: str },
       },
     },
+    eksik_veri: strs,
     guven: { type: 'string', enum: ['dusuk', 'orta', 'yuksek'] },
   },
 };
@@ -52,8 +53,10 @@ Kurallar:
 6. fikirler: en fazla 5, kişisel kullanım içindir. Hisse fikri verirken TARAYICI satırlarına dayan ve o stratejinin geçmiş karnesini (endekse göre getiri, isabet) yaz; karne zayıfsa bunu açıkça söyle, "kesin yükselir" deme. Her fikirde somut gerekçe, risk ve fikri geçersiz kılacak koşul (seviye ya da olay) olsun.
 7. GÜNDEM satırları kural tabanlı neden→sonuç zincirleridir (geriye dönük test edilmemiştir). Hisse fikrinde "gelişme → etki kanalı → şirket" zincirini açıkça yaz; zincir tek haberdense zayıf olduğunu söyle. ABD ve Avrupa satırlarını Türkiye'ye yansıması (sermaye akışı, emtia, ihracat) açısından da değerlendir.
 8. ÖNCEKİ ANALİZLER senin son görüşlerin ve tahminlerinin sonuçlarıdır. Görüşün değiştiyse nedenini tarafsiz.yorum içinde bir cümleyle söyle; tutmayan tahmin varsa aynı hatayı tekrarlama.
-9. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
-10. Yalnızca şemaya uyan JSON döndür.`;
+9. Olguyu yorumdan ayır: dayanak maddeleri yalnızca özetteki olgulardır; senaryo ve tahmin yorum kısmına yazılır. KONTROL satırında geçmeyen bir kontrol varsa o veriye dayanma ya da şüpheli olduğunu söyle.
+10. eksik_veri: sonuca varmak için gereken ama özette olmayan veriyi en fazla 3 maddeyle yaz (ör. "TCMB rezerv verisi yok"). Eksik veriyi tahminle doldurma.
+11. Türkçe yaz. Kısa ve net ol: ozet en fazla 2 cümle, her yorum en fazla 4 cümle, her dayanak tek cümle.
+12. Yalnızca şemaya uyan JSON döndür.`;
 
 const f = (x, d = 2) => (x == null ? '-' : Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d }));
 const sign = x => (x > 0 ? '+' : '') + f(x);
@@ -121,6 +124,8 @@ export function buildDigest(s, prev) {
     if (!x.catalysts?.length) continue;
     L.push(`GÜNDEM ${x.ad}: ` + x.catalysts.slice(0, 4).map(t => `${t.ad} ${t.yon > 0 ? '▲' : '▼'} (${t.neden}) → ${t.etkiler.slice(0, 4).map(e => `${e.kod}${e.yon > 0 ? '+' : '−'}`).join(' ')}`).join(' ; '));
   }
+  const bad = (s.checks || []).filter(c => !c.ok);
+  if (bad.length) L.push('KONTROL (geçmeyen): ' + bad.map(c => `${c.ad}: ${c.detay}`).join(' ; '));
   if (s.delta?.events?.length) L.push('SON DEĞİŞİMLER: ' + s.delta.events.slice(0, 8).map(e => e.text).join(' ; '));
   if (prev?.length) {
     // Önbellek/tekrar kontrolünde hash'e girmesin diye hep en sonda.

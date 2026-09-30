@@ -49,14 +49,18 @@ export const fred = {
 
 // ECB referans kuru: TCMB'den bağımsız ikinci bir EUR/TRY kaynağı.
 export const ecb = {
-  id: 'ecb', name: 'ECB EUR/TRY referans kuru', group: 'makro', ttlMin: 360,
+  id: 'ecb', name: 'ECB referans kurları (EUR/TRY, EUR/USD)', group: 'makro', ttlMin: 360,
   async run() {
-    const csv = await fetchx('https://data-api.ecb.europa.eu/service/data/EXR/D.TRY.EUR.SP00.A?format=csvdata&lastNObservations=2', { as: 'text' });
+    // Tek istekte iki seri. Sondaki TITLE_COMPL gibi sütunlar tırnak içinde virgül taşıyabilir; kullanılan
+    // CURRENCY, TIME_PERIOD, OBS_VALUE onlardan önce geldiği için basit bölme güvenli.
+    const csv = await fetchx('https://data-api.ecb.europa.eu/service/data/EXR/D.TRY+USD.EUR.SP00.A?format=csvdata&lastNObservations=2', { as: 'text' });
     const [head, ...rows] = csv.trim().split('\n');
-    const h = head.split(','), iT = h.indexOf('TIME_PERIOD'), iV = h.indexOf('OBS_VALUE');
-    const pts = rows.map(r => r.split(',')).map(c => ({ date: c[iT], value: +c[iV] })).filter(p => Number.isFinite(p.value));
-    if (!pts.length) throw new Error('ECB boş yanıt');
-    return { EURTRY: pts.at(-1), prev: pts.at(-2)?.value ?? null };
+    const h = head.split(','), iC = h.indexOf('CURRENCY'), iT = h.indexOf('TIME_PERIOD'), iV = h.indexOf('OBS_VALUE');
+    const by = {};
+    for (const c of rows.map(r => r.split(','))) if (Number.isFinite(+c[iV]) && c[iV] !== '') (by[c[iC]] ||= []).push({ date: c[iT], value: +c[iV] });
+    for (const v of Object.values(by)) v.sort((a, b) => a.date.localeCompare(b.date));
+    if (!by.TRY?.length) throw new Error('ECB boş yanıt');
+    return { EURTRY: by.TRY.at(-1), prev: by.TRY.at(-2)?.value ?? null, EURUSD: by.USD?.at(-1) || null };
   },
 };
 
