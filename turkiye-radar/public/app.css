@@ -120,6 +120,19 @@ h3 { font-size: .92rem; }
 .g-misc { grid-area: misc; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap); align-items: start; }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .t-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr) 330px; gap: var(--gap); align-items: start; }
+.t-side { display: grid; gap: var(--gap); align-content: start; min-width: 0; }
+.wlist { list-style: none; display: grid; gap: 2px; }
+.wrow { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 8px; align-items: baseline; padding: 8px 6px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--ink); font: inherit; font-size: .84rem; text-align: left; cursor: pointer; }
+.wrow:hover { background: var(--surface-2); }
+.wrow[aria-pressed="true"] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.wrow .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wrow .tag { padding: 2px 5px; font-size: .66rem; }
+.alist, .alog { list-style: none; display: grid; gap: 4px; }
+.alist li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: .82rem; }
+.alist li > .small { grid-column: 1; }
+.alist li > button { grid-column: 2; grid-row: 1 / span 2; }
+.alist li.off { opacity: .6; }
+.alog li { padding: 3px 0; }
 .w-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-areas: "map side" "news side"; gap: var(--gap); align-items: start; }
 .w-map { grid-area: map; } .w-news { grid-area: news; } .w-side { grid-area: side; display: grid; gap: var(--gap); min-width: 0; }
 .a-grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); grid-template-rows: auto 1fr; gap: var(--gap); align-items: start; }
@@ -161,11 +174,20 @@ h3 { font-size: .92rem; }
 .srow svg polyline { fill: none; stroke-width: 1.5; }
 .srow .sc { text-align: right; display: grid; gap: 3px; }
 .srow .sc b { font: 650 .9rem var(--mono); }
+.srow .star { color: var(--accent); margin-left: 4px; font-size: .8rem; }
+.sdiv { font-size: .72rem; color: var(--muted); padding: 12px 6px 4px; border-top: 1px solid var(--line); margin-top: 6px; }
 .meter { display: block; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
 
 /* Grafik */
 .chart-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.chart-head .c-acts { display: flex; gap: 6px; margin-left: auto; }
+#w-star[aria-pressed="true"] { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+.alarm-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.alarm-form label { display: grid; gap: 4px; font-size: .74rem; color: var(--muted); }
+.alarm-form select, .alarm-form input { font: 500 .84rem var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line-2); border-radius: var(--r-sm); padding: 7px 9px; min-width: 0; }
+.alarm-form input { width: 120px; font-family: var(--mono); }
+.alarm-form p { flex: 1 1 100%; margin: 0; }
 .chart-head .ttl { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .chart-head .ttl b { font-size: 1.35rem; font-weight: 700; }
 .chart-head .px { font: 650 1.35rem var(--mono); font-variant-numeric: tabular-nums; }
@@ -177,6 +199,23 @@ h3 { font-size: .92rem; }
 .detail ul { list-style: none; display: grid; gap: 5px; font-size: .84rem; }
 .detail li::before { content: "·"; color: var(--muted); margin-right: 6px; }
 .detail .bad li::before { content: "!"; color: var(--warn); font-weight: 700; }
+/* Teknik görünüm ve seviye merdiveni */
+.tech-h { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.tech-h .tag.up { color: var(--up); } .tech-h .tag.down { color: var(--down); }
+.detail ul.sig { gap: 6px; }
+.detail .sig li { display: grid; grid-template-columns: 14px minmax(0, 1fr); column-gap: 6px; font-size: .82rem; }
+.detail .sig li::before { content: none; }
+.sig li b { font-weight: 600; }
+.sig li > span:last-child { grid-column: 2; color: var(--muted); font-size: .76rem; }
+.detail ul.ladder { gap: 0; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.detail .ladder li::before { content: none; }
+.ladder .lv { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 7px 10px; border-top: 1px solid var(--line); font-size: .8rem; }
+.ladder .lv:first-child { border-top: 0; }
+.ladder .lv b { font: 600 .86rem var(--mono); font-variant-numeric: tabular-nums; }
+.ladder .lv span:last-child { font-size: .74rem; text-align: right; }
+.ladder .res > span:first-child { color: var(--down); } .ladder .sup > span:first-child { color: var(--up); }
+.ladder .now { background: var(--accent-soft); } .ladder .now > span:first-child { color: var(--accent-ink); font-weight: 600; }
+.ladder .none { display: block; color: var(--muted); font-size: .76rem; }
 .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; font-size: .84rem; }
 .kv dt { color: var(--muted); } .kv dd { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
 
@@ -306,7 +345,7 @@ label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
 
 @media (max-width: 1280px) {
   .t-grid { grid-template-columns: 310px minmax(0, 1fr); }
-  .t-cats { grid-column: 1 / -1; }
+  .t-side { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
   .w-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "map" "side" "news"; }
 }
 @media (max-width: 1100px) {
@@ -320,6 +359,10 @@ label { display: grid; gap: 4px; font-size: .8rem; color: var(--muted); }
   .chart-box { height: 380px; }
 }
 @media (max-width: 720px) {
+  /* Telefonda önce liste: hisse seçilince grafik görünür alana kayar. Sohbet düğmesi içeriğin üstüne binmesin. */
+  .t-chart { order: 0; }
+  main.view { padding-bottom: 84px; }
+  .chart-head .c-acts { margin-left: 0; }
   .top-in { gap: 8px; }
   .brand { flex: 1 1 100%; }
   .tabs { order: 3; flex: 1 1 100%; margin-right: 0; }

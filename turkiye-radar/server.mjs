@@ -17,8 +17,10 @@ import { loadFeeds } from './sources/news.mjs';
 import { yahooDaily, loadUniverse, MARKETS } from './sources/bist.mjs';
 import { CORE } from './sources/markets.mjs';
 import { sma, rsi } from './lib/ta.mjs';
+import { levels, teknik } from './lib/levels.mjs';
 import { checkKey } from './lib/keycheck.mjs';
 import { exportVault } from './lib/obsidian.mjs';
+import { loadWatch, toggleWatch, addAlarm, deleteAlarm, checkAlarms, quoteOf, KOSUL } from './lib/watch.mjs';
 
 // .env dosyası varsa yükle (dotenv bağımlılığı olmadan).
 try {
@@ -83,6 +85,7 @@ async function cycle({ force = false, forceAI = false } = {}) {
     } catch (e) { status.lastAnalysisNote = `Analiz hatası: ${e.message}`; }
     status.analyzing = false;
     await dispatchAlerts(snap, settings, analysis?.result ? analysis : null);
+    await runAlarms(snap).catch(e => console.error('[alarm]', e.message));
     status.lastError = null;
     broadcast({ type: 'update', at: snap.at });
   } catch (e) {
@@ -92,6 +95,17 @@ async function cycle({ force = false, forceAI = false } = {}) {
   }
 }
 
+// Fiyat alarmları: tetiklenen her alarm Telegram'a (açıksa) gider; açık panellere yalnızca "alarm var" sinyali yayınlanır,
+// metni her üye kendi listesinden okur (bir üyenin alarmı başkasının tarayıcısına düşmesin).
+async function runAlarms(snap) {
+  const fired = checkAlarms(snap);
+  if (!fired.length) return;
+  broadcast({ type: 'alarm' });
+  const settings = loadSettings();
+  if (!settings.telegram?.enabled) return;
+  for (const x of fired) { try { await sendTelegram(settings, `🔔 Fiyat alarmı\n${x.text}`); } catch (e) { console.warn('[alarm]', e.message); break; } }
+}
+
 let timer, quick;
 function schedule() {
   clearInterval(timer); clearInterval(quick);
@@ -99,7 +113,10 @@ function schedule() {
   // Dakikada bir fiyat şeridi: tek Yahoo isteği + BtcTurk (tam tarama 15 dk'da bir ayrıca sürer).
   quick = setInterval(async () => {
     if (status.sweeping) return;
-    try { const q = await refreshQuotes(); if (q) broadcast({ type: 'quotes', ...q }); } catch (e) { console.error('[quotes]', e.message); }
+    try {
+      const q = await refreshQuotes();
+      if (q) { broadcast({ type: 'quotes', ...q }); await runAlarms(readJSON('latest.json', null)); }
+    } catch (e) { console.error('[quotes]', e.message); }
   }, 60e3);
 }
 
@@ -204,9 +221,10 @@ async function admin(req, res, path, body, user) {
 // istek anında Yahoo'dan (20 dk önbellek). Sadece bilinen semboller kabul edilir.
 async function chartData(key) {
   const k = String(key).toUpperCase().replace(/\.IS$/, '');
-  let s = null, sym = CORE[k] || null;
+  let s = null, sym = CORE[k] || null, idx = null;
   for (const [m, M] of Object.entries(MARKETS)) {
-    s ||= readJSON(M.ohlc, null)?.series?.[k];
+    const st = readJSON(M.ohlc, null);
+    if (!s && st?.series?.[k]) { s = st.series[k]; const b = st.series[st.bench || M.bench.kod]; if (b && b !== s) idx = new Map(b.t.map((t, i) => [t, b.c[i]])); }
     sym ||= M.bench.kod === k ? M.bench.sym : loadUniverse(m).find(u => u.kod === k)?.sym;
   }
   if (!s) {
@@ -214,7 +232,7 @@ async function chartData(key) {
     try { s = { kod: k, ad: k, ...(await yahooDaily(sym, '2y')) }; } catch (e) { return { error: `Veri alınamadı: ${e.message}` }; }
   }
   const r2 = x => (x == null ? null : Math.round(x * 1e4) / 1e4);
-  return { kod: s.kod, ad: s.ad, adjusted: s.adjusted || null, t: s.t, o: s.o.map(r2), h: s.h.map(r2), l: s.l.map(r2), c: s.c.map(r2), v: s.v, sma50: sma(s.c, 50).map(r2), sma200: sma(s.c, 200).map(r2), rsi: rsi(s.c, 14).map(r2) };
+  return { kod: s.kod, ad: s.ad, adjusted: s.adjusted || null, filled: s.filled || null, teknik: teknik(s, idx), seviye: levels(s), t: s.t, o: s.o.map(r2), h: s.h.map(r2), l: s.l.map(r2), c: s.c.map(r2), v: s.v, sma50: sma(s.c, 50).map(r2), sma200: sma(s.c, 200).map(r2), rsi: rsi(s.c, 14).map(r2) };
 }
 
 // Dış araçlar için düz tablolar (ToolJet tablo bileşeni, Grafana, Excel/Sheets "web'den veri al").
@@ -347,6 +365,15 @@ const server = createServer(async (req, res) => {
         catch (e) { return send(res, 200, { error: e.message }); }
         finally { status.analyzing = false; broadcast({ type: 'status', status }); }
       }
+      // İzleme listesi ve fiyat alarmları (üyeye özel; Trade yetkisiyle).
+      if (path.startsWith('/api/watch') && !R.trade) return deny('trade');
+      if (path === '/api/watch' && req.method === 'GET') {
+        const w = loadWatch(user.id), snap = readJSON('latest.json', null);
+        return send(res, 200, { ...w, kosullar: KOSUL, fiyat: Object.fromEntries([...new Set([...w.liste, ...w.alarmlar.map(a => a.kod)])].map(k => [k, quoteOf(snap, k)])) });
+      }
+      if (path === '/api/watch/toggle' && req.method === 'POST') { try { toggleWatch(user.id, body.kod); return send(res, 200, { ok: true }); } catch (e) { return send(res, 200, { error: e.message }); } }
+      if (path === '/api/watch/alarm' && req.method === 'POST') { try { return send(res, 200, addAlarm(user.id, body)); } catch (e) { return send(res, 200, { error: e.message }); } }
+      if (path === '/api/watch/alarm/delete' && req.method === 'POST') { deleteAlarm(user.id, String(body.id || '')); return send(res, 200, { ok: true }); }
       // Hisse tartışması (boğa / ayı / hakem / risk). Trade yetkisi ve günlük tartışma hakkı gerekir.
       if (path.startsWith('/api/debate') && !R.trade) return deny('trade');
       if (path === '/api/debate' && req.method === 'GET') {

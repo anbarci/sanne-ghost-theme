@@ -339,6 +339,22 @@ test('Gündem katalizörü: piyasa hareketi ve haber yönü hisseye zincirlenir'
   assert.ok(tone('Satışlar rekor kırdı, kâr arttı') > 0 && tone('Şirket zarar açıkladı, üretim durdu, iflas') < 0);
 });
 
+test('Savunma teması: savaş haberinin olumsuz tonu talebi düşürmez (2026-10-03 gerçek başlıklar)', async () => {
+  const { catalysts } = await import('../lib/catalysts.mjs');
+  const news = [
+    "Pentagon'dan Raytheon'a 24,4 milyar dolara varabilecek büyüklükte SM-6 füze sözleşmesi",
+    'Trump gives Ukraine OK to produce Patriot missiles as war with Russia drags on',
+    'U.S. Deploys Patriots to Shield Saudi Oil and Qatari Gas Facilities',
+    'Suudi Arabistan’da füze parçaları düştü: 1 yaralı',
+  ].map(title => ({ title, lead: '', impact: { score: 60 } }));
+  const th = catalysts(news, {}, 'tr', new Set(['ASELS', 'OTKAR'])).themes.find(t => t.id === 'savunma');
+  assert.equal(th.yon, 1, 'sözleşme ve üretim haberleri savunma talebini artırır');
+  assert.deepEqual(th.etkiler.map(e => [e.kod, e.yon]), [['ASELS', 1], ['OTKAR', 1]]);
+  const peace = ['Ateşkes imzalandı, savunma ihaleleri iptal edildi', 'NATO yeni füze alımını erteledi']
+    .map(title => ({ title, lead: '', impact: { score: 60 } }));
+  assert.equal(catalysts(peace, {}, 'tr', new Set(['ASELS'])).themes.find(t => t.id === 'savunma').yon, -1);
+});
+
 test('AI hafızası: son 3 analiz ve tahmin sonuçları özete girer, hash dışında kalır', async () => {
   const { prevAnalyses, buildDigest } = await import('../lib/ai/analyze.mjs');
   const at = Date.UTC(2026, 8, 29, 9);
@@ -571,4 +587,64 @@ test('Obsidian aktarımı: ön bilgi, bağlantılar, tahmin sonucu; kullanıcı 
   assert.ok(existsSync(join(r.dir, 'benim-notum.md')), 'kullanıcının notu kalmalı');
   assert.ok(!existsSync(join(r.dir, 'analizler', 'eski.md')), 'eski üretilen not silinmeli');
   assert.equal(r.removed, 1);
+});
+
+test('Yahoo son günün kapanışını boş bırakınca özet fiyatla tamamlanır (2026-10-02 THYAO gerçek yanıtı)', async () => {
+  const { parseYahoo } = await import('../sources/bist.mjs');
+  const ts = [1790577000, 1790663400, 1790749800, 1790836200, 1790922600]; // 26.09–02.10, 09:30 İstanbul
+  const j = { chart: { result: [{ meta: { regularMarketPrice: 292, regularMarketTime: 1790953796 }, timestamp: ts,
+    indicators: { quote: [{ open: [288, 288, 291.75, 285.5, 286.5], low: [286, 287.5, 282.5, 284.25, 285], high: [293, 294.25, 293.75, 290.5, 294], close: [287, 291.5, 283.25, 286.5, null], volume: [1, 1, 1, 1, 1] }] } }] } };
+  const s = parseYahoo(j, true);
+  assert.equal(s.t.length, 5, 'son gün atılmamalı');
+  assert.equal(s.c.at(-1), 292);
+  assert.equal(s.filled, s.t.at(-1));
+  assert.ok(Math.abs((s.c.at(-1) / s.c.at(-2) - 1) * 100 - 1.92) < 0.01, 'günlük değişim %1,92');
+  // Özet fiyat başka bir güne aitse doldurulmaz.
+  j.chart.result[0].meta.regularMarketTime = 1790836200;
+  j.chart.result[0].indicators.quote[0].close[4] = null;
+  assert.equal(parseYahoo(j, true).t.length, 4);
+});
+
+test('Destek/direnç: dönüş noktaları kümelenir, en yakın seviyeler döner; teknik görünüm etiketlenir', async () => {
+  const { levels, pivots, teknik } = await import('../lib/levels.mjs');
+  // 100 ile 120 arasında gidip gelen fiyat: diplerde ~100 destek, tepelerde ~120 direnç; son fiyat 110.
+  const c = Array.from({ length: 240 }, (_, i) => 110 + 10 * Math.sin(i / 8));
+  c.push(110);
+  const s = { t: c.map((_, i) => `d${i}`), c, h: c.map(x => x + 0.5), l: c.map(x => x - 0.5), v: c.map(() => 1000) };
+  const p = pivots(s.h, s.l, 5);
+  assert.ok(p.highs.length >= 4 && p.lows.length >= 4);
+  const lv = levels(s, { atr: 1 });
+  assert.ok(Math.abs(lv.direnc[0].p - 120.5) < 0.6 && lv.direnc[0].n >= 4, JSON.stringify(lv.direnc));
+  assert.ok(Math.abs(lv.destek[0].p - 99.5) < 0.6 && lv.destek[0].n >= 4, JSON.stringify(lv.destek));
+  // Sürekli yükselen seri: üstte direnç yok, teknik görünüm olumlu.
+  const up = Array.from({ length: 260 }, (_, i) => 50 + i * 0.4 + Math.sin(i) * 0.3);
+  const su = { t: up.map((_, i) => `d${i}`), c: up, h: up.map(x => x + 0.2), l: up.map(x => x - 0.2), v: up.map(() => 1000) };
+  assert.equal(levels(su).direnc.length, 0);
+  const tk = teknik(su);
+  assert.ok(['Güçlü', 'Olumlu'].includes(tk.etiket), tk.etiket);
+  assert.equal(tk.sinyaller.find(x => x.ad === 'Ana trend').yon, 1);
+});
+
+test('Fiyat alarmı: koşul, günde bir tetik, bir kez seçeneği, üyeye özel kayıt', async () => {
+  const W = await import('../lib/watch.mjs');
+  const snap = { markets: { USDTRY: { price: 49.1, chg: 0.3 } }, screeners: { tr: { market: 'tr', rows: [{ kod: 'THYAO', ad: 'THY', price: 292, r1: 0.0192 }] } } };
+  assert.equal(W.quoteOf(snap, 'THYAO').price, 292);
+  assert.ok(Math.abs(W.quoteOf(snap, 'THYAO').chg - 1.92) < 1e-9);
+  W.addAlarm('u1', { kod: 'thyao', kosul: 'ustu', deger: '290,5', tekrar: 'gunluk' }, snap);
+  W.addAlarm('u1', { kod: 'USDTRY', kosul: 'artis', deger: '1' }, snap);
+  W.addAlarm('u2', { kod: 'THYAO', kosul: 'alti', deger: 280, tekrar: 'bir' }, snap);
+  assert.throws(() => W.addAlarm('u1', { kod: 'YOKBOYLE', kosul: 'ustu', deger: 1 }, snap), /radarda yok/);
+  assert.throws(() => W.addAlarm('u1', { kod: 'THYAO', kosul: 'hmm', deger: 1 }, snap), /geçersiz/);
+  assert.deepEqual(W.loadWatch('u1').liste, ['THYAO', 'USDTRY'], 'alarm kurulan kod listeye eklenir');
+  const now = Date.UTC(2026, 9, 2, 12);
+  const f1 = W.checkAlarms(snap, now);
+  assert.deepEqual(f1.map(x => x.uid), ['u1']);
+  assert.match(f1[0].text, /THYAO 290,5 üstüne çıktı: 292 \(gün \+1,92%\)/);
+  assert.equal(W.checkAlarms(snap, now + 36e5).length, 0, 'aynı gün ikinci kez çalmaz');
+  assert.equal(W.checkAlarms(snap, now + 864e5).length, 1, 'ertesi gün yeniden çalar');
+  const low = { ...snap, screeners: { tr: { market: 'tr', rows: [{ kod: 'THYAO', price: 279, r1: -0.04 }] } } };
+  assert.deepEqual(W.checkAlarms(low, now + 2 * 864e5).map(x => x.uid), ['u2']);
+  assert.equal(W.loadWatch('u2').alarmlar[0].aktif, false, 'bir kez seçilen alarm kapanır');
+  assert.equal(W.loadWatch('u2').log.length, 1);
+  assert.equal(W.loadWatch('u1').log.length, 2);
 });

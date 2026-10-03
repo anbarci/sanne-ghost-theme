@@ -172,6 +172,10 @@ Her biri için 2 yıllık günlük veri çekilir ve dört stratejiyle sıralanı
 
 Her hisseye tıklayınca mum grafik (50 ve 200 günlük ortalama, hacim, RSI), skorun nedenleri, riskler ve hisseyi anan güncel haberler açılır. Piyasa şeridindeki kutular da (BIST 100, dolar, Brent…) tıklanınca grafiğe gelir.
 
+**Teknik görünüm ve destek/direnç** (PanWatch fikri, `lib/levels.mjs`): altı gösterge (ana trend, kısa trend, MACD momentumu, RSI, hacim, endekse göre 1 aylık güç) ayrı ayrı olumlu / olumsuz / nötr yazılır; kaçının aynı yönü gösterdiğine göre Güçlü, Olumlu, Kararsız, Olumsuz ya da Zayıf etiketi çıkar. Destek ve direnç, son bir yılın dönüş noktalarından (iki yanında 5 gün daha düşük/yüksek bar olmayan dip ve tepeler) kümelenir; "test" o bölgeden kaç kez dönüldüğüdür. Fiyatın altındaki ve üstündeki en yakın iki seviye merdiven olarak gösterilir ve grafikte D1/D2/R1/R2 çizgisiyle çizilir. Seviyeler sohbetin ve hisse tartışmasının veri sayfasına da girer; model artık seviye uydurmak yerine buradakini kullanır. Bu bir tarif, sinyal değil: trend stratejisi geriye dönük testte endeksi geçemedi.
+
+**İzleme listesi ve fiyat alarmları** (PanWatch fikri, `lib/watch.mjs`): grafikte "☆ İzle" ile listeye ekle, "Alarm kur" ile koşul seç (fiyat ≥, fiyat ≤, günlük yükseliş ≥ %, günlük düşüş ≥ %). Eşik olarak en yakın direnç ya da destek önerilir. Alarm günde en fazla bir kez çalar ("bir kez" seçilirse çalınca kapanır); açık panelde bildirim çıkar, Telegram açıksa oraya da gider. Döviz, altın ve endeksler dakikada bir denetlenir; hisseler tam taramada (15 dk) ve Yahoo'nun 15 dk gecikmesiyle. Liste ve alarmlar üyeye özeldir.
+
 **Önemli: tarayıcı "yükselecek hisseyi" bilmez.** Her stratejinin geçmiş başarısı ölçülür ve panelde yanında gösterilir. 30 Eylül 2026'daki ölçüm (Ağustos 2025 – Eylül 2026, 10 işlem günü tutma, ~56 ölçüm):
 
 | Strateji | İlk %20'nin BIST 100'e göre getirisi | Endeksi geçme oranı | IC |
@@ -369,6 +373,8 @@ Demo verisiyle geçen testler gerçek veride şu hataları ortaya çıkardı. He
 - **Etki skoru doymuştu.** Tam metin geldikten sonra gövdedeki her kelime başlıktaki kadar sayılıyordu; bir tarım köşe yazısı 100 alıyordu. Başlık 0,6, gövde 0,15 ağırlıkla yeniden ayarlandı. 300 gerçek haberde 60 üstü 7 haber kaldı, en üstte İran-petrol ve Hürmüz haberleri.
 - **IMF ülke filtresini yok sayıyor**, 228 ülkeyi birden döndürüyor (121 KB). Sorun değil ama beklenmedik.
 - **Node vekil değişkenini okumuyor.** `--use-env-proxy` bayrağı eklendi.
+- **Yahoo son günün kapanışını boş bıraktı (2026-10-03).** Cuma barında 61 BIST ve 38 Avrupa hissesinin kapanışı `null` geldi; gerçek fiyat yalnızca özet alanındaydı. Tarayıcı bir gün geride kaldı ve şeritte THYAO'nun günlük değişimi +%3,09 göründü (doğrusu +%1,92). Son bar artık aynı güne ait özet fiyatla tamamlanıyor ve grafikte not düşülüyor.
+- **Savunma teması ters yön verdi (2026-10-03).** Aselsan ve Raytheon sözleşme haberleri varken genel ton sözlüğü savaş haberlerini olumsuz saydı ve tema "ASELS ▼" dedi. Temaya kendi yön kelimeleri (sözleşme, sipariş, ihracat / iptal, ateşkes, ambargo) verildi.
 - **Brent kontrat devri kaçtı (2026-09-30 akşamı).** Yahoo'nun `BZ=F` serisi Kasım kontratından Aralık'a geçti; seri -%4,73 gösterdi, Aralık kontratının kendi geçmişi +%1,6 idi. Devir dedektörünün eşiği (2 × oynaklık = %4,88) bunu kaçırdı ve gündem modülü "petrol düştü → havayolu lehine" diye yanlış sinyal üretti. Eşik 1,5 × oynaklığa indi; düzeltme yapılamazsa (Yahoo 429) canlı fiyatın kendi önceki kapanışına göre değişimi kullanılıyor ve gündem teması üretilmiyor.
 - Tam metin çıkarma: 40 haberin 40'ı başarılı (30 JSON-LD, 10 Readability).
 
@@ -397,6 +403,8 @@ Demo verisiyle geçen testler gerçek veride şu hataları ortaya çıkardı. He
 - CNBC ve NPR akışları bu ortamda 403 döndüğü için eklenmedi. Eklenen dünya kaynakları (MarketWatch, Guardian, Nikkei Asia, France 24, FT, OilPrice, Investing) canlı doğrulandı.
 
 ## Geliştirme
+
+Ne yapıldığı, neden yapıldığı ve hangi hatanın hangi kanıtla düzeltildiği `KARARLAR.md` dosyasında tutulur. Bir değişiklikten önce oraya bakılır, sonra oraya kayıt eklenir.
 
 ```bash
 npm test          # birim + sahte ağla uçtan uca testler

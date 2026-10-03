@@ -22,6 +22,16 @@ export function parseYahoo(j, bist = false) {
   if (!r || !q) return null;
   const adj = r.indicators?.adjclose?.[0]?.adjclose;
   const out = { t: [], o: [], h: [], l: [], c: [], v: [] };
+  // Yahoo seans kapandıktan sonra son günün kapanışını bazen boş bırakıyor (açılış/yüksek/düşük/hacim dolu), gerçek
+  // kapanışı yalnızca özet alanına (meta.regularMarketPrice) yazıyor. 2026-10-03: 61 BIST ve 38 Avrupa hissesinin
+  // 02.10 barı böyleydi; bar atılınca tarayıcı bir gün geride kalıyordu. Son bar özet fiyatla tamamlanır.
+  const last = r.timestamp.length - 1, m = r.meta || {};
+  if (last >= 0 && q.close[last] == null && q.open[last] != null && m.regularMarketPrice != null && m.regularMarketTime && day(m.regularMarketTime) === day(r.timestamp[last])) {
+    q.close[last] = m.regularMarketPrice;
+    q.high[last] = Math.max(q.high[last] ?? -Infinity, m.regularMarketPrice);
+    q.low[last] = Math.min(q.low[last] ?? Infinity, m.regularMarketPrice);
+    out.filled = day(r.timestamp[last]);
+  }
   r.timestamp.forEach((ts, i) => {
     if (q.close[i] == null || q.open[i] == null) return;
     const k = adj?.[i] && q.close[i] ? adj[i] / q.close[i] : 1;

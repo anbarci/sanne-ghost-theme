@@ -13,6 +13,7 @@ import { webSearch, webText } from '../websearch.mjs';
 import { queryOf } from '../verify.mjs';
 import { loadUniverse, MARKETS } from '../../sources/bist.mjs';
 import { fold } from '../rss.mjs';
+import { teknikSatir } from '../levels.mjs';
 
 export const CHAT_SYSTEM = `Sen Türkiye Radar'ın analiz asistanısın. Kullanıcı kişisel kullanım için bir analiz hakkında soru soruyor.
 
@@ -92,6 +93,7 @@ export function retrieve(q, snap) {
       const b = sc.backtest?.presets?.[id];
       L.push(`  ${ad} skoru ${s[id].score} (${s[id].setup})${b ? ` [strateji geçmişi: endekse göre ${pc(b.excess)}, isabet %${Math.round(b.hit * 100)}]` : ''}: ${[...s[id].why, ...s[id].risk.map(x => 'risk: ' + x)].join('; ') || '-'}`);
     }
+    if (r.teknik || r.seviye) L.push(teknikSatir(r.teknik, r.seviye, f));
     for (const t of cat) L.push(`  Gündem: ${t.ad} ${t.yon > 0 ? 'yukarı' : 'aşağı'} (${t.neden}) → ${t.etkiler.find(e => e.kod === r.kod).neden}`);
     for (const n of r.news?.titles || []) L.push(`  Haber: ${n.title} [${n.src}]`);
   }

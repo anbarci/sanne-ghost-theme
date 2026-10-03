@@ -245,9 +245,7 @@
     "savaş uçağı",
     "silahlan"
    ],
-   "surucu": {
-    "tip": "haber"
-   },
+   "surucu": { "tip": "haber", "yukari": ["sözleşme", "sipariş", "ihale", "ihracat", "teslimat", "tedarik", "üretim", "bütçe", "harcama", "konuşlan", "contract", "order", "procure", "spending", "budget", "deploy", "produce", "export", "rearm"], "asagi": ["iptal", "kesinti", "ateşkes", "ambargo", "yasakla", "ertele", "cancel", "cut", "ceasefire", "embargo", "delay", "freeze"] }, "_yon_notu": "Genel ton sözlüğü bu temada ters çalışıyor: savaş ve saldırı haberleri olumsuz tonlu ama savunma talebini artırıyor. 2026-10-03: Aselsan 488,5 milyon euroluk sözleşme haberi varken tema olumsuz çıktı (KARARLAR.md).",
    "etkiler": [
     {
      "kod": "ASELS",

@@ -1,6 +1,7 @@
 // BIST hisse tarayıcısı: şeffaf, kural tabanlı skor + aynı skorun geçmişteki başarısının ölçümü.
 // Skor "yükselecek" demez; geçmişte yükselişten önce sık görülen teknik koşulları sayar.
 import { sma, rsi, macd, atrPct, ret, rollingMax, spearman } from './ta.mjs';
+import { levels, teknik } from './levels.mjs';
 
 // Seans sürerken son barın hacmi kısmi olur; hacim oranı tamamlanmış günlerden hesaplanır.
 export function isPartial(lastDay, now = new Date()) {
@@ -135,6 +136,7 @@ export function screen(prepared, index, newsFor = () => null) {
     return {
       kod: p.kod, ad: p.ad, price: f.c, r1: f.r1, r21: f.r21, r63: f.r63, rsi: f.rsi, dist52: f.dist52, volRatio: f.volRatio, atr: f.atr,
       above200: f.above200, spark: p.c.slice(-60), gap: p.gap, partial: p.partial, scores,
+      teknik: teknik(p, idxByDate), seviye: levels(p, { atr: f.atr }),
     };
   });
 }

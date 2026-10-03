@@ -113,21 +113,40 @@
     <section class="panel t-chart" id="grafik" aria-labelledby="c-kod">
       <div class="chart-head">
         <div class="ttl"><b id="c-kod">—</b><span class="muted" id="c-ad"></span><span class="px" id="c-px"></span><span id="c-chg"></span></div>
+        <div class="c-acts">
+          <button type="button" class="btn sm" id="w-star" aria-pressed="false" title="İzleme listesine ekle / çıkar">☆ İzle</button>
+          <button type="button" class="btn sm" id="w-bell" aria-expanded="false" aria-controls="alarm-form">Alarm kur</button>
+        </div>
         <div class="seg" role="group" aria-label="Zaman aralığı" id="ranges">
           <button type="button" data-r="63">3A</button><button type="button" data-r="126">6A</button><button type="button" data-r="252" aria-pressed="true">1Y</button><button type="button" data-r="600">2Y</button>
         </div>
       </div>
+      <form class="alarm-form" id="alarm-form" hidden>
+        <label>Koşul<select id="a-kosul"></select></label>
+        <label>Eşik<input id="a-deger" inputmode="decimal" autocomplete="off" required></label>
+        <label>Tekrar<select id="a-tekrar"><option value="gunluk">Günde bir</option><option value="bir">Bir kez</option></select></label>
+        <button class="btn sm primary" type="submit">Kaydet</button>
+        <p class="small muted" id="a-hint"></p>
+      </form>
       <div class="chart-box" id="chart"><div class="legend" id="legend"></div></div>
       <div class="detail" id="c-detail"></div>
       <div class="debate" id="c-debate" hidden></div>
       <p class="note">Grafik: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts</a> (Apache 2.0). Fiyatlar temettü ve bölünmeye göre düzeltilmiş, 15 dk gecikmelidir.</p>
     </section>
 
-    <section class="panel t-cats" aria-labelledby="h-cat">
-      <header><h2 id="h-cat">Gündem katalizörleri</h2><span class="sub" id="cat-sub"></span></header>
-      <div id="cats"></div>
-      <p class="note">Kural tabanlı neden→sonuç zincirleri (data/themes.json). Geçmiş haber arşivi olmadığı için geriye dönük test edilemez; "Gündem" stratejisinin isabeti canlı takiple ölçülür.</p>
-    </section>
+    <div class="t-side">
+      <section class="panel t-watch" aria-labelledby="h-watch">
+        <header><h2 id="h-watch">İzleme ve alarmlar</h2><span class="sub" id="watch-sub"></span></header>
+        <ul class="wlist" id="wlist"></ul>
+        <div id="alarms"></div>
+        <p class="note">Döviz, altın ve endeksler dakikada bir; hisseler tam taramada (15 dk) ve Yahoo'nun 15 dk gecikmesiyle denetlenir. Bir alarm günde en fazla bir kez çalar; Telegram açıksa oraya da gider.</p>
+      </section>
+      <section class="panel t-cats" aria-labelledby="h-cat">
+        <header><h2 id="h-cat">Gündem katalizörleri</h2><span class="sub" id="cat-sub"></span></header>
+        <div id="cats"></div>
+        <p class="note">Kural tabanlı neden→sonuç zincirleri (data/themes.json). Geçmiş haber arşivi olmadığı için geriye dönük test edilemez; "Gündem" stratejisinin isabeti canlı takiple ölçülür.</p>
+      </section>
+    </div>
   </div>
 </main>
 

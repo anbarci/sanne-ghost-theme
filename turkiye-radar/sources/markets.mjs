@@ -21,7 +21,11 @@ async function yahoo(sym) {
     .catch(e => { if (e.status === 429) yahooBlockedUntil = Date.now() + 15 * 60e3; throw e; });
   const r = j?.chart?.result?.[0];
   if (!r) throw new Error('boş yanıt');
-  const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
+  // Son günün kapanışı boşsa özet fiyat o günün kapanışıdır; atılırsa günlük değişim iki gün öncesine göre hesaplanır
+  // (2026-10-02 THYAO: doğrusu +%1,92, şeritte +%3,09 göründü).
+  const raw = [...(r.indicators?.quote?.[0]?.close || [])];
+  if (raw.length && raw.at(-1) == null && r.meta.regularMarketPrice != null && r.meta.regularMarketTime >= (r.timestamp?.at(-1) ?? Infinity)) raw[raw.length - 1] = r.meta.regularMarketPrice;
+  const closes = raw.filter(x => x != null);
   return { closes, price: r.meta.regularMarketPrice ?? closes.at(-1), time: (r.meta.regularMarketTime || 0) * 1000 };
 }
 
