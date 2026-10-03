@@ -18,6 +18,12 @@ export async function api(path, body, method) {
   return j;
 }
 
+// Sayıdan sonra gelen iyelik eki ("5'i", "3'ü", "6'sı", "0'ı"); lib/tr.mjs ile aynı kural.
+const BIRLER = ['', 'i', 'si', 'ü', 'ü', 'i', 'sı', 'si', 'i', 'u'], ONLAR = ['', 'u', 'si', 'u', 'ı', 'si', 'ı', 'i', 'i', 'ı'];
+export function ek(n) {
+  n = Math.abs(Math.round(Number(n)));
+  return `${n}'${n === 0 ? 'ı' : n % 10 ? BIRLER[n % 10] : n % 100 ? ONLAR[(n / 10) % 10] : n % 1000 ? 'ü' : n % 1e6 ? 'i' : 'u'}`;
+}
 export const nf = (x, d = 2) => (x == null || !Number.isFinite(+x) ? '—' : (+x).toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
 export const pct = x => (x == null ? '—' : (x > 0 ? '+' : '') + nf(x, 2) + '%');
 export const dir = x => (x > 0.05 ? 'up' : x < -0.05 ? 'down' : 'flat');

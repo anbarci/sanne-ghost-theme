@@ -102,7 +102,7 @@ function runScreener(market, news, markets) {
   const index = B ? prepare(B) : null;
   const find = newsMatcher(news, uni, market === 'tr');
   if (btCache[market]?.at !== store.at) btCache[market] = { at: store.at, res: backtest(prepared, index) };
-  const cat = catalysts(news, markets, market, new Set(uni.keys()));
+  const cat = catalysts(news, markets, market, uni);
   const rows = screen(prepared, index, find).map(r => ({ ...r, news: find(r.kod), scores: { ...r.scores, gundem: gundemScore(cat.byKod[r.kod]) } }));
   const res = {
     market, ad: M.ad, bench: { kod: benchKod, ad: M.bench.ad }, asOf: store.at, rows, backtest: btCache[market].res, catalysts: cat.themes,

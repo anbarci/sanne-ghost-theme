@@ -121,6 +121,11 @@ h3 { font-size: .92rem; }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .t-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr) 330px; gap: var(--gap); align-items: start; }
 .t-side { display: grid; gap: var(--gap); align-content: start; min-width: 0; }
+/* Tablette liste tam genişlikte tek sütun olunca satırın ortası boş kalıyordu: iki sütun. */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .slist { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+  .slist > li:not(.srow) { grid-column: 1 / -1; }
+}
 .wlist { list-style: none; display: grid; gap: 2px; }
 .wrow { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 8px; align-items: baseline; padding: 8px 6px; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--ink); font: inherit; font-size: .84rem; text-align: left; cursor: pointer; }
 .wrow:hover { background: var(--surface-2); }

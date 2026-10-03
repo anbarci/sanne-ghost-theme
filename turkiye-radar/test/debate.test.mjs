@@ -107,7 +107,7 @@ test('TL varlıkta nominal isabet ile dolar bazı ayrı ölçülür', async () =
   // XU100 %3 arttı ama dolar %5 arttı: nominalde "yukarı" tuttu, dolar bazında kayıp.
   const p = { done: true, kod: 'XU100', yon: 'yukari', actual: 'yukari', hit: true, p: 0.6, chgUsd: -1.9 };
   const lines = statLessons([p, { ...p }, { ...p, chgUsd: 2 }]);
-  assert.ok(lines.some(x => /tutan 3 "yukari" tahmininin 2'i dolar bazında kayıptı/.test(x)), lines.join('\n'));
+  assert.ok(lines.some(x => /tutan 3 "yukari" tahmininin 2'si dolar bazında kayıptı/.test(x)), lines.join('\n'));
 });
 
 test('tartışmalar hafıza ağacında, aramada ve Obsidian notlarında', async () => {

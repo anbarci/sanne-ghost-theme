@@ -1,4 +1,4 @@
-import { $, esc, safeUrl, api, nf, pct, dir, ago, toast, initTheme } from './common.js';
+import { $, esc, safeUrl, api, nf, pct, dir, ago, toast, initTheme, ek } from './common.js';
 import { createChart, CandlestickSeries, LineSeries, HistogramSeries, LineStyle, CrosshairMode } from '/vendor/lwc.mjs';
 
 let data = null, map = null, world = null, shown = 30;
@@ -125,9 +125,10 @@ function renderCatMini(s) {
 }
 
 // Grafik
-let chart = null, series = null, chartData = null;
+let chart = null, series = null, chartData = null, lvLines = [];
 function buildChart() {
   chart?.remove();
+  lvLines = []; // eski serinin çizgileri onunla birlikte gitti (2026-10-03: açık temaya geçince D/R çizgileri kayboluyordu)
   const el = $('#chart');
   chart = createChart(el, {
     autoSize: true,
@@ -170,6 +171,7 @@ function fillChart() {
   series.s200.setData(line(d.sma200));
   series.vol.setData(T.map((t, i) => ({ time: t, value: d.v[i] || 0 })));
   series.rsi.setData(line(d.rsi));
+  drawLevels(d);
   setRange();
   legend();
 }
@@ -212,13 +214,12 @@ function techHTML(d) {
     <li class="lv now"><span>Şimdi</span><b>${nf(last, dg(last))}</b><span></span></li>
     ${sv.destek.map(x => lvl(x, 'Destek')).join('') || '<li class="lv none">Altta destek bulunamadı</li>'}</ul>`;
   return `<div class="tech">
-    <div class="tech-h"><h3>Teknik görünüm</h3>${tk ? `<span class="tag ${ETIKET_CLS[tk.etiket]}">${esc(tk.etiket)}</span><span class="small muted">${tk.toplam} göstergenin ${tk.pos}'i olumlu, ${tk.neg}'i olumsuz</span>` : '<span class="small muted">Yeterli geçmiş yok</span>'}</div>
+    <div class="tech-h"><h3>Teknik görünüm</h3>${tk ? `<span class="tag ${ETIKET_CLS[tk.etiket]}">${esc(tk.etiket)}</span><span class="small muted">${tk.toplam} göstergenin ${ek(tk.pos)} olumlu, ${ek(tk.neg)} olumsuz</span>` : '<span class="small muted">Yeterli geçmiş yok</span>'}</div>
     ${tk ? `<ul class="sig">${tk.sinyaller.map(x => `<li>${YON_ICON(x.yon)}<b>${esc(x.ad)}</b><span>${esc(x.not)}</span></li>`).join('')}</ul>` : ''}
   </div>
   <div class="levels"><h3>Destek ve direnç</h3>${ladder}<p class="small muted">Son bir yılın dönüş noktalarından; "test" fiyatın o bölgeden kaç kez döndüğü.</p></div>`;
 }
 
-let lvLines = [];
 function drawLevels(d) {
   for (const l of lvLines) series.candle.removePriceLine(l);
   lvLines = [];
@@ -232,7 +233,6 @@ function drawLevels(d) {
 function renderDetail(kod, row, d) {
   renderDebate(kod, row);
   renderWatchBtns(kod);
-  drawLevels(d);
   const r = n => (d.c.length > n ? (d.c.at(-1) / d.c.at(-1 - n) - 1) * 100 : null);
   if (!row) {
     $('#c-detail').innerHTML = `${techHTML(d)}<div><h3>Getiri</h3><dl class="kv"><dt>1 ay</dt><dd>${chg(r(21))}</dd><dt>3 ay</dt><dd>${chg(r(63))}</dd><dt>1 yıl</dt><dd>${chg(r(252))}</dd><dt>RSI (14)</dt><dd>${nf(d.rsi.at(-1), 0)}</dd></dl></div>`;
@@ -325,7 +325,7 @@ function paintDebate(kod, r, busy = false) {
   const last = r.list?.[0];
   box.innerHTML = `<div class="deb-head"><h3>Boğa – ayı tartışması</h3>
       <button type="button" class="btn sm" id="deb-run" ${left && !busy ? '' : 'disabled'}>${busy ? 'Tartışılıyor…' : 'Tartıştır'}</button>
-      <span class="small muted">${r.limit ? `Bugün kalan hak: ${left}` : 'Üyeliğinde tartışma hakkı yok'}</span></div>
+      <span class="small muted">${!r.limit ? 'Üyeliğinde tartışma hakkı yok' : r.limit >= 100000 ? 'Sınırsız' : `Bugün kalan hak: ${left}`}</span></div>
     <p class="small muted">Boğa ve ayı bu hissenin radardaki verisiyle karşılıklı savunma yapar; hakem 5 basamaklı karar verir (AL, ARTIR, TUT, AZALT, SAT), risk gözden geçiricisi kararı yalnızca temkinliye çekebilir. Vade dolunca karar endekse göre puanlanır.</p>
     ${busy ? '<div class="skel" aria-label="Tartışma sürüyor"><i></i><i></i><i></i></div><p class="small muted">Dört model çağrısı sırayla yapılıyor; genelde 30-90 saniye sürer.</p>' : ''}
     ${last ? debateCard(last) : busy ? '' : '<p class="empty">Bu hisse için henüz tartışma yok.</p>'}

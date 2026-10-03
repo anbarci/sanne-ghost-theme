@@ -6,6 +6,7 @@
 import { readJSON, writeJSON } from '../store.mjs';
 import { similarity } from '../verify.mjs';
 import { loadDebates } from './memtree.mjs';
+import { ek } from '../tr.mjs';
 
 const pct = x => Math.round(x * 100);
 
@@ -20,24 +21,24 @@ export function statLessons(preds) {
     const hit = xs.filter(x => x.hit).length;
     const wrongDir = xs.filter(x => !x.hit).map(x => x.yon);
     const common = wrongDir.sort((a, b) => wrongDir.filter(v => v === b).length - wrongDir.filter(v => v === a).length)[0];
-    out.push(`${kod}: ${xs.length} tahminin ${hit}'i tuttu${hit / xs.length < 0.5 && common ? ` (tutmayanların çoğu "${common}" dediklerin)` : ''}`);
+    out.push(`${kod}: ${xs.length} tahminin ${ek(hit)} tuttu${hit / xs.length < 0.5 && common ? ` (tutmayanların çoğu "${common}" dediklerin)` : ''}`);
   }
   // TL değer kaybı etkisi: nominalde tutan "yukarı" tahminlerinin kaçı dolar bazında kayıptı.
   const upHits = done.filter(p => p.yon === 'yukari' && p.hit && p.chgUsd != null);
   if (upHits.length >= 3) {
     const lost = upHits.filter(p => p.chgUsd <= 0).length;
-    if (lost) out.push(`TL varlıklarda tutan ${upHits.length} "yukari" tahmininin ${lost}'i dolar bazında kayıptı: nominal artışı TL'nin değer kaybından ayır`);
+    if (lost) out.push(`TL varlıklarda tutan ${upHits.length} "yukari" tahmininin ${ek(lost)} dolar bazında kayıptı: nominal artışı TL'nin değer kaybından ayır`);
   }
   const high = done.filter(p => p.p >= 0.65);
   if (high.length >= 3) {
     const r = high.filter(p => p.hit).length / high.length;
-    out.push(`%65 ve üstü güvenle verdiğin ${high.length} tahminin %${pct(r)}'i tuttu${r < 0.6 ? ': güvenini düşür' : ''}`);
+    out.push(`%65 ve üstü güvenle verdiğin ${high.length} tahminin %${ek(pct(r))} tuttu${r < 0.6 ? ': güvenini düşür' : ''}`);
   }
   if (done.length >= 5) {
     for (const yon of ['yukari', 'asagi', 'yatay']) {
       const share = done.filter(p => p.yon === yon).length / done.length;
       const real = done.filter(p => p.actual === yon).length / done.length;
-      if (share >= 0.6 && share - real >= 0.25) out.push(`Tahminlerin %${pct(share)}'i "${yon}", gerçekleşen ise %${pct(real)}: yön yanlılığı var`);
+      if (share >= 0.6 && share - real >= 0.25) out.push(`Tahminlerin %${ek(pct(share))} "${yon}", gerçekleşen ise %${pct(real)}: yön yanlılığı var`);
     }
   }
   return out;
@@ -51,7 +52,7 @@ export function debateLessons(all = loadDebates()) {
     const xs = all.filter(d => d.done && set.includes(d.karar));
     if (xs.length < 3) continue;
     const hit = xs.filter(d => d.hit).length, avg = xs.reduce((a, d) => a + d.alfa, 0) / xs.length;
-    out.push(`Hisse tartışmalarında ${ad} dediğin ${xs.length} kararın ${hit}'i endekse göre tuttu (ortalama alfa ${pc(avg)})`);
+    out.push(`Hisse tartışmalarında ${ad} dediğin ${xs.length} kararın ${ek(hit)} endekse göre tuttu (ortalama alfa ${pc(avg)})`);
   }
   return out;
 }

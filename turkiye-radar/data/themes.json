@@ -9,14 +9,7 @@
     "us",
     "eu"
    ],
-   "anahtar": [
-    "petrol",
-    "brent",
-    "ham petrol",
-    "crude",
-    "oil price",
-    "opec"
-   ],
+   "anahtar": ["petrol", "brent", "ham petrol", "crude", "oil price", "opec", "varil", "barrel", "dizel", "diesel", "motorin", "tanker"],
    "surucu": {
     "tip": "piyasa",
     "gosterge": "BRENT",
@@ -345,14 +338,7 @@
    "piyasa": [
     "tr"
    ],
-   "anahtar": [
-    "turist",
-    "turizm",
-    "rezervasyon",
-    "yolcu sayısı",
-    "tourism",
-    "bookings"
-   ],
+   "anahtar": ["turist sayısı", "turist girişi", "turizm geliri", "turizm gelirleri", "turizm sezonu", "otel doluluk", "rezervasyon", "yolcu sayısı", "tourist arrivals", "tourism revenue", "bookings"],
    "surucu": {
     "tip": "haber"
    },
@@ -427,13 +413,7 @@
     "tr",
     "eu"
    ],
-   "anahtar": [
-    "çelik",
-    "steel",
-    "gümrük vergisi",
-    "tarife",
-    "tariff"
-   ],
+   "anahtar": ["steel", "demir çelik", "çelik üretim", "çelik ihracat", "çelik ithalat", "çelik fiyat", "çelik sektör", "çelik sanayi", "yassı çelik", "inşaat demiri", "çeliğe", "çelikte"],
    "surucu": {
     "tip": "haber"
    },
@@ -567,23 +547,7 @@
     "powell",
     "fomc"
    ],
-   "surucu": {
-    "tip": "haber",
-    "yukari": [
-     "cut",
-     "indirim",
-     "dovish"
-    ],
-    "asagi": [
-     "hike",
-     "artırım",
-     "hawkish",
-     "erteledi",
-     "delay",
-     "pause",
-     "hold"
-    ]
-   },
+   "surucu": { "tip": "haber", "yukari": ["cut", "indir", "dovish", "gevşe", "ease"], "asagi": ["hike", "artır", "hawkish", "sıkılaş", "tighten", "erteledi", "delay", "pause", "hold"] },
    "etkiler": [
     {
      "kod": "HD",

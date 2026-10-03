@@ -123,6 +123,29 @@ kayıtlarından ve konuşmadaki kararlardan geriye doğru derlendi; o tarihten s
 - Test: `units: Savunma teması…` (gerçek başlıklarla).
 - Ders: Ton sözlüğü bağlamdan bağımsız değil; bir temanın yönü genel tondan okunuyorsa gerçek başlıklarla kontrol edilmeli.
 
+**2026-10-03 (2. tur) · 13 temanın tamamı gerçek haberlerle denetlendi**
+- Neden: Savunma dersinden sonra "Açık konular" bölümünde "yönü gerçek başlıklarla dene" yazıyordu; bu yalnızca savunmada yapılmıştı.
+- Kanıt (297 gerçek haber):
+  - Çelik temasının 4 haberinin 3'ü soyadı "Çelik" olan kişilerdi (Özgür Çelik, Erhan Çelik, "İl Başkanı Çelik").
+  - Özette geçerken anılan kelime haberi temaya bağlıyordu:
+    - Allianz büyüme tahmini ("yapay zekaya ilişkin soru işaretleri") yapay zekâ çiplerine,
+    - İran yaptırımı ("İran'ın iç otomotiv pazarı") Avrupa otomotivine,
+    - orman yazısı ("turizm vb. tahsisler") ve Gebele gezi yazısı turizme bağlanmıştı.
+  - Fed teması özetteki "faiz artırma ihtimalinin %22'ye gerilemesi"ni (güvercin) "artır" kökü yüzünden şahin saydı ve GARAN/AKBNK ▼ üretti.
+  - Fed "olumsuz" derken ilk kanıt tam ters yöndeki "faiz artışı için aciliyet görmüyor" haberiydi.
+- Düzeltme (`lib/catalysts.mjs`):
+  1. Haber temaya ancak şu koşullardan biriyle girer: anahtar başlıkta geçer; ya da özette en az iki kez geçer; ya da başlık temanın etkilediği bir şirketi anar ("Aselsan'dan 488,5 milyon euroluk sözleşme").
+  2. Yön yalnızca başlıktan okunur.
+  3. Kanıt listesinde yönü taşıyan haberler önce gelir.
+  4. Çelik anahtarları "çelik üretim/ihracat/fiyat", "steel", "inşaat demiri" gibi kalıplara daraltıldı; çıplak "tarife/tariff" çıkarıldı.
+  5. Turizm anahtarları "turist sayısı", "turizm geliri", "doluluk" gibi talep kalıplarına daraltıldı.
+  6. Petrol anahtarlarına başlıkta kullanılan "varil", "barrel", "diesel", "motorin", "tanker" eklendi; kural sıkılaşınca G7'nin 100 milyon varil haberi dışarıda kalıyordu.
+  7. Fed yönüne "artır" ve "indir" kökleri eklendi.
+- Kuralın bedeli (dürüst kayıt): Kural ilk denemede Aselsan sözleşmesini ve G7 petrol haberini de düşürdü; şirket adı koşulu ve petrol anahtarları bu yüzden eklendi.
+- Sonuç: Savunma doğru kanıtlarla kaldı (Raytheon, Ukrayna'nın Patriot üretimi, Aselsan). Fed teması bugün oluşmuyor; tek net şahin başlık var, yanlış bir "banka ▼" sinyali vermekten iyi.
+- Test: `units: Tema eşleşmesi: özette geçerken anılan konu…` (gerçek başlıklar).
+- Sınır: Kelime kuralı olumsuzlamayı hâlâ okuyamaz ("artış için aciliyet görmüyor"). Bu yüzden yön için en az iki net başlık şartı korunuyor.
+
 ### Tarayıcı ve Trade
 
 **2026-09-30 · Geriye dönük test dürüst kurgulandı**
@@ -182,6 +205,24 @@ kayıtlarından ve konuşmadaki kararlardan geriye doğru derlendi; o tarihten s
   - Grafik başlığına "☆ İzle" ve "Alarm kur" eklendi. Alarm formu eşik olarak en yakın direnç ya da desteği öneriyor.
   - Fiyat basamakları her yerde grafik başlığıyla aynı kurala uyuyor.
 - Doğrulama: 1440 ve 390 px'te yatay kayma 0, konsol hatası yok.
+
+**2026-10-03 (2. tur) · İlk turda denenmeyen ekranlar**
+- Neden: İlk turda yalnızca Türkiye, koyu tema, 1440 ve 390 px denenmişti.
+- Kanıt (ekran görüntüleri):
+  1. Açık temaya geçince destek/direnç çizgileri kayboluyordu. Tema değişince grafik yeniden kuruluyor, çizgiler eski seriyle gidiyordu.
+  2. 1024 px'te hisse listesi tam genişlikte tek sütundu; satırın ortası boş kalıyordu.
+  3. "6 göstergenin 5'i olumlu, 0'i olumsuz" yazıyordu. Aynı ek hatası 9 yerde vardı: hafıza ("2'i dolar", "%0'i tuttu"), Obsidian ve tartışma karnesi. İki mevcut test yanlış eki doğru diye kabul ediyordu.
+  4. Yönetici için "Bugün kalan hak: 100000" yazıyordu.
+- Düzeltme:
+  1. Çizgiler `fillChart` içinde her çizimde yeniden kuruluyor.
+  2. 721–1100 px'te liste iki sütun.
+  3. `lib/tr.mjs` / `common.js` `ek()`: ek sayının okunuşuna uyuyor (0'ı, 2'si, 3'ü, 6'sı, %60'ı). Testler düzeltildi.
+  4. Yönetici için "Sınırsız" yazıyor.
+- Doğrulama:
+  - ABD (NVDA) ve Avrupa (SU) seçildi; teknik görünüm ve 4 seviye geldi.
+  - Telefonda alarm formu ekrana sığıyor.
+  - 1024 ve 390 px'te yatay kayma 0, konsol hatası yok.
+- Test: `units: Sayıdan sonra gelen ek…`.
 
 ### Yapay zekâ
 
@@ -271,7 +312,7 @@ kayıtlarından ve konuşmadaki kararlardan geriye doğru derlendi; o tarihten s
 
 ## 5. Açık konular
 
-- **Gündem temaları hâlâ kural tabanlı.** Yeni bir tema eklenirken yönü gerçek başlıklarla denenmeli (savunma dersi).
+- **Gündem temaları hâlâ kural tabanlı.** Yeni bir tema eklenirken eşleşmesi ve yönü gerçek başlıklarla denenmeli; 2026-10-03'te 13 temanın hepsi denetlendi. Kelime kuralı olumsuzlamayı okuyamaz.
 - **Yahoo resmi bir API değil.** Boş kapanış, kontrat devri ve 429 gibi yeni tuhaflıklar çıkabilir. Kaynak durum tablosu ve kontroller izlenmeli.
 - **Hisse alarmları en iyi ihtimalle 15 + 15 dk gecikmeli.** Tarama aralığı ve Yahoo gecikmesi; gerçek zamanlı BIST ücretli lisans ister.
 - **Gerçek DeepSeek ile tartışmanın süresi ve maliyeti ölçülmedi.** Bu ortamda API anahtarı yok; kullanıcının ilk gerçek denemesi bekleniyor.

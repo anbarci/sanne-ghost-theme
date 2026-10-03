@@ -2,6 +2,7 @@
 // aynı yönü gösteriyor mu" (technical confluence) fikrinden uyarlandı, kod alınmadı.
 // Bu bir tarif, sinyal değil: tarayıcının trend stratejisi geriye dönük testte endeksi geçemedi; arayüz bunu yazar.
 import { sma, rsi, macd, atrPct } from './ta.mjs';
+import { ek } from './tr.mjs';
 
 const round = (x, d = 2) => (x == null ? null : Math.round(x * 10 ** d) / 10 ** d);
 const tr = (x, d = 1) => Number(x).toLocaleString('tr-TR', { maximumFractionDigits: d });
@@ -86,5 +87,5 @@ export function teknik({ t, c, v, h, l }, idx = null) {
 export function teknikSatir(tk, sv, f) {
   if (!tk && !sv) return '';
   const lv = (xs, ad) => (xs?.length ? `${ad} ${xs.map(x => `${f(x.p)} (${x.n} test)`).join(', ')}` : `${ad} yok`);
-  return `  Teknik: ${tk ? `${tk.etiket} (${tk.toplam} göstergenin ${tk.pos}'i olumlu, ${tk.neg}'i olumsuz)` : '-'} | ${lv(sv?.destek, 'destek')} | ${lv(sv?.direnc, 'direnç')}`;
+  return `  Teknik: ${tk ? `${tk.etiket} (${tk.toplam} göstergenin ${ek(tk.pos)} olumlu, ${ek(tk.neg)} olumsuz)` : '-'} | ${lv(sv?.destek, 'destek')} | ${lv(sv?.direnc, 'direnç')}`;
 }

@@ -8,6 +8,7 @@ import { readJSON } from './store.mjs';
 import { loadArchive, loadDebates } from './ai/memtree.mjs';
 import { loadMemory, STABLE } from './ai/memory.mjs';
 import { THEMES } from './catalysts.mjs';
+import { ek } from './tr.mjs';
 
 const MARK = 'generated_by: turkiye-radar';
 const TZ = 'Europe/Istanbul';
@@ -70,7 +71,7 @@ export function exportVault(vault, { now = Date.now() } = {}) {
     put(`varliklar/${k}.md`, front({ type: 'entity', title: k, tags: ['radar', 'varlik'], created: today, updated: today, extra: { ad: ASSET_AD[k] || k, isabet: done.length ? Math.round((hit / done.length) * 100) : null } }) + [
       `# ${k} · ${ASSET_AD[k] || ''}`, '',
       px != null ? `Son fiyat: **${f(px, 4)}** (${today})\n` : '',
-      done.length ? `Sonuçlanan ${done.length} tahminin **${hit}**'i tuttu (%${Math.round((hit / done.length) * 100)}).\n` : 'Henüz sonuçlanan tahmin yok.\n',
+      done.length ? `Sonuçlanan ${done.length} tahminin **${ek(hit)}** tuttu (%${Math.round((hit / done.length) * 100)}).\n` : 'Henüz sonuçlanan tahmin yok.\n',
       '| Tarih | Tahmin | Olasılık | Sonuç | Analiz |', '|---|---|---|---|---|',
       ...ps.slice(0, 200).map(p => `| ${day(p.at)} | ${YON[p.yon] || p.yon} | %${Math.round(p.p * 100)} | ${outcome(p)} | [[${slug(p.at)}]] |`), '',
       'Dizin: [[Radar]]', '',
@@ -93,7 +94,7 @@ export function exportVault(vault, { now = Date.now() } = {}) {
     put(`varliklar/${k}.md`, front({ type: 'entity', title: k, tags: ['radar', 'varlik', 'hisse'], created: day(ds[0].at), updated: today, extra: { ad: ds.at(-1).ad || k, tartisma: ds.length, isabet: sc.length ? Math.round((hit / sc.length) * 100) : null } }) + [
       `# ${k} · ${esc(ds.at(-1).ad || '')}`, '',
       px != null ? `Son fiyat (tarayıcı): **${f(px, 2)}** (${today})\n` : '',
-      sc.length ? `Sonuçlanan ${sc.length} yönlü kararın **${hit}**'i endekse göre tuttu (ortalama alfa ${pcs(avg)}).\n` : 'Henüz sonuçlanan yönlü karar yok.\n',
+      sc.length ? `Sonuçlanan ${sc.length} yönlü kararın **${ek(hit)}** endekse göre tuttu (ortalama alfa ${pcs(avg)}).\n` : 'Henüz sonuçlanan yönlü karar yok.\n',
       '## Tartışmalar', '',
       '| Tarih | Karar | Hakem | Vade | Sonuç |', '|---|---|---|---|---|',
       ...newest.map(d => `| ${day(d.at)} ${hm(d.at)} | **${d.karar}** | ${d.hakemKarar || '—'} | ${d.vade} gün | ${debRes(d)} |`), '',

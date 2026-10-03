@@ -427,7 +427,7 @@ test('Hafıza: ölçülmüş isabet, kalibrasyon, yön yanlılığı; tekrar ede
     P('XU100', 'yukari', 0.8, 'asagi'), P('XU100', 'yukari', 0.7, 'yatay'), P('XU100', 'yukari', 0.65, 'asagi')];
   const L = statLessons(preds);
   assert.ok(L.some(x => /USDTRY: 3 tahminin 1'i tuttu \(tutmayanların çoğu "asagi"/.test(x)), L.join('\n'));
-  assert.ok(L.some(x => /%65 ve üstü güvenle verdiğin 5 tahminin %0'i tuttu: güvenini düşür/.test(x)), L.join('\n'));
+  assert.ok(L.some(x => /%65 ve üstü güvenle verdiğin 5 tahminin %0'ı tuttu: güvenini düşür/.test(x)), L.join('\n'));
   assert.ok(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim.'));
   assert.equal(addLesson('Kurda yukarı yönlü trendde aşağı tahmini vermeden önce TCMB kararını beklemeliyim!'), 'pekisti');
   assert.equal(loadMemory().dersler.length, 1);
@@ -582,7 +582,7 @@ test('Obsidian aktarımı: ön bilgi, bağlantılar, tahmin sonucu; kullanıcı 
   assert.match(a, /^---\ntype: source\ntitle: "Analiz 2026-09-29 12:00"/);
   assert.match(a, /\| \[\[USDTRY\]\] \| yukarı \| %60 \| 7 gün \| tuttu \(0,8%\) \|/);
   assert.match(a, /\[\[radar-2026-09-29\|2026-09-29\]\]/);
-  assert.match(readFileSync(join(r.dir, 'varliklar', 'USDTRY.md'), 'utf8'), /1 tahminin \*\*1\*\*'i tuttu/);
+  assert.match(readFileSync(join(r.dir, 'varliklar', 'USDTRY.md'), 'utf8'), /1 tahminin \*\*1'i\*\* tuttu/);
   assert.ok(existsSync(join(r.dir, 'temalar', 'tema-petrol.md')));
   assert.ok(existsSync(join(r.dir, 'benim-notum.md')), 'kullanıcının notu kalmalı');
   assert.ok(!existsSync(join(r.dir, 'analizler', 'eski.md')), 'eski üretilen not silinmeli');
@@ -647,4 +647,36 @@ test('Fiyat alarmı: koşul, günde bir tetik, bir kez seçeneği, üyeye özel 
   assert.equal(W.loadWatch('u2').alarmlar[0].aktif, false, 'bir kez seçilen alarm kapanır');
   assert.equal(W.loadWatch('u2').log.length, 1);
   assert.equal(W.loadWatch('u1').log.length, 2);
+});
+
+test('Tema eşleşmesi: özette geçerken anılan konu temaya girmez, yön başlıktan okunur (2026-10-03 gerçek haberler)', async () => {
+  const { catalysts } = await import('../lib/catalysts.mjs');
+  const N = (title, lead = '') => ({ title, lead, impact: { score: 60 } });
+  const uni = new Map([['ASELS', { kod: 'ASELS', anahtar: ['aselsan'] }], ['OTKAR', { kod: 'OTKAR', anahtar: ['otokar'] }], ['FROTO', { kod: 'FROTO', anahtar: ['ford otosan'] }], ['EREGL', { kod: 'EREGL', anahtar: ['erdemir'] }], ['THYAO', { kod: 'THYAO', anahtar: ['thy'] }], ['GARAN', { kod: 'GARAN', anahtar: ['garanti'] }]]);
+  const passing = [
+    N("ABD'den İran'a yeni yaptırım dalgası", "İran'ın iç otomotiv pazarının yüzde 90'ından fazlasını oluşturduğu belirtilen Khodro ve SAIPA..."),
+    N("ABD'den İran'a ikinci yaptırım paketi", "Paket otomotiv ve bankacılık şirketlerini kapsıyor; düşüş bekleniyor."),
+    N('Kafkaslar’da zamanın durduğu yer: Gebele', 'Dört mevsim turizm olanaklarının yanısıra coğrafi açıdan da önemli bir şehir.'),
+    N('Ormanlar pırasa tarlası mı?', 'Madencilik, enerji, turizm vb. tahsislerle kesilen ağaçlar...'),
+    N("Özgür Çelik’ten Eyüpsultan operasyonuna tepki"), N("YENİ Parti İl Başkanı Çelik’ten Eyüpsultan Belediyesi tepkisi"),
+  ];
+  const ids = catalysts(passing, {}, 'tr', uni).themes.map(t => t.id);
+  assert.deepEqual(ids, [], `geçerken anılan konular tema doğurmamalı: ${ids}`);
+  // Başlık şirketi anıyorsa özetteki tek geçiş yeter.
+  const sav = catalysts([N("Aselsan'dan 488,5 milyon euroluk sözleşme", 'Savunma Sanayii Başkanlığı ile imzalandı.'), N("Pentagon'dan Raytheon'a SM-6 füze sözleşmesi")], {}, 'tr', uni).themes.find(t => t.id === 'savunma');
+  assert.equal(sav?.yon, 1);
+  // Özetteki "artırma ihtimali geriledi" şahin sayılmaz; başlıkta yön yoksa haber yönsüzdür.
+  const fed = [N('Altında şaşırtan düşüş! FED ve zayıf veriler de çare olamadı', "FED'in ekimde faiz artırma ihtimalinin yüzde 22'ye kadar gerilemesine rağmen..."),
+    N('Dallas Fed Başkanı Logan: Faizlerin en az 50 baz puan daha artırılması gerekiyor'), N('Fed yetkilisi Bowman, bu yıl yeni faiz artışı için aciliyet görmüyor')];
+  assert.equal(catalysts(fed, {}, 'tr', uni).themes.find(t => t.id === 'fed_faiz'), undefined, 'tek net şahin başlık tema doğurmaz');
+  // Kanıt listesinde temanın yönünü taşıyan haberler önce gelir.
+  const hawk = catalysts([N('Fed yetkilisi Bowman, faiz artışı için aciliyet görmüyor'), N('Fed üyesi Logan: faizlerin artırılması gerekiyor'), N('Fed tutanakları: üyeler faizi artırmaktan yana')], {}, 'tr', uni).themes.find(t => t.id === 'fed_faiz');
+  assert.equal(hawk.yon, -1);
+  assert.match(hawk.kanit[0].title, /artırıl|artırmak/);
+});
+
+test('Sayıdan sonra gelen ek okunuşa uyar (2026-10-03: "0\'i olumsuz", "2\'i dolar" yazıyordu)', async () => {
+  const { ek } = await import('../lib/tr.mjs');
+  const want = { 0: "0'ı", 1: "1'i", 2: "2'si", 3: "3'ü", 4: "4'ü", 5: "5'i", 6: "6'sı", 7: "7'si", 8: "8'i", 9: "9'u", 10: "10'u", 20: "20'si", 30: "30'u", 40: "40'ı", 50: "50'si", 60: "60'ı", 70: "70'i", 80: "80'i", 90: "90'ı", 100: "100'ü", 1000: "1000'i", 23: "23'ü", 46: "46'sı" };
+  for (const [n, s] of Object.entries(want)) assert.equal(ek(+n), s);
 });
