@@ -280,6 +280,21 @@ kayıtlarından ve konuşmadaki kararlardan geriye doğru derlendi; o tarihten s
 - Kanıt: Ülke sınırları gün değiştirme çizgisinde haritayı yatay kesen çizgiler oluşturuyordu.
 - Düzeltme: Halkalar bölündü, Antarktika çıkarıldı.
 
+**2026-10-04 · impeccable critique (arayüz denetimi)**
+- Ne: [impeccable](https://github.com/pbakaus/impeccable) (Apache-2.0) `critique` protokolü uygulandı:
+  - A: tasarım incelemesi, Nielsen puanları, bilişsel yük, personalar.
+  - B: 61 kurallı dedektör (CLI + 4 görünümde tarayıcıya enjekte).
+  - Alt ajan istenmediği için tek bağlamda yapıldı (raporda belirtildi).
+- Sonuç: **27/40, kabul edilebilir.** Kayıt: `.impeccable/critique/2026-10-04T05-27-13Z__public-index-html.md`.
+- Öncelikli bulgular (kanıtlı):
+  - P1: Haberde çözülmemiş HTML kodları (`&ccedil;` vb., Bloomberg HT).
+  - P1: Mobil Gündem 11.760 px; önemli paneller 8.000 px altında.
+  - P2: Rozet çorbası ve düz tipografi hiyerarşisi (13,4 / 17,6 px).
+  - P2: 11 px altı işlevsel yazılar ("kapalı" 9,9 px) ve 4,0:1 yer tutucu kontrastı.
+  - P2: Tarayıcı satırında 1 aylık değişimin kesilmesi.
+- Dedektörün yanlış alarmları: kapalı menü ve kendi etiketleri "örtüşen metin"; grafik kütüphanesinin iç kırpması.
+- Durum: Düzeltmeler kullanıcının öncelik seçimini bekliyor.
+
 ### Güvenlik ve altyapı
 
 **2026-09-30 · Kurulumdan önce sahte çerezle girilebiliyordu**
