@@ -1,0 +1,600 @@
+{
+ "_not": "Gündem → hisse etki kuralları. Kural tabanlıdır, olası etkiyi anlatır; kesinlik iddia etmez. surucu: 'piyasa' ise yön ilgili göstergenin günlük değişiminden, 'haber' ise yukari/asagi kelimelerinden ya da genel olumlu/olumsuz sözlükten belirlenir. etkiler: +1 tema yukarı yönlüyken hisseye olumlu, -1 olumsuz. minEtki: haberin Türkiye etki skoru bu değerin altındaysa sayılmaz (uzak savaş haberleri THY'yi sürekli eksiye çekmesin diye). gerekli: haberde bunlardan biri de geçmeli; haric: bunlardan biri geçiyorsa sayılmaz. Anahtarlar kelime başından eşleşir (\"altın\" \"altına geriledi\"yi yakalamasın diye altın için kalıplar kullanıldı).",
+ "temalar": [
+  {
+   "id": "petrol",
+   "ad": "Petrol fiyatı",
+   "piyasa": [
+    "tr",
+    "us",
+    "eu"
+   ],
+   "anahtar": ["petrol", "brent", "ham petrol", "crude", "oil price", "opec", "varil", "barrel", "dizel", "diesel", "motorin", "tanker"],
+   "surucu": {
+    "tip": "piyasa",
+    "gosterge": "BRENT",
+    "esik": 1
+   },
+   "etkiler": [
+    {
+     "kod": "THYAO",
+     "yon": -1,
+     "neden": "Yakıt, havayolu maliyetinin en büyük kalemi"
+    },
+    {
+     "kod": "PGSUS",
+     "yon": -1,
+     "neden": "Yakıt maliyeti"
+    },
+    {
+     "kod": "TUPRS",
+     "yon": 1,
+     "neden": "Stok değer kazancı ve ürün fiyatları"
+    },
+    {
+     "kod": "XOM",
+     "yon": 1,
+     "neden": "Petrol üreticisi"
+    },
+    {
+     "kod": "CVX",
+     "yon": 1,
+     "neden": "Petrol üreticisi"
+    },
+    {
+     "kod": "COP",
+     "yon": 1,
+     "neden": "Petrol üreticisi"
+    },
+    {
+     "kod": "DAL",
+     "yon": -1,
+     "neden": "Yakıt maliyeti"
+    },
+    {
+     "kod": "TTE",
+     "yon": 1,
+     "neden": "Petrol üreticisi"
+    },
+    {
+     "kod": "ENI",
+     "yon": 1,
+     "neden": "Petrol üreticisi"
+    }
+   ]
+  },
+  {
+   "id": "dogalgaz",
+   "ad": "Avrupa doğalgaz fiyatı",
+   "piyasa": [
+    "tr",
+    "eu"
+   ],
+   "anahtar": [
+    "doğalgaz",
+    "doğal gaz",
+    "natural gas",
+    "lng",
+    "ttf"
+   ],
+   "surucu": {
+    "tip": "piyasa",
+    "gosterge": "TTF",
+    "esik": 2
+   },
+   "etkiler": [
+    {
+     "kod": "GUBRF",
+     "yon": -1,
+     "neden": "Gübre üretiminde doğalgaz ana girdi"
+    },
+    {
+     "kod": "SISE",
+     "yon": -1,
+     "neden": "Cam üretimi enerji yoğun"
+    },
+    {
+     "kod": "EREGL",
+     "yon": -1,
+     "neden": "Enerji yoğun üretim"
+    },
+    {
+     "kod": "BAS",
+     "yon": -1,
+     "neden": "Kimya üretimi enerji yoğun"
+    }
+   ]
+  },
+  {
+   "id": "altin",
+   "ad": "Altın fiyatı",
+   "piyasa": [
+    "tr",
+    "us"
+   ],
+   "anahtar": [
+    "altın fiyat",
+    "altının",
+    "gram altın",
+    "ons altın",
+    "altın ons",
+    "gold"
+   ],
+   "surucu": {
+    "tip": "piyasa",
+    "gosterge": "ONS",
+    "esik": 1
+   },
+   "etkiler": [
+    {
+     "kod": "TRALT",
+     "yon": 1,
+     "neden": "Altın madencisi"
+    },
+    {
+     "kod": "NEM",
+     "yon": 1,
+     "neden": "Altın madencisi"
+    }
+   ]
+  },
+  {
+   "id": "tcmb_faiz",
+   "ad": "TCMB faiz kararı",
+   "piyasa": [
+    "tr"
+   ],
+   "anahtar": [
+    "politika faizi",
+    "faiz kararı",
+    "faiz indirimi",
+    "faiz artırımı",
+    "faizi"
+   ],
+   "surucu": {
+    "tip": "haber",
+    "yukari": [
+     "indirim",
+     "indirdi",
+     "düşürdü"
+    ],
+    "asagi": [
+     "artırım",
+     "artırdı",
+     "yükseltti",
+     "sabit",
+     "ara ver",
+     "durdur"
+    ]
+   },
+   "etkiler": [
+    {
+     "kod": "AKBNK",
+     "yon": 1,
+     "neden": "Faiz inişi banka fonlama maliyetini düşürür"
+    },
+    {
+     "kod": "GARAN",
+     "yon": 1,
+     "neden": "Fonlama maliyeti"
+    },
+    {
+     "kod": "ISCTR",
+     "yon": 1,
+     "neden": "Fonlama maliyeti"
+    },
+    {
+     "kod": "YKBNK",
+     "yon": 1,
+     "neden": "Fonlama maliyeti"
+    },
+    {
+     "kod": "HALKB",
+     "yon": 1,
+     "neden": "Fonlama maliyeti"
+    },
+    {
+     "kod": "VAKBN",
+     "yon": 1,
+     "neden": "Fonlama maliyeti"
+    },
+    {
+     "kod": "EKGYO",
+     "yon": 1,
+     "neden": "Konut kredisi talebi"
+    }
+   ],
+   "gerekli": [
+    "tcmb",
+    "merkez bankası",
+    "ppk",
+    "karahan"
+   ],
+   "haric": [
+    "fed",
+    "ecb",
+    "avrupa merkez",
+    "federal"
+   ]
+  },
+  {
+   "id": "savunma",
+   "ad": "Savunma talebi ve ihracatı",
+   "piyasa": [
+    "tr",
+    "us",
+    "eu"
+   ],
+   "anahtar": [
+    "savunma",
+    "siha",
+    "iha",
+    "ssb",
+    "nato",
+    "defense",
+    "defence",
+    "missile",
+    "füze",
+    "savaş uçağı",
+    "silahlan"
+   ],
+   "surucu": { "tip": "haber", "yukari": ["sözleşme", "sipariş", "ihale", "ihracat", "teslimat", "tedarik", "üretim", "bütçe", "harcama", "konuşlan", "contract", "order", "procure", "spending", "budget", "deploy", "produce", "export", "rearm"], "asagi": ["iptal", "kesinti", "ateşkes", "ambargo", "yasakla", "ertele", "cancel", "cut", "ceasefire", "embargo", "delay", "freeze"] }, "_yon_notu": "Genel ton sözlüğü bu temada ters çalışıyor: savaş ve saldırı haberleri olumsuz tonlu ama savunma talebini artırıyor. 2026-10-03: Aselsan 488,5 milyon euroluk sözleşme haberi varken tema olumsuz çıktı (KARARLAR.md).",
+   "etkiler": [
+    {
+     "kod": "ASELS",
+     "yon": 1,
+     "neden": "Savunma elektroniği"
+    },
+    {
+     "kod": "OTKAR",
+     "yon": 1,
+     "neden": "Askeri kara araçları"
+    },
+    {
+     "kod": "LMT",
+     "yon": 1,
+     "neden": "Savunma"
+    },
+    {
+     "kod": "RTX",
+     "yon": 1,
+     "neden": "Savunma"
+    },
+    {
+     "kod": "NOC",
+     "yon": 1,
+     "neden": "Savunma"
+    },
+    {
+     "kod": "RHM",
+     "yon": 1,
+     "neden": "Savunma"
+    },
+    {
+     "kod": "SAF",
+     "yon": 1,
+     "neden": "Savunma ve havacılık"
+    }
+   ]
+  },
+  {
+   "id": "jeopolitik_risk",
+   "ad": "Bölgesel savaş / çatışma",
+   "piyasa": [
+    "tr"
+   ],
+   "anahtar": [
+    "savaş",
+    "füze saldırısı",
+    "hava saldırısı",
+    "çatışma",
+    "ateşkes",
+    "ceasefire",
+    "airstrike",
+    "missile strike",
+    "war "
+   ],
+   "surucu": {
+    "tip": "haber",
+    "yukari": [
+     "ateşkes",
+     "barış",
+     "ceasefire",
+     "peace",
+     "truce"
+    ],
+    "asagi": [
+     "saldırı",
+     "çatışma",
+     "bombalad",
+     "airstrike",
+     "missile",
+     "escalat",
+     "tırman"
+    ]
+   },
+   "etkiler": [
+    {
+     "kod": "THYAO",
+     "yon": 1,
+     "neden": "Çatışma turizmi ve uçuşları vurur; ateşkes rahatlatır"
+    },
+    {
+     "kod": "PGSUS",
+     "yon": 1,
+     "neden": "Turizm ve uçuş talebi"
+    },
+    {
+     "kod": "TAVHL",
+     "yon": 1,
+     "neden": "Havalimanı trafiği"
+    }
+   ],
+   "minEtki": 45
+  },
+  {
+   "id": "turizm",
+   "ad": "Turizm talebi",
+   "piyasa": [
+    "tr"
+   ],
+   "anahtar": ["turist sayısı", "turist girişi", "turizm geliri", "turizm gelirleri", "turizm sezonu", "otel doluluk", "rezervasyon", "yolcu sayısı", "tourist arrivals", "tourism revenue", "bookings"],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "THYAO",
+     "yon": 1,
+     "neden": "Yolcu talebi"
+    },
+    {
+     "kod": "PGSUS",
+     "yon": 1,
+     "neden": "Yolcu talebi"
+    },
+    {
+     "kod": "TAVHL",
+     "yon": 1,
+     "neden": "Havalimanı trafiği"
+    }
+   ]
+  },
+  {
+   "id": "yenilenebilir",
+   "ad": "Yenilenebilir enerji",
+   "piyasa": [
+    "tr"
+   ],
+   "anahtar": [
+    "yenilenebilir",
+    "güneş enerjisi",
+    "rüzgar enerjisi",
+    "yeka",
+    "solar",
+    "wind power",
+    "enerji depolama"
+   ],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "ASTOR",
+     "yon": 1,
+     "neden": "Trafo ve şebeke ekipmanı"
+    },
+    {
+     "kod": "EUPWR",
+     "yon": 1,
+     "neden": "Depolama ve şebeke"
+    },
+    {
+     "kod": "CWENE",
+     "yon": 1,
+     "neden": "Güneş paneli"
+    },
+    {
+     "kod": "SMRTG",
+     "yon": 1,
+     "neden": "Güneş paneli"
+    },
+    {
+     "kod": "GESAN",
+     "yon": 1,
+     "neden": "Enerji projeleri"
+    }
+   ]
+  },
+  {
+   "id": "celik",
+   "ad": "Çelik ve gümrük vergileri",
+   "piyasa": [
+    "tr",
+    "eu"
+   ],
+   "anahtar": ["steel", "demir çelik", "çelik üretim", "çelik ihracat", "çelik ithalat", "çelik fiyat", "çelik sektör", "çelik sanayi", "yassı çelik", "inşaat demiri", "çeliğe", "çelikte"],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "EREGL",
+     "yon": 1,
+     "neden": "Yassı çelik üreticisi"
+    },
+    {
+     "kod": "KRDMD",
+     "yon": 1,
+     "neden": "Çelik üreticisi"
+    }
+   ]
+  },
+  {
+   "id": "otomotiv",
+   "ad": "Avrupa otomotiv talebi",
+   "piyasa": [
+    "tr",
+    "eu"
+   ],
+   "anahtar": [
+    "otomotiv",
+    "otomobil satış",
+    "car sales",
+    "automotive",
+    "otomobil pazarı"
+   ],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "FROTO",
+     "yon": 1,
+     "neden": "Üretiminin çoğu Avrupa'ya"
+    },
+    {
+     "kod": "TOASO",
+     "yon": 1,
+     "neden": "Avrupa ihracatı"
+    },
+    {
+     "kod": "VOW3",
+     "yon": 1,
+     "neden": "Avrupa satışları"
+    },
+    {
+     "kod": "STLAM",
+     "yon": 1,
+     "neden": "Avrupa satışları"
+    },
+    {
+     "kod": "BMW",
+     "yon": 1,
+     "neden": "Otomobil satışları"
+    },
+    {
+     "kod": "MBG",
+     "yon": 1,
+     "neden": "Otomobil satışları"
+    }
+   ]
+  },
+  {
+   "id": "yapay_zeka",
+   "ad": "Yapay zeka ve çip talebi",
+   "piyasa": [
+    "us",
+    "eu"
+   ],
+   "anahtar": [
+    "yapay zeka",
+    "artificial intelligence",
+    " ai ",
+    "chip",
+    "çip",
+    "semiconductor",
+    "yarı iletken",
+    "data center",
+    "veri merkezi"
+   ],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "NVDA",
+     "yon": 1,
+     "neden": "Yapay zeka çipleri"
+    },
+    {
+     "kod": "AMD",
+     "yon": 1,
+     "neden": "Çip"
+    },
+    {
+     "kod": "AVGO",
+     "yon": 1,
+     "neden": "Ağ ve özel çip"
+    },
+    {
+     "kod": "ASML",
+     "yon": 1,
+     "neden": "Çip üretim makinesi"
+    },
+    {
+     "kod": "IFX",
+     "yon": 1,
+     "neden": "Yarı iletken"
+    },
+    {
+     "kod": "MSFT",
+     "yon": 1,
+     "neden": "Bulut ve yapay zeka"
+    }
+   ]
+  },
+  {
+   "id": "fed_faiz",
+   "ad": "Fed faiz beklentisi",
+   "piyasa": [
+    "us",
+    "tr"
+   ],
+   "anahtar": [
+    "fed",
+    "federal reserve",
+    "powell",
+    "fomc"
+   ],
+   "surucu": { "tip": "haber", "yukari": ["cut", "indir", "dovish", "gevşe", "ease"], "asagi": ["hike", "artır", "hawkish", "sıkılaş", "tighten", "erteledi", "delay", "pause", "hold"] },
+   "etkiler": [
+    {
+     "kod": "HD",
+     "yon": 1,
+     "neden": "Konut ve tadilat talebi faize duyarlı"
+    },
+    {
+     "kod": "TSLA",
+     "yon": 1,
+     "neden": "Faize duyarlı büyüme hissesi"
+    },
+    {
+     "kod": "GARAN",
+     "yon": 1,
+     "neden": "Gelişen piyasalara sermaye girişi"
+    },
+    {
+     "kod": "AKBNK",
+     "yon": 1,
+     "neden": "Gelişen piyasalara sermaye girişi"
+    }
+   ]
+  },
+  {
+   "id": "obezite",
+   "ad": "Obezite ilaçları",
+   "piyasa": [
+    "us"
+   ],
+   "anahtar": [
+    "obezite",
+    "obesity",
+    "glp-1",
+    "weight loss drug",
+    "zepbound",
+    "mounjaro"
+   ],
+   "surucu": {
+    "tip": "haber"
+   },
+   "etkiler": [
+    {
+     "kod": "LLY",
+     "yon": 1,
+     "neden": "GLP-1 ilaçları"
+    }
+   ]
+  }
+ ]
+}

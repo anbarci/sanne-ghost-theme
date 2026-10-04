@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<title>Türkiye Radar</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#020617">
+<link rel="stylesheet" href="/app.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 12l5-4"/></svg></span>
+      <h1>Türkiye Radar</h1>
+      <span class="stamp"><span class="pulse" id="pulse"></span><span id="stamp">yükleniyor</span></span>
+    </div>
+    <nav class="tabs" aria-label="Görünümler">
+      <a href="#gundem" data-v="gundem" data-f="gundem">Gündem</a><a href="#trade" data-v="trade" data-f="trade">Trade</a><a href="#portfoy" data-v="portfoy" data-f="portfoy">Portföy</a><a href="#dunya" data-v="dunya" data-f="dunya">Dünya</a><a href="#analizler" data-v="analizler" data-f="gecmis">Analizler</a>
+    </nav>
+    <div class="actions">
+      <button class="btn cmd" id="btn-cmd" type="button" aria-keyshortcuts="Control+K" title="Komut paleti">Ara ve git <kbd>Ctrl K</kbd></button>
+      <button class="btn icon" id="btn-sweep" type="button" title="Şimdi tara (R)" aria-label="Şimdi tara"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg></button>
+      <button class="btn icon primary" id="btn-ai" type="button" title="Analiz et (A)" aria-label="Analiz et"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg></button>
+      <details class="user" id="user-menu">
+        <summary aria-label="Hesap"><span class="avatar" id="u-av">?</span><span class="u-meta"><b id="u-ad">—</b><span class="rank" id="u-rank">—</span></span></summary>
+        <div class="menu" role="menu">
+          <a href="#uyelik" role="menuitem">Üyeliğim</a>
+          <a href="/admin" role="menuitem" id="m-admin" hidden>Yönetim paneli</a>
+          <button type="button" role="menuitem" id="btn-theme">Tema değiştir <kbd>T</kbd></button>
+          <button type="button" role="menuitem" id="btn-logout">Çıkış</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<section class="tape" id="tape" aria-label="Piyasalar"></section>
+
+<!-- Gündem: yapay zeka değerlendirmesi ve haberler merkezde -->
+<main class="view v-gundem" data-view="gundem">
+  <section class="hero" id="hero" aria-label="Piyasa nabzı ve senaryo dengesi"></section>
+  <div class="g-main">
+    <section class="panel" id="analiz" aria-labelledby="h-ai">
+      <header><h2 id="h-ai">Yapay zeka değerlendirmesi</h2><div class="inline"><span class="sub" id="ai-meta"></span><button class="btn sm" type="button" data-open-chat>Analizle sohbet</button></div></header>
+      <div id="ai-body"><div class="skel"><i></i><i></i><i></i></div></div>
+    </section>
+
+    <section class="panel" id="haberler" aria-labelledby="h-news">
+      <header><h2 id="h-news">Türkiye'ye etkisine göre haberler</h2><span class="sub" id="news-count"></span></header>
+      <div class="filters" id="cat-filters" role="group" aria-label="Kategori"></div>
+      <div class="filters">
+        <select id="stance" aria-label="Yayın çizgisi"><option value="">Tüm yayın çizgileri</option></select>
+        <label class="inline small">En az etki <input type="range" id="minimp" min="0" max="80" step="5" value="15"> <span id="minimp-v" class="num">15</span></label>
+        <label class="inline small"><input type="checkbox" id="only-bad"> başlığı uyumsuzlar</label>
+        <input type="search" id="q" placeholder="Haberlerde ara (/)" aria-label="Haberlerde ara" class="grow">
+      </div>
+      <ol class="news" id="news"></ol>
+      <button class="btn more" id="news-more" type="button" hidden>Daha fazla göster</button>
+    </section>
+  </div>
+
+  <aside class="g-side">
+    <section class="panel" aria-labelledby="h-gcat">
+      <header><h2 id="h-gcat">Gündemden hisselere</h2><a class="small link" href="#trade">Trade'de aç</a></header>
+      <div id="cat-mini"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-map">
+      <header><h2 id="h-map">Türkiye ve çevresi</h2><span class="sub">son 24 saat</span></header>
+      <svg class="map" id="map" role="img" aria-label="Depremler, yangınlar ve haber odakları"></svg>
+      <div class="legend-row"><span><i class="dot q"></i>deprem</span><span><i class="dot f"></i>yangın</span><span><i class="dot n"></i>haber odağı</span></div>
+    </section>
+    <section class="panel" aria-labelledby="h-cal">
+      <header><h2 id="h-cal">Ekonomik takvim</h2><span class="sub">İstanbul saati</span></header>
+      <ul class="list" id="cal"></ul>
+    </section>
+    <section class="panel" aria-labelledby="h-eq">
+      <header><h2 id="h-eq">Depremler</h2><span class="sub" id="eq-src"></span></header>
+      <ul class="list" id="eq"></ul>
+    </section>
+  </aside>
+
+  <div class="g-misc">
+    <section class="panel" aria-labelledby="h-macro"><header><h2 id="h-macro">Makro ve resmi veri</h2></header><div id="macro"></div></section>
+    <section class="panel" aria-labelledby="h-score"><header><h2 id="h-score">Karne</h2></header><div id="score"></div></section>
+    <section class="panel" aria-labelledby="h-chk"><header><h2 id="h-chk">Veri kontrolleri</h2><span class="sub" id="chk-sub"></span></header><ul class="list" id="checks"></ul></section>
+    <section class="panel" aria-labelledby="h-wx"><header><h2 id="h-wx">Hava ve uyarılar</h2></header><ul class="list" id="wx"></ul></section>
+    <section class="panel" aria-labelledby="h-rg"><header><h2 id="h-rg">Resmi Gazete</h2><a class="small link" id="rg-link" href="#" rel="noopener noreferrer" target="_blank">tam liste</a></header><ul class="list" id="rg"></ul></section>
+    <section class="panel" aria-labelledby="h-src"><header><h2 id="h-src">Kaynak durumu</h2></header><ul class="list small" id="srcs"></ul></section>
+  </div>
+</main>
+
+<!-- Trade: piyasa seçimi, tarayıcı, grafik, gündem katalizörleri -->
+<main class="view v-trade" data-view="trade" hidden>
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="Piyasa" id="regions">
+      <button type="button" data-m="tr" aria-pressed="true">Türkiye</button><button type="button" data-m="us">ABD</button><button type="button" data-m="eu">Avrupa</button>
+    </div>
+    <div class="seg" role="group" aria-label="Strateji" id="presets"></div>
+  </div>
+  <div class="t-grid">
+    <section class="panel t-screen" aria-labelledby="h-scr">
+      <header><h2 id="h-scr">Hisse tarayıcısı</h2><span class="sub" id="scr-sub"></span></header>
+      <div class="verdict" id="verdict"></div>
+      <ol class="slist" id="slist" role="listbox" aria-label="Hisseler"></ol>
+    </section>
+
+    <section class="panel t-chart" id="grafik" aria-labelledby="c-kod">
+      <div class="chart-head">
+        <div class="ttl"><b id="c-kod">—</b><span class="muted" id="c-ad"></span><span class="px" id="c-px"></span><span id="c-chg"></span></div>
+        <div class="c-acts">
+          <button type="button" class="btn sm" id="w-star" aria-pressed="false" title="İzleme listesine ekle / çıkar">☆ İzle</button>
+          <button type="button" class="btn sm" id="w-bell" aria-expanded="false" aria-controls="alarm-form">Alarm kur</button>
+        </div>
+        <div class="seg" role="group" aria-label="Zaman aralığı" id="ranges">
+          <button type="button" data-r="63">3A</button><button type="button" data-r="126">6A</button><button type="button" data-r="252" aria-pressed="true">1Y</button><button type="button" data-r="600">2Y</button>
+        </div>
+      </div>
+      <form class="alarm-form" id="alarm-form" hidden>
+        <label>Koşul<select id="a-kosul"></select></label>
+        <label>Eşik<input id="a-deger" inputmode="decimal" autocomplete="off" required></label>
+        <label>Tekrar<select id="a-tekrar"><option value="gunluk">Günde bir</option><option value="bir">Bir kez</option></select></label>
+        <button class="btn sm primary" type="submit">Kaydet</button>
+        <p class="small muted" id="a-hint"></p>
+      </form>
+      <div class="chart-box" id="chart"><div class="legend" id="legend"></div></div>
+      <div class="detail" id="c-detail"></div>
+      <div class="debate" id="c-debate" hidden></div>
+      <p class="note">Grafik: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts</a> (Apache 2.0). Fiyatlar temettü ve bölünmeye göre düzeltilmiş, 15 dk gecikmelidir.</p>
+    </section>
+
+    <div class="t-side">
+      <section class="panel t-watch" aria-labelledby="h-watch">
+        <header><h2 id="h-watch">İzleme ve alarmlar</h2><span class="sub" id="watch-sub"></span></header>
+        <ul class="wlist" id="wlist"></ul>
+        <div id="alarms"></div>
+        <p class="note">Döviz, altın ve endeksler dakikada bir; hisseler tam taramada (15 dk) ve Yahoo'nun 15 dk gecikmesiyle denetlenir. Bir alarm günde en fazla bir kez çalar; Telegram açıksa oraya da gider.</p>
+      </section>
+      <section class="panel t-cats" aria-labelledby="h-cat">
+        <header><h2 id="h-cat">Gündem katalizörleri</h2><span class="sub" id="cat-sub"></span></header>
+        <div id="cats"></div>
+        <p class="note">Kural tabanlı neden→sonuç zincirleri (data/themes.json). Geçmiş haber arşivi olmadığı için geriye dönük test edilemez; "Gündem" stratejisinin isabeti canlı takiple ölçülür.</p>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- Dünya -->
+<main class="view v-dunya" data-view="dunya" hidden>
+  <div class="w-grid">
+    <section class="panel w-map" aria-labelledby="h-wmap">
+      <header><h2 id="h-wmap">Dünya</h2><span class="sub">merkez Türkiye · son 24 saat</span></header>
+      <svg class="map world" id="wmap" role="img" aria-label="Dünya: depremler ve haber odakları"></svg>
+      <div class="legend-row"><span><i class="dot q"></i>deprem M5+</span><span><i class="dot n"></i>haber odağı</span><span><i class="dot tr"></i>Türkiye</span></div>
+    </section>
+    <section class="panel w-news" aria-labelledby="h-wnews">
+      <header><h2 id="h-wnews">Küresel etkisine göre haberler</h2><span class="sub" id="wnews-count"></span></header>
+      <ol class="news" id="wnews"></ol>
+    </section>
+    <aside class="w-side">
+      <section class="panel w-mk" aria-labelledby="h-wmk">
+        <header><h2 id="h-wmk">Dünya piyasaları</h2><span class="sub">gecikmeli</span></header>
+        <div class="scroll-x"><table id="wmk"></table></div>
+      </section>
+      <section class="panel w-cat" aria-labelledby="h-wcat">
+        <header><h2 id="h-wcat">ABD ve Avrupa gündemi</h2></header>
+        <div id="wcats"></div>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<!-- Analiz geçmişi -->
+<main class="view v-analizler" data-view="analizler" hidden>
+  <div class="a-grid">
+    <section class="panel" aria-labelledby="h-alist">
+      <header><h2 id="h-alist">Geçmiş analizler</h2><span class="sub" id="alist-sub"></span></header>
+      <ol class="alist" id="alist"></ol>
+    </section>
+    <section class="panel" aria-labelledby="h-mem">
+      <header><h2 id="h-mem">Hafıza</h2><span class="sub">hatalarından çıkardığı dersler</span></header>
+      <div id="mem"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-adet">
+      <header><h2 id="h-adet">Analiz</h2><span class="sub" id="adet-meta"></span></header>
+      <div id="adet"><p class="empty">Soldan bir analiz seçin.</p></div>
+    </section>
+  </div>
+</main>
+<!-- Portföy: tablo gibi düzenlenir, canlı fiyatlarla değerlenir -->
+<main class="view v-portfoy" data-view="portfoy" hidden>
+  <section class="hero pf-hero" id="pf-hero" aria-label="Portföy özeti"></section>
+  <section class="panel">
+    <header><h2>Portföy tablosu</h2><div class="inline"><span class="sub" id="pf-state"></span><button class="btn sm" type="button" id="pf-add">Satır ekle</button></div></header>
+    <div class="scroll-x"><table class="sheet" id="pf"></table></div>
+    <datalist id="pf-codes"></datalist>
+    <div class="alloc" id="pf-alloc" aria-label="Dağılım"></div>
+    <p class="note">Hücreye tıklayıp yaz; değişiklikler kendiliğinden kaydedilir. Kod: USDTRY, EURTRY, GRAM_ALTIN, BTCTRY ya da tarayıcıdaki bir hisse (THYAO, NVDA, SAP…). Maliyet hissenin kendi para biriminde; toplamlar TL'ye çevrilir. Fiyatlar gecikmeli olabilir (şeritteki gecikmeye bak).</p>
+  </section>
+</main>
+
+<!-- Üyelik -->
+<main class="view v-uyelik" data-view="uyelik" hidden>
+  <div class="u-grid">
+    <section class="panel" id="me-card"></section>
+    <section class="panel">
+      <header><h2>Rütbeler ve özellikler</h2><span class="sub">senin rütben vurgulu</span></header>
+      <div class="scroll-x"><table class="matrix" id="rank-table"></table></div>
+      <p class="note" id="upgrade-note">Rütbeni yönetici belirler; yükseltme için yöneticiye yaz.</p>
+    </section>
+    <section class="panel">
+      <header><h2>API anahtarları</h2><span class="sub">ToolJet, Grafana, Excel için · salt okunur</span></header>
+      <form class="inline" id="tok-form"><input id="tok-name" maxlength="40" placeholder="ör. tooljet" class="grow" aria-label="Anahtar adı"><button class="btn sm" type="submit">Anahtar üret</button></form>
+      <p class="invite-out" id="tok-out" hidden></p>
+      <ul class="list small" id="tok-list"></ul>
+      <p class="note">Tablolar: <code>/api/v1/piyasa</code>, <code>/api/v1/haberler</code>, <code>/api/v1/analiz</code>, <code>/api/v1/tarayici?piyasa=tr</code>, <code>/api/v1/portfoy</code>. Başlık: <code>Authorization: Bearer &lt;anahtar&gt;</code>. Sonuna <code>?format=csv</code> eklersen CSV gelir. Rütbe kuralları anahtarda da geçerli.</p>
+    </section>
+    <section class="panel">
+      <header><h2>Şifre değiştir</h2></header>
+      <form class="form" id="me-pw">
+        <label>Mevcut şifre<input type="password" id="me-old" autocomplete="current-password" required></label>
+        <label>Yeni şifre (en az 10)<input type="password" id="me-new" autocomplete="new-password" minlength="10" required></label>
+        <div><button class="btn" type="submit">Değiştir</button></div>
+      </form>
+    </section>
+  </div>
+</main>
+
+<!-- Sohbet çekmecesi: her görünümden açılır -->
+<button class="fab" type="button" id="fab-chat" data-open-chat aria-label="Analizle sohbet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Sohbet</span></button>
+<aside class="drawer" id="drawer" aria-label="Analizle sohbet" hidden>
+  <header><div><h2>Analizle sohbet</h2><span class="sub" id="drawer-sub"></span></div><button class="btn ghost sm" type="button" id="drawer-x" aria-label="Kapat">Kapat</button></header>
+  <div id="chat-d"></div>
+</aside>
+
+<!-- Komut paleti -->
+<dialog class="cmdk" id="cmdk" aria-label="Komut paleti">
+  <input id="cmdk-q" placeholder="Görünüm, hisse, komut… (ör. THYAO, portföy, tara)" autocomplete="off" spellcheck="false" aria-label="Ara">
+  <ol id="cmdk-list" role="listbox"></ol>
+  <p class="small muted">↑↓ seç · Enter aç · Esc kapat</p>
+</dialog>
+</body>
+</html>

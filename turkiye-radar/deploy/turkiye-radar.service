@@ -1,0 +1,30 @@
+# /etc/systemd/system/turkiye-radar.service
+# Uygulama /opt/turkiye-radar altında, ayrı ve yetkisiz "radar" kullanıcısıyla çalışır.
+[Unit]
+Description=Türkiye Radar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=radar
+Group=radar
+WorkingDirectory=/opt/turkiye-radar
+Environment=NODE_ENV=production HOST=127.0.0.1 PORT=3120 RADAR_TRUST_PROXY=1
+EnvironmentFile=-/opt/turkiye-radar/.env
+ExecStart=/usr/bin/node --use-env-proxy --disable-warning=UNDICI-EHPA server.mjs
+Restart=on-failure
+RestartSec=5
+MemoryMax=1536M
+
+# Sertleştirme: yalnızca runtime/ klasörüne yazabilir.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/turkiye-radar/runtime
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

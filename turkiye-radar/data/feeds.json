@@ -1,0 +1,410 @@
+[
+ {
+  "id": "aa",
+  "name": "Anadolu Ajansı",
+  "url": "https://www.aa.com.tr/tr/rss/default?cat=guncel",
+  "stance": "resmi",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "aa-eko",
+  "name": "Anadolu Ajansı Ekonomi",
+  "url": "https://www.aa.com.tr/tr/rss/default?cat=ekonomi",
+  "stance": "resmi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "trt",
+  "name": "TRT Haber",
+  "url": "https://www.trthaber.com/sondakika.rss",
+  "stance": "resmi",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "trt-eko",
+  "name": "TRT Haber Ekonomi",
+  "url": "https://www.trthaber.com/ekonomi_articles.rss",
+  "stance": "resmi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "sabah",
+  "name": "Sabah",
+  "url": "https://www.sabah.com.tr/rss/gundem.xml",
+  "stance": "iktidara-yakın",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "ahaber",
+  "name": "A Haber",
+  "url": "https://www.ahaber.com.tr/rss/gundem.xml",
+  "stance": "iktidara-yakın",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "yenisafak",
+  "name": "Yeni Şafak",
+  "url": "https://www.yenisafak.com/rss?xml=gundem",
+  "stance": "iktidara-yakın",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "star",
+  "name": "Star",
+  "url": "https://www.star.com.tr/rss/rss.asp",
+  "stance": "iktidara-yakın",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "turkiye",
+  "name": "Türkiye Gazetesi",
+  "url": "https://www.turkiyegazetesi.com.tr/feed",
+  "stance": "iktidara-yakın",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "sozcu",
+  "name": "Sözcü Gündem",
+  "url": "https://www.sozcu.com.tr/feeds-rss-category-gundem",
+  "stance": "muhalif",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "sozcu-eko",
+  "name": "Sözcü Ekonomi",
+  "url": "https://www.sozcu.com.tr/feeds-rss-category-ekonomi",
+  "stance": "muhalif",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "cumhuriyet",
+  "name": "Cumhuriyet",
+  "url": "https://www.cumhuriyet.com.tr/rss/son_dakika.xml",
+  "stance": "muhalif",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "halktv",
+  "name": "Halk TV",
+  "url": "https://halktv.com.tr/service/rss.php",
+  "stance": "muhalif",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "birgun",
+  "name": "BirGün",
+  "url": "https://www.birgun.net/rss/home",
+  "stance": "muhalif",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "karar",
+  "name": "Karar",
+  "url": "https://www.karar.com/service/rss.php",
+  "stance": "muhalif",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "medyascope",
+  "name": "Medyascope",
+  "url": "https://medyascope.tv/feed/",
+  "stance": "bağımsız",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "bianet",
+  "name": "Bianet",
+  "url": "https://bianet.org/biamag.rss",
+  "stance": "bağımsız",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "diken",
+  "name": "Diken",
+  "url": "https://www.diken.com.tr/feed/",
+  "stance": "bağımsız",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "kisadalga",
+  "name": "Kısa Dalga",
+  "url": "https://kisadalga.net/service/rss.php",
+  "stance": "bağımsız",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "ntv",
+  "name": "NTV",
+  "url": "https://www.ntv.com.tr/gundem.rss",
+  "stance": "ana-akım",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "cnnturk",
+  "name": "CNN Türk",
+  "url": "https://www.cnnturk.com/feed/rss/all/news",
+  "stance": "ana-akım",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "cnnturk-dunya",
+  "name": "CNN Türk Dünya",
+  "url": "https://www.cnnturk.com/feed/rss/dunya/news",
+  "stance": "ana-akım",
+  "cat": "dünya",
+  "lang": "tr"
+ },
+ {
+  "id": "haberturk",
+  "name": "Habertürk",
+  "url": "https://www.haberturk.com/rss",
+  "stance": "ana-akım",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "hurriyet",
+  "name": "Hürriyet",
+  "url": "https://www.hurriyet.com.tr/rss/anasayfa",
+  "stance": "ana-akım",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "bbc-tr",
+  "name": "BBC Türkçe",
+  "url": "https://feeds.bbci.co.uk/turkce/rss.xml",
+  "stance": "uluslararası",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "dw-tr",
+  "name": "DW Türkçe",
+  "url": "https://rss.dw.com/rdf/rss-tur-all",
+  "stance": "uluslararası",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "euronews-tr",
+  "name": "Euronews Türkçe",
+  "url": "https://tr.euronews.com/rss?level=vertical&name=news",
+  "stance": "uluslararası",
+  "cat": "dünya",
+  "lang": "tr"
+ },
+ {
+  "id": "indy-tr",
+  "name": "Independent Türkçe",
+  "url": "https://www.indyturk.com/rss.xml",
+  "stance": "uluslararası",
+  "cat": "gündem",
+  "lang": "tr"
+ },
+ {
+  "id": "sputnik-tr",
+  "name": "Sputnik Türkiye (Rus devleti)",
+  "url": "https://anlatilaninotesi.com.tr/export/rss2/archive/index.xml",
+  "stance": "yabancı-devlet",
+  "cat": "dünya",
+  "lang": "tr"
+ },
+ {
+  "id": "bloomberght",
+  "name": "Bloomberg HT",
+  "url": "https://www.bloomberght.com/rss",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "dunya",
+  "name": "Dünya",
+  "url": "https://www.dunya.com/rss?dunya",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "ekonomim",
+  "name": "Ekonomim",
+  "url": "https://www.ekonomim.com/export/rss",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "investing",
+  "name": "Investing Haberler",
+  "url": "https://tr.investing.com/rss/news.rss",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "investing-emtia",
+  "name": "Investing Emtia",
+  "url": "https://tr.investing.com/rss/commodities.rss",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "foreks",
+  "name": "Foreks",
+  "url": "https://www.foreks.com/rss/",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "ntvpara",
+  "name": "NTV Para",
+  "url": "https://www.ntv.com.tr/ntvpara.rss",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "paraninyonu",
+  "name": "Paranın Yönü",
+  "url": "https://www.paraninyonu.com.tr/rss.xml",
+  "stance": "ekonomi",
+  "cat": "ekonomi",
+  "lang": "tr"
+ },
+ {
+  "id": "savunmasanayist",
+  "name": "SavunmaSanayiST",
+  "url": "https://www.savunmasanayist.com/feed/",
+  "stance": "sektör",
+  "cat": "savunma",
+  "lang": "tr"
+ },
+ {
+  "id": "teyit",
+  "name": "Teyit (doğrulama)",
+  "url": "https://teyit.org/feed?lang=tr",
+  "stance": "doğrulama",
+  "cat": "doğrulama",
+  "lang": "tr"
+ },
+ {
+  "id": "bbc-world",
+  "name": "BBC World",
+  "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "aljazeera",
+  "name": "Al Jazeera",
+  "url": "https://www.aljazeera.com/xml/rss/all.xml",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "dw-en",
+  "name": "DW English",
+  "url": "https://rss.dw.com/rdf/rss-en-all",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "gn-turkey-en",
+  "name": "Google News · Turkey (EN)",
+  "url": "https://news.google.com/rss/search?q=Turkey+OR+T%C3%BCrkiye+when:1d&hl=en-US&gl=US&ceid=US:en",
+  "stance": "toplayıcı",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "gn-reuters",
+  "name": "Google News · Reuters Turkey",
+  "url": "https://news.google.com/rss/search?q=site:reuters.com+Turkey+when:2d&hl=en-US&gl=US&ceid=US:en",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "marketwatch",
+  "name": "MarketWatch",
+  "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "guardian-world",
+  "name": "The Guardian World",
+  "url": "https://www.theguardian.com/world/rss",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "nikkei-asia",
+  "name": "Nikkei Asia",
+  "url": "https://asia.nikkei.com/rss/feed/nar",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "france24-en",
+  "name": "France 24",
+  "url": "https://www.france24.com/en/rss",
+  "stance": "dünya",
+  "cat": "dünya",
+  "lang": "en"
+ },
+ {
+  "id": "ft-world",
+  "name": "Financial Times World",
+  "url": "https://www.ft.com/world?format=rss",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ },
+ {
+  "id": "oilprice",
+  "name": "OilPrice",
+  "url": "https://oilprice.com/rss/main",
+  "stance": "dünya",
+  "cat": "enerji",
+  "lang": "en"
+ },
+ {
+  "id": "investing-markets",
+  "name": "Investing.com Piyasalar",
+  "url": "https://www.investing.com/rss/news_25.rss",
+  "stance": "dünya",
+  "cat": "ekonomi",
+  "lang": "en"
+ }
+]

@@ -1,0 +1,16 @@
+# /etc/caddy/Caddyfile — radar.ornek.com yerine kendi alan adını yaz.
+# Caddy, Let's Encrypt sertifikasını kendisi alır ve yeniler (80 ve 443 portları açık olmalı).
+radar.ornek.com {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	# Canlı akış (SSE) tamponlanmasın.
+	reverse_proxy 127.0.0.1:3120 {
+		flush_interval -1
+	}
+	log {
+		output file /var/log/caddy/radar.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

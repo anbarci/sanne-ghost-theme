@@ -1,0 +1,350 @@
+{
+ "_not": "ABD büyük şirketleri (S&P 500 içinden, sektör dengeli). Karşılaştırma: S&P 500.",
+ "hisseler": [
+  {
+   "kod": "AAPL",
+   "sym": "AAPL",
+   "ad": "Apple",
+   "anahtar": [
+    "apple",
+    "iphone"
+   ]
+  },
+  {
+   "kod": "MSFT",
+   "sym": "MSFT",
+   "ad": "Microsoft",
+   "anahtar": [
+    "microsoft"
+   ]
+  },
+  {
+   "kod": "NVDA",
+   "sym": "NVDA",
+   "ad": "Nvidia",
+   "anahtar": [
+    "nvidia"
+   ]
+  },
+  {
+   "kod": "AMZN",
+   "sym": "AMZN",
+   "ad": "Amazon",
+   "anahtar": [
+    "amazon"
+   ]
+  },
+  {
+   "kod": "GOOGL",
+   "sym": "GOOGL",
+   "ad": "Alphabet",
+   "anahtar": [
+    "alphabet",
+    "google"
+   ]
+  },
+  {
+   "kod": "META",
+   "sym": "META",
+   "ad": "Meta Platforms",
+   "anahtar": [
+    "meta platforms",
+    "facebook",
+    "instagram"
+   ]
+  },
+  {
+   "kod": "TSLA",
+   "sym": "TSLA",
+   "ad": "Tesla",
+   "anahtar": [
+    "tesla"
+   ]
+  },
+  {
+   "kod": "AVGO",
+   "sym": "AVGO",
+   "ad": "Broadcom",
+   "anahtar": [
+    "broadcom"
+   ]
+  },
+  {
+   "kod": "AMD",
+   "sym": "AMD",
+   "ad": "AMD",
+   "anahtar": [
+    "advanced micro devices",
+    " amd "
+   ]
+  },
+  {
+   "kod": "INTC",
+   "sym": "INTC",
+   "ad": "Intel",
+   "anahtar": [
+    "intel"
+   ]
+  },
+  {
+   "kod": "ORCL",
+   "sym": "ORCL",
+   "ad": "Oracle",
+   "anahtar": [
+    "oracle"
+   ]
+  },
+  {
+   "kod": "CRM",
+   "sym": "CRM",
+   "ad": "Salesforce",
+   "anahtar": [
+    "salesforce"
+   ]
+  },
+  {
+   "kod": "NFLX",
+   "sym": "NFLX",
+   "ad": "Netflix",
+   "anahtar": [
+    "netflix"
+   ]
+  },
+  {
+   "kod": "JPM",
+   "sym": "JPM",
+   "ad": "JPMorgan",
+   "anahtar": [
+    "jpmorgan",
+    "jp morgan"
+   ]
+  },
+  {
+   "kod": "BAC",
+   "sym": "BAC",
+   "ad": "Bank of America",
+   "anahtar": [
+    "bank of america"
+   ]
+  },
+  {
+   "kod": "WFC",
+   "sym": "WFC",
+   "ad": "Wells Fargo",
+   "anahtar": [
+    "wells fargo"
+   ]
+  },
+  {
+   "kod": "GS",
+   "sym": "GS",
+   "ad": "Goldman Sachs",
+   "anahtar": [
+    "goldman sachs"
+   ]
+  },
+  {
+   "kod": "MS",
+   "sym": "MS",
+   "ad": "Morgan Stanley",
+   "anahtar": [
+    "morgan stanley"
+   ]
+  },
+  {
+   "kod": "V",
+   "sym": "V",
+   "ad": "Visa",
+   "anahtar": [
+    "visa inc"
+   ]
+  },
+  {
+   "kod": "MA",
+   "sym": "MA",
+   "ad": "Mastercard",
+   "anahtar": [
+    "mastercard"
+   ]
+  },
+  {
+   "kod": "XOM",
+   "sym": "XOM",
+   "ad": "Exxon Mobil",
+   "anahtar": [
+    "exxon"
+   ]
+  },
+  {
+   "kod": "CVX",
+   "sym": "CVX",
+   "ad": "Chevron",
+   "anahtar": [
+    "chevron"
+   ]
+  },
+  {
+   "kod": "COP",
+   "sym": "COP",
+   "ad": "ConocoPhillips",
+   "anahtar": [
+    "conocophillips"
+   ]
+  },
+  {
+   "kod": "LLY",
+   "sym": "LLY",
+   "ad": "Eli Lilly",
+   "anahtar": [
+    "eli lilly",
+    "lilly"
+   ]
+  },
+  {
+   "kod": "JNJ",
+   "sym": "JNJ",
+   "ad": "Johnson & Johnson",
+   "anahtar": [
+    "johnson & johnson"
+   ]
+  },
+  {
+   "kod": "PFE",
+   "sym": "PFE",
+   "ad": "Pfizer",
+   "anahtar": [
+    "pfizer"
+   ]
+  },
+  {
+   "kod": "MRK",
+   "sym": "MRK",
+   "ad": "Merck",
+   "anahtar": [
+    "merck"
+   ]
+  },
+  {
+   "kod": "UNH",
+   "sym": "UNH",
+   "ad": "UnitedHealth",
+   "anahtar": [
+    "unitedhealth"
+   ]
+  },
+  {
+   "kod": "PG",
+   "sym": "PG",
+   "ad": "Procter & Gamble",
+   "anahtar": [
+    "procter"
+   ]
+  },
+  {
+   "kod": "KO",
+   "sym": "KO",
+   "ad": "Coca-Cola",
+   "anahtar": [
+    "coca-cola company"
+   ]
+  },
+  {
+   "kod": "PEP",
+   "sym": "PEP",
+   "ad": "PepsiCo",
+   "anahtar": [
+    "pepsico"
+   ]
+  },
+  {
+   "kod": "WMT",
+   "sym": "WMT",
+   "ad": "Walmart",
+   "anahtar": [
+    "walmart"
+   ]
+  },
+  {
+   "kod": "COST",
+   "sym": "COST",
+   "ad": "Costco",
+   "anahtar": [
+    "costco"
+   ]
+  },
+  {
+   "kod": "HD",
+   "sym": "HD",
+   "ad": "Home Depot",
+   "anahtar": [
+    "home depot"
+   ]
+  },
+  {
+   "kod": "CAT",
+   "sym": "CAT",
+   "ad": "Caterpillar",
+   "anahtar": [
+    "caterpillar"
+   ]
+  },
+  {
+   "kod": "BA",
+   "sym": "BA",
+   "ad": "Boeing",
+   "anahtar": [
+    "boeing"
+   ]
+  },
+  {
+   "kod": "GE",
+   "sym": "GE",
+   "ad": "GE Aerospace",
+   "anahtar": [
+    "ge aerospace",
+    "general electric"
+   ]
+  },
+  {
+   "kod": "LMT",
+   "sym": "LMT",
+   "ad": "Lockheed Martin",
+   "anahtar": [
+    "lockheed"
+   ]
+  },
+  {
+   "kod": "RTX",
+   "sym": "RTX",
+   "ad": "RTX",
+   "anahtar": [
+    "raytheon",
+    " rtx "
+   ]
+  },
+  {
+   "kod": "NOC",
+   "sym": "NOC",
+   "ad": "Northrop Grumman",
+   "anahtar": [
+    "northrop"
+   ]
+  },
+  {
+   "kod": "DAL",
+   "sym": "DAL",
+   "ad": "Delta Air Lines",
+   "anahtar": [
+    "delta air"
+   ]
+  },
+  {
+   "kod": "NEM",
+   "sym": "NEM",
+   "ad": "Newmont",
+   "anahtar": [
+    "newmont"
+   ]
+  }
+ ]
+}

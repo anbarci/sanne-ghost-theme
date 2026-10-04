@@ -1,0 +1,313 @@
+{
+ "_not": "Avro Bölgesi büyük şirketleri (Euro Stoxx 50 içinden). Karşılaştırma: Euro Stoxx 50.",
+ "hisseler": [
+  {
+   "kod": "ASML",
+   "sym": "ASML.AS",
+   "ad": "ASML",
+   "anahtar": [
+    "asml"
+   ]
+  },
+  {
+   "kod": "SAP",
+   "sym": "SAP.DE",
+   "ad": "SAP",
+   "anahtar": [
+    "sap se"
+   ]
+  },
+  {
+   "kod": "SIE",
+   "sym": "SIE.DE",
+   "ad": "Siemens",
+   "anahtar": [
+    "siemens"
+   ]
+  },
+  {
+   "kod": "ALV",
+   "sym": "ALV.DE",
+   "ad": "Allianz",
+   "anahtar": [
+    "allianz"
+   ]
+  },
+  {
+   "kod": "DTE",
+   "sym": "DTE.DE",
+   "ad": "Deutsche Telekom",
+   "anahtar": [
+    "deutsche telekom"
+   ]
+  },
+  {
+   "kod": "MUV2",
+   "sym": "MUV2.DE",
+   "ad": "Munich Re",
+   "anahtar": [
+    "munich re"
+   ]
+  },
+  {
+   "kod": "BAS",
+   "sym": "BAS.DE",
+   "ad": "BASF",
+   "anahtar": [
+    "basf"
+   ]
+  },
+  {
+   "kod": "BAYN",
+   "sym": "BAYN.DE",
+   "ad": "Bayer",
+   "anahtar": [
+    "bayer"
+   ]
+  },
+  {
+   "kod": "BMW",
+   "sym": "BMW.DE",
+   "ad": "BMW",
+   "anahtar": [
+    "bmw"
+   ]
+  },
+  {
+   "kod": "MBG",
+   "sym": "MBG.DE",
+   "ad": "Mercedes-Benz",
+   "anahtar": [
+    "mercedes"
+   ]
+  },
+  {
+   "kod": "VOW3",
+   "sym": "VOW3.DE",
+   "ad": "Volkswagen",
+   "anahtar": [
+    "volkswagen"
+   ]
+  },
+  {
+   "kod": "ADS",
+   "sym": "ADS.DE",
+   "ad": "Adidas",
+   "anahtar": [
+    "adidas"
+   ]
+  },
+  {
+   "kod": "IFX",
+   "sym": "IFX.DE",
+   "ad": "Infineon",
+   "anahtar": [
+    "infineon"
+   ]
+  },
+  {
+   "kod": "DB1",
+   "sym": "DB1.DE",
+   "ad": "Deutsche Börse",
+   "anahtar": [
+    "deutsche börse",
+    "deutsche boerse"
+   ]
+  },
+  {
+   "kod": "RHM",
+   "sym": "RHM.DE",
+   "ad": "Rheinmetall",
+   "anahtar": [
+    "rheinmetall"
+   ]
+  },
+  {
+   "kod": "MC",
+   "sym": "MC.PA",
+   "ad": "LVMH",
+   "anahtar": [
+    "lvmh"
+   ]
+  },
+  {
+   "kod": "OR",
+   "sym": "OR.PA",
+   "ad": "LOréal",
+   "anahtar": [
+    "l oréal",
+    "loreal"
+   ]
+  },
+  {
+   "kod": "TTE",
+   "sym": "TTE.PA",
+   "ad": "TotalEnergies",
+   "anahtar": [
+    "totalenergies"
+   ]
+  },
+  {
+   "kod": "SAN",
+   "sym": "SAN.PA",
+   "ad": "Sanofi",
+   "anahtar": [
+    "sanofi"
+   ]
+  },
+  {
+   "kod": "AIR",
+   "sym": "AIR.PA",
+   "ad": "Airbus",
+   "anahtar": [
+    "airbus"
+   ]
+  },
+  {
+   "kod": "SU",
+   "sym": "SU.PA",
+   "ad": "Schneider Electric",
+   "anahtar": [
+    "schneider electric"
+   ]
+  },
+  {
+   "kod": "BNP",
+   "sym": "BNP.PA",
+   "ad": "BNP Paribas",
+   "anahtar": [
+    "bnp paribas"
+   ]
+  },
+  {
+   "kod": "AI",
+   "sym": "AI.PA",
+   "ad": "Air Liquide",
+   "anahtar": [
+    "air liquide"
+   ]
+  },
+  {
+   "kod": "RMS",
+   "sym": "RMS.PA",
+   "ad": "Hermès",
+   "anahtar": [
+    "hermès",
+    "hermes"
+   ]
+  },
+  {
+   "kod": "CS",
+   "sym": "CS.PA",
+   "ad": "AXA",
+   "anahtar": [
+    "axa"
+   ]
+  },
+  {
+   "kod": "SAF",
+   "sym": "SAF.PA",
+   "ad": "Safran",
+   "anahtar": [
+    "safran"
+   ]
+  },
+  {
+   "kod": "DG",
+   "sym": "DG.PA",
+   "ad": "Vinci",
+   "anahtar": [
+    "vinci"
+   ]
+  },
+  {
+   "kod": "IBE",
+   "sym": "IBE.MC",
+   "ad": "Iberdrola",
+   "anahtar": [
+    "iberdrola"
+   ]
+  },
+  {
+   "kod": "SANM",
+   "sym": "SAN.MC",
+   "ad": "Banco Santander",
+   "anahtar": [
+    "santander"
+   ]
+  },
+  {
+   "kod": "ITX",
+   "sym": "ITX.MC",
+   "ad": "Inditex",
+   "anahtar": [
+    "inditex",
+    "zara"
+   ]
+  },
+  {
+   "kod": "BBVA",
+   "sym": "BBVA.MC",
+   "ad": "BBVA",
+   "anahtar": [
+    "bbva"
+   ]
+  },
+  {
+   "kod": "ENEL",
+   "sym": "ENEL.MI",
+   "ad": "Enel",
+   "anahtar": [
+    "enel"
+   ]
+  },
+  {
+   "kod": "ISP",
+   "sym": "ISP.MI",
+   "ad": "Intesa Sanpaolo",
+   "anahtar": [
+    "intesa"
+   ]
+  },
+  {
+   "kod": "UCG",
+   "sym": "UCG.MI",
+   "ad": "UniCredit",
+   "anahtar": [
+    "unicredit"
+   ]
+  },
+  {
+   "kod": "ENI",
+   "sym": "ENI.MI",
+   "ad": "Eni",
+   "anahtar": [
+    "eni spa"
+   ]
+  },
+  {
+   "kod": "RACE",
+   "sym": "RACE.MI",
+   "ad": "Ferrari",
+   "anahtar": [
+    "ferrari"
+   ]
+  },
+  {
+   "kod": "STLAM",
+   "sym": "STLAM.MI",
+   "ad": "Stellantis",
+   "anahtar": [
+    "stellantis"
+   ]
+  },
+  {
+   "kod": "INGA",
+   "sym": "INGA.AS",
+   "ad": "ING",
+   "anahtar": [
+    "ing group"
+   ]
+  }
+ ]
+}

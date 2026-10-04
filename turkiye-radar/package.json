@@ -1,0 +1,29 @@
+{
+  "name": "turkiye-radar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Türkiye merkezli kişisel istihbarat ve piyasa paneli: yerel + küresel açık kaynaklar, Türkiye Etki Skoru, çok sağlayıcılı yapay zeka analizi.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.21"
+  },
+  "scripts": {
+    "start": "node --use-env-proxy --disable-warning=UNDICI-EHPA server.mjs",
+    "sweep": "node --use-env-proxy --disable-warning=UNDICI-EHPA scripts/sweep-once.mjs",
+    "build:map": "node scripts/build-map.mjs",
+    "test": "node --test test/*.test.mjs",
+    "sifre": "node scripts/sifre.mjs",
+    "obsidian": "node scripts/obsidian.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
+    "@mozilla/readability": "^0.6.0",
+    "lightweight-charts": "^5.2.1",
+    "linkedom": "^0.18.13"
+  },
+  "devDependencies": {
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
+  }
+}
